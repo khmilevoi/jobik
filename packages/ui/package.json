@@ -6,7 +6,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsdown",
+    "build": "tsdown && vite build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --config ../../vitest.config.ts packages/ui/"
   },
