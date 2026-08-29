@@ -1,0 +1,21 @@
+{
+  "name": "@jobik/core",
+  "version": "0.1.0",
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "errore": "0.14.1"
+  },
+  "peerDependencies": {
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "zod": "4.5.4"
+  }
+}

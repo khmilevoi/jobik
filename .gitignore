@@ -1,2 +1,6 @@
 docs/superpowers/
 .superpowers
+node_modules/
+dist/
+.turbo/
+*.tsbuildinfo

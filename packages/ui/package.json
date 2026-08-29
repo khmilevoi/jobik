@@ -1,0 +1,25 @@
+{
+  "name": "@jobik/ui",
+  "version": "0.1.0",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@jobik/core": "workspace:*",
+    "errore": "0.14.1"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "zod": "4.5.4"
+  }
+}
