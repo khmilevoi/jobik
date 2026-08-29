@@ -10,6 +10,19 @@ import * as errore from 'errore'
  * Field convention: `$variable` message placeholders are typed `string | number` by `errore`, so
  * they are reserved for string identifiers. Every other field is declared on the class and
  * assigned in an explicit constructor, which keeps its type exact.
+ *
+ * Serialisation policy: never call the `toJSON()` these classes inherit from `errore` to build a
+ * response for the wire. It emits `_tag`, `name`, `message`, `messageTemplate`, `fingerprint`,
+ * `cause` and `stack`, and it omits every field declared above (`issues`, `frames`,
+ * `hiddenFrames`, `runNumber`, `io`, `from`, `to`, `cycle`, `version`, `supported`, `available`)
+ * because those are class fields, not message-template variables. That is backwards for the
+ * browser: `cause` and `stack` must never reach it, while the declared fields are exactly what it
+ * needs. The wire layer must instead build an explicit projection per `_tag`, assembled from
+ * `_tag` plus the declared fields it chooses to expose, checked against `jobikErrorTags` as an
+ * allowlist. Note also that any message interpolating `$path` embeds an absolute filesystem path,
+ * because path bindings are always absolute; those messages are for the Node-side consumer of
+ * `run()` and the wire layer must not forward them verbatim. This is written here, rather than as
+ * an override, because this file is frozen and `toJSON()` cannot be redefined by a later plan.
  */
 
 /** One frame of a trimmed stack, as sent to the failed-run panel. Never a raw `Error.stack`. */
