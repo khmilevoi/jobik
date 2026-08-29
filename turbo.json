@@ -1,0 +1,12 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "globalDependencies": ["tsconfig.base.json", "vitest.config.ts", "vitest.setup.ts", "biome.json"],
+  "tasks": {
+    "build": { "dependsOn": ["^build"], "outputs": ["dist/**"] },
+    "typecheck": {},
+    "test": {},
+    "lint": {},
+    "//#lint": {},
+    "//#typecheck": {}
+  }
+}

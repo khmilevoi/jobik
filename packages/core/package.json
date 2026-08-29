@@ -1,0 +1,33 @@
+{
+  "name": "@jobik/core",
+  "version": "0.1.0",
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --config ../../vitest.config.ts packages/core/"
+  },
+  "dependencies": {
+    "errore": "0.14.1"
+  },
+  "peerDependencies": {
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "zod": "4.5.4"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": "./dist/index.js",
+      "./package.json": "./package.json"
+    }
+  }
+}

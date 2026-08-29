@@ -1,0 +1,39 @@
+{
+  "name": "@jobik/ui",
+  "version": "0.1.0",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown && vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --config ../../vitest.config.ts packages/ui/"
+  },
+  "dependencies": {
+    "@jobik/core": "workspace:*",
+    "errore": "0.14.1"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "zod": "4.5.4"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./server": "./src/server/index.ts",
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": "./dist/index.js",
+      "./server": "./dist/server.mjs",
+      "./package.json": "./package.json"
+    }
+  }
+}
