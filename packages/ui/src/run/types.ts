@@ -1,0 +1,162 @@
+/**
+ * The run panel's props vocabulary.
+ *
+ * Every state is fixture-driven: nothing here talks to a server, streams a run, or derives a
+ * descriptor. Mapping a real run report and a live stream onto `RunPanelState` is P14's job.
+ */
+import type { AssetDescriptor, NodeInputDescriptor } from '@jobik/core'
+import type { ReactNode } from 'react'
+import type * as z from 'zod'
+
+/**
+ * The closed per-node status set from `### Node status vocabulary`. `cached` is reserved and unused
+ * in v1, and no run-panel artboard fixes a row treatment for it, so it is deliberately absent.
+ */
+export type RunNodeStatus = 'queued' | 'running' | 'ok' | 'failed' | 'skipped'
+
+export type RunNodeTiming = {
+  readonly nodeId: string
+  readonly status: RunNodeStatus
+  /** e.g. `2.1s`. When omitted the row shows the status word instead. */
+  readonly elapsed?: string
+}
+
+/** The `Last run` block of the idle state. */
+export type RunSummary = {
+  /** The artboard shows `completed`; `failed` reuses `statusColors.failed` for the dot. */
+  readonly status: 'completed' | 'failed'
+  /** e.g. `2.4s`. */
+  readonly totalElapsed: string
+  readonly nodeCount: number
+  readonly timings: readonly RunNodeTiming[]
+}
+
+export type RunLogLine = {
+  /** The mono timestamp, e.g. `0.00`. Rendered in `textColors.faintest`. */
+  readonly time: string
+  readonly text: string
+}
+
+export type RunLog = {
+  readonly lines: readonly RunLogLine[]
+  /** The unsettled line, rendered after a pulsing 3px accent caret. */
+  readonly pending?: string
+  /** The right-hand mono label of the `Live log` header. The artboard reads `follow`. */
+  readonly followLabel?: string
+}
+
+export type RunErrorDetail = {
+  /** The tagged error name, e.g. `ImageRenderError`. */
+  readonly name: string
+  /** The node the error belongs to, e.g. `render`. */
+  readonly nodeId: string
+  /** The safe message. Never a raw cause chain — P10 and P13 produce this payload. */
+  readonly message: string
+}
+
+/**
+ * One trimmed stack frame. Structurally identical to `StackFrame` in
+ * `packages/core/src/errors.ts`; it is declared again here because `@jobik/ui` imports only the two
+ * browser-safe core types, and `errors.ts` is a runtime module. P14 assigns the wire payload across
+ * unchanged.
+ */
+export type RunStackFrame = { readonly fn: string; readonly file: string; readonly line: number }
+
+export type RunStack = {
+  readonly frames: readonly RunStackFrame[]
+  /** The remainder the server did not send. `0` renders no hidden-frame line. */
+  readonly hiddenFrames: number
+}
+
+export type RunOutputField =
+  | {
+      readonly kind: 'asset'
+      readonly field: string
+      readonly asset: AssetDescriptor
+      /** The mono meta line. Defaults to `formatAssetMeta(asset)`; the artboard reads
+       *  `png · 1024² · 412 kb`, whose dimensions no descriptor carries. */
+      readonly meta?: string
+      /** The 54px thumbnail. Omitted renders the striped placeholder. */
+      readonly thumbnail?: ReactNode
+      readonly onOpen?: () => void
+    }
+  | { readonly kind: 'text'; readonly field: string; readonly value: string }
+  | { readonly kind: 'url'; readonly field: string; readonly value: string }
+
+/**
+ * How a `string` or `json` control is drawn. The artboard shows `title` as a single line and
+ * `markdown` as a 118px monospace area; `InputFieldDescriptor` carries no signal that separates
+ * them, so the caller says which. Default `'line'`; a `json` control is always `'area'`.
+ */
+export type RunInputPresentation = 'line' | 'area'
+
+/** What a DOM control produces. Numbers, enums and JSON arrive as their raw text. */
+export type RunInputDraftValue = string | boolean
+
+export type RunInputDraft = Readonly<Record<string, RunInputDraftValue>>
+
+/** One validation problem, flattened. Structurally `SchemaIssue` in `packages/core/src/errors.ts`. */
+export type RunInputIssue = { readonly path: string; readonly message: string }
+
+export type RunIdleState = {
+  readonly kind: 'idle'
+  readonly entryNodeId: string
+  /** The explanatory line. The artboard reads `Inputs are typed from the flow declaration. Only
+   *  downstream nodes of the selected entry point run.` */
+  readonly note: string
+  /** P6's `deriveInputControls` output for the selected start. */
+  readonly descriptor: NodeInputDescriptor
+  /** The start's ORIGINAL Zod schema. P6's descriptors are pure JSON and carry no schema, so
+   *  validation before a run or a save needs it here. Used type-only — never imported at runtime. */
+  readonly input: z.ZodObject
+  readonly draft: RunInputDraft
+  readonly onDraftChange?: (field: string, value: RunInputDraftValue) => void
+  readonly presentation?: Readonly<Record<string, RunInputPresentation>>
+  /** Fired with the parsed, schema-valid values. Never fired when validation fails. */
+  readonly onRun?: (values: Record<string, unknown>) => void
+  /** The `z.ZodError` or `SyntaxError` that stopped the run. No artboard shows a treatment for it,
+   *  so the panel renders nothing and hands it to the caller. */
+  readonly onInvalid?: (error: Error) => void
+  readonly lastRun?: RunSummary
+}
+
+export type RunRunningState = {
+  readonly kind: 'running'
+  readonly runNumber: number
+  /** e.g. `1.3s`. */
+  readonly elapsed: string
+  readonly completedNodes: number
+  readonly totalNodes: number
+  /** `0`–`1`. Independent of the node counts: the artboard shows `54%` beside `1 of 3`. */
+  readonly progress: number
+  /** The explanatory line from the `Run panel — states` card. Omitted renders no line. */
+  readonly note?: string
+  readonly nodes: readonly RunNodeTiming[]
+  readonly log?: RunLog
+  /** Renders the shimmering `Partial output` well from the `Run panel — states` card. */
+  readonly partialOutput?: boolean
+  readonly onCancel?: () => void
+}
+
+export type RunFailedState = {
+  readonly kind: 'failed'
+  readonly runNumber: number
+  /** e.g. `0.8s`. */
+  readonly elapsed: string
+  readonly error: RunErrorDetail
+  readonly nodes: readonly RunNodeTiming[]
+  readonly stack?: RunStack
+  readonly onCopyLog?: () => void
+  readonly onRerun?: () => void
+}
+
+export type RunCompletedState = {
+  readonly kind: 'completed'
+  readonly runNumber: number
+  /** e.g. `2.4s`. */
+  readonly elapsed: string
+  readonly nodes: readonly RunNodeTiming[]
+  readonly outputs: readonly RunOutputField[]
+}
+
+export type RunPanelState = RunIdleState | RunRunningState | RunFailedState | RunCompletedState

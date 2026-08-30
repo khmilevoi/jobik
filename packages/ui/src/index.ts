@@ -17,3 +17,8 @@ export * from './tokens.js'
 // Mounting `FlowCanvas` outside the bundled Studio also needs React Flow's base stylesheet:
 // `import '@xyflow/react/dist/style.css'`.
 export * from './canvas/index.js'
+
+// --- P11 ui-run-panel ---
+// `RunPanel` fills `RunDock`'s body: it returns a fragment so the dock keeps supplying the
+// `16px 14px` padding and the `16px` gap. `RunPanelCard` is the standalone artboard card.
+export * from './run/index.js'
