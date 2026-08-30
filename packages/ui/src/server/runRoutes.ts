@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import path from 'node:path'
 import * as jobik from '@jobik/core'
+import { buildExtensionBundle } from './extensionBundle.js'
 import {
   type JobikRoute,
   type JobikRouteContext,
@@ -193,6 +194,27 @@ export const jobikRunRoutes: readonly JobikRoute[] = [
         'cache-control': 'private, max-age=31536000, immutable',
       })
       context.response.end(entry.data)
+    },
+  },
+  {
+    method: 'GET',
+    pattern: '/api/flows/:id/ui.js',
+    handle: async (context) => {
+      const discovered = flowOf(context)
+      if (discovered === undefined) return
+      const code = await buildExtensionBundle({ uiPath: discovered.uiPath })
+      if (code instanceof Error) {
+        // The real message names absolute paths and has already gone to the server console.
+        sendWireError(context.response, 500, untaggedWireErrorBody(WIRE_MESSAGES.internal))
+        return
+      }
+      const body = Buffer.from(code, 'utf8')
+      context.response.writeHead(200, {
+        'content-type': 'text/javascript; charset=utf-8',
+        'content-length': body.byteLength,
+        'cache-control': 'no-store',
+      })
+      context.response.end(body)
     },
   },
 ]

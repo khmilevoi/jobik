@@ -9,6 +9,7 @@
 export * from './config.js'
 export * from './descriptor.js'
 export * from './discovery.js'
+export * from './extensionBundle.js'
 export * from './flowService.js'
 export * from './httpServer.js'
 export * from './routes.js'
