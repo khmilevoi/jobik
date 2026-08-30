@@ -5,4 +5,7 @@
  * several plans touch this file in the same wave.
  */
 
+export * from './asset.js'
 export * from './errors.js'
+export * from './flow.js'
+export * from './node.js'
