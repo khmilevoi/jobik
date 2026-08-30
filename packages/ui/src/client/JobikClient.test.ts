@@ -216,7 +216,7 @@ describe('createJobikClient', () => {
     )
   })
 
-  it('falls back to the unreadable payload when a non-2xx body is not JSON', async () => {
+  it('falls back to a client-authored payload when a non-2xx body is not JSON', async () => {
     const { fetch } = stubFetch(() => new Response('not json at all', { status: 500 }))
     const client = createJobikClient({ fetch })
 
@@ -225,7 +225,28 @@ describe('createJobikClient', () => {
     expect(flows).toBeInstanceOf(JobikServerError)
     if (!(flows instanceof JobikServerError)) return
     expect(flows.status).toBe(500)
+    expect(flows.payload).toEqual({
+      _tag: null,
+      message: 'The Jobik client could not read the server error response',
+    })
+  })
+
+  it('keeps a genuine server "Internal server error" distinguishable from the client-authored fallback', async () => {
+    const { fetch } = stubFetch(() =>
+      json({ error: { _tag: null, message: 'Internal server error' } }, 500),
+    )
+    const client = createJobikClient({ fetch })
+
+    const flows = await client.listFlows()
+
+    expect(flows).toBeInstanceOf(JobikServerError)
+    if (!(flows instanceof JobikServerError)) return
+    // Genuinely server-sent: the exact WIRE_MESSAGES.internal string, untouched.
     expect(flows.payload).toEqual({ _tag: null, message: 'Internal server error' })
+    // ...and distinct from what the client synthesises when it cannot read the body at all.
+    expect(flows.payload.message).not.toBe(
+      'The Jobik client could not read the server error response',
+    )
   })
 
   it('returns a JobikTransportError when a 2xx JSON body cannot be parsed', async () => {
@@ -238,6 +259,10 @@ describe('createJobikClient', () => {
   })
 
   it('does not swallow a run stream that dies mid-run: the generator still throws to its consumer', async () => {
+    // Pins the documented `startRun` contract: the Promise itself resolves successfully (a value,
+    // not an Error) even though the second line is malformed and the returned generator throws
+    // `NdjsonParseError` once iteration reaches it. `startRun` does not — cannot — catch that; the
+    // `for await` below is the consumer doing exactly what the doc comment says it must.
     const body = '{"type":"run-accepted","runToken":"tok"}\n' + '{"type":"not-a-real-event"}\n'
     const { fetch } = stubFetch(
       () =>
@@ -249,6 +274,7 @@ describe('createJobikClient', () => {
 
     const stream = await client.startRun({ flowId: 'publication', startId: 'start1', input: {} })
 
+    // startRun's own Promise resolved successfully — a generator, not an Error.
     expect(stream).not.toBeInstanceOf(Error)
     if (stream instanceof Error) return
 

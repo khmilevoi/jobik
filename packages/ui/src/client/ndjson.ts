@@ -8,7 +8,10 @@ import type { RunStreamEvent } from './wire.js'
  *
  * This generator *throws* rather than returning `T | Error`, because an async generator cannot
  * express a union return per element without polluting every consumer. `JobikClient.startRun`
- * catches it and turns it back into a value; nothing else calls this directly.
+ * does **not** catch it: its own returned Promise still resolves once the HTTP response and
+ * headers are in hand, but the generator it hands back can throw `NdjsonParseError` from any
+ * subsequent `.next()` call — i.e. straight into the consumer's `for await`. Whoever iterates the
+ * stream that `startRun` returns owns that `try`/`catch`.
  */
 
 /**
