@@ -54,6 +54,18 @@ importers:
         specifier: 4.1.11
         version: 4.1.11(@types/node@26.4.0)(jsdom@30.0.1)(vite@8.2.2(@types/node@26.4.0)(yaml@2.9.0))
 
+  examples/publication:
+    dependencies:
+      '@jobik/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      errore:
+        specifier: 0.14.1
+        version: 0.14.1
+      zod:
+        specifier: 4.5.4
+        version: 4.5.4
+
   packages/core:
     dependencies:
       errore:
