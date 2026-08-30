@@ -40,8 +40,98 @@ export const BUNDLE_EXTERNALS: readonly string[] = [
 
 export type ExternalModules = Readonly<Record<string, Readonly<Record<string, unknown>>>>
 
-/** `import x from 'a'` · `import 'a'` · `export { x } from 'a'` · `import('a')`. */
-const SPECIFIER_PATTERN = /(?:\bfrom\s*|\bimport\s*\(?\s*)(['"])([^'"]+)\1/g
+/**
+ * Matches when the code text right before a quote is `from` · `import` · `import(`, i.e. the
+ * quote opens the specifier of `import x from 'a'` · `import 'a'` · `export { x } from 'a'` ·
+ * `import('a')`. Used by `scanSpecifierOccurrences` below, never against raw source directly.
+ */
+const SPECIFIER_PREFIX = /(?:\bfrom\s*|\bimport\s*\(?\s*)$/
+
+interface SpecifierOccurrence {
+  readonly specifier: string
+  /** Index of the opening quote. */
+  readonly start: number
+  /** Index one past the closing quote. */
+  readonly end: number
+  /** The quote character actually used, `'` or `"` — preserved so a rewrite keeps it. */
+  readonly quote: string
+}
+
+/**
+ * A single left-to-right scan of `source` that finds every `from '…'` / `import '…'` /
+ * `import('…')` occurrence that is genuine code — never one that only *looks* like one because it
+ * sits inside a `//` line comment, a `/* … * /` block comment, or an unrelated string literal.
+ *
+ * The subtlety: a specifier's own quoted literal (`'react'` in `from 'react'`) IS a string literal
+ * syntactically — that is exactly what this scan is looking for — so "skip string literals" cannot
+ * mean "never look inside a string." Instead, every quoted run (`'…'`, `"…"` or `` `…` ``) is read
+ * as one opaque token from its opening quote to its matching, escape-aware closing quote; it is
+ * only reported as a specifier when the code text immediately before it (skipping whitespace) ends
+ * with `from` or `import(`. Any other quoted run — including one whose content happens to contain
+ * text shaped like an import statement, e.g. `"please import 'lodash' manually"` — is consumed as
+ * that one token and never re-scanned for a nested match. `findBareSpecifiers` and
+ * `rewriteBareSpecifiers` both call this, so detection and rewriting can never disagree about what
+ * counts as code.
+ *
+ * LIMITATION — regex literals are not tracked. A `/` that opens a regex literal (e.g.
+ * `/from "x"/`) is read as ordinary code rather than as a regex boundary, so a `//`- or `/*`-shaped
+ * sequence inside a regex body could still be misread as a comment start, and a quote inside one is
+ * scanned as an ordinary string boundary. Telling division from a regex literal needs a real
+ * parser; a half-attempt would misfire in both directions, so this case is left undetected here
+ * rather than patched.
+ */
+function scanSpecifierOccurrences(source: string): readonly SpecifierOccurrence[] {
+  const occurrences: SpecifierOccurrence[] = []
+  const { length } = source
+  let i = 0
+  // Index where the current run of plain code text began — i.e. just past the last comment or
+  // string this scan consumed, or 0 at the start.
+  let codeStart = 0
+
+  while (i < length) {
+    const ch = source[i]
+
+    if (ch === '/' && source[i + 1] === '/') {
+      i += 2
+      while (i < length && source[i] !== '\n') i++
+      codeStart = i
+      continue
+    }
+
+    if (ch === '/' && source[i + 1] === '*') {
+      i += 2
+      while (i < length && !(source[i] === '*' && source[i + 1] === '/')) i++
+      i = Math.min(i + 2, length)
+      codeStart = i
+      continue
+    }
+
+    if (ch === "'" || ch === '"' || ch === '`') {
+      const quote = ch
+      const isSpecifierQuote =
+        (quote === "'" || quote === '"') && SPECIFIER_PREFIX.test(source.slice(codeStart, i))
+
+      let j = i + 1
+      while (j < length && source[j] !== quote) {
+        j += source[j] === '\\' ? 2 : 1
+      }
+      const contentEnd = Math.min(j, length)
+      const end = Math.min(contentEnd + 1, length)
+
+      if (isSpecifierQuote) {
+        occurrences.push({ specifier: source.slice(i + 1, contentEnd), start: i, end, quote })
+      }
+
+      i = end
+      codeStart = i
+      continue
+    }
+
+    i++
+  }
+
+  return occurrences
+}
 
 function isBare(specifier: string): boolean {
   return !specifier.startsWith('.') && !specifier.startsWith('/') && !specifier.includes('://')
@@ -49,9 +139,10 @@ function isBare(specifier: string): boolean {
 
 export function findBareSpecifiers(source: string): readonly string[] {
   const found: string[] = []
-  for (const match of source.matchAll(SPECIFIER_PATTERN)) {
-    const specifier = match[2] ?? ''
-    if (isBare(specifier) && !found.includes(specifier)) found.push(specifier)
+  for (const occurrence of scanSpecifierOccurrences(source)) {
+    if (isBare(occurrence.specifier) && !found.includes(occurrence.specifier)) {
+      found.push(occurrence.specifier)
+    }
   }
   return found
 }
@@ -61,16 +152,21 @@ export function rewriteBareSpecifiers(
   resolve: (specifier: string) => string | undefined,
 ): string | FlowUiLoadError {
   let unresolved: string | undefined
+  let rewritten = ''
+  let cursor = 0
 
-  const rewritten = source.replace(SPECIFIER_PATTERN, (whole, quote: string, specifier: string) => {
-    if (!isBare(specifier)) return whole
-    const url = resolve(specifier)
+  for (const occurrence of scanSpecifierOccurrences(source)) {
+    if (!isBare(occurrence.specifier)) continue
+    const url = resolve(occurrence.specifier)
     if (url === undefined) {
-      unresolved ??= specifier
-      return whole
+      unresolved ??= occurrence.specifier
+      continue
     }
-    return whole.replace(`${quote}${specifier}${quote}`, `${quote}${url}${quote}`)
-  })
+    rewritten += source.slice(cursor, occurrence.start)
+    rewritten += `${occurrence.quote}${url}${occurrence.quote}`
+    cursor = occurrence.end
+  }
+  rewritten += source.slice(cursor)
 
   if (unresolved !== undefined) {
     return new FlowUiLoadError({

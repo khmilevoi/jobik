@@ -45,6 +45,29 @@ describe('findBareSpecifiers', () => {
   })
 })
 
+describe('findBareSpecifiers ignores comments and unrelated string literals', () => {
+  it('ignores a specifier-shaped mention inside a // line comment', () => {
+    expect(findBareSpecifiers('// import "react" is external')).toEqual([])
+  })
+
+  it('ignores a specifier-shaped mention nested in a string literal, quotes and all', () => {
+    expect(findBareSpecifiers(`const msg = "please import 'lodash' manually"`)).toEqual([])
+  })
+
+  it('ignores a specifier-shaped mention inside a /* */ block comment', () => {
+    expect(findBareSpecifiers('/* import "react" is external */')).toEqual([])
+  })
+
+  it('ignores a specifier-shaped mention inside a template literal', () => {
+    expect(findBareSpecifiers('const msg = `please import "lodash" manually`')).toEqual([])
+  })
+
+  it('still finds a genuine import on the line after a comment mentioning a specifier', () => {
+    const source = ['// see also "react" for context', `import { x } from 'react'`].join('\n')
+    expect(findBareSpecifiers(source)).toEqual(['react'])
+  })
+})
+
 describe('rewriteBareSpecifiers', () => {
   it('replaces each bare specifier with its resolved URL and leaves relative ones alone', () => {
     const rewritten = rewriteBareSpecifiers(BUNDLE, (specifier) => `blob:${specifier}`)
@@ -64,6 +87,50 @@ describe('rewriteBareSpecifiers', () => {
     expect(rewritten).toBeInstanceOf(FlowUiLoadError)
     if (!(rewritten instanceof FlowUiLoadError)) return
     expect(rewritten.specifier).toBe('react/jsx-runtime')
+  })
+})
+
+describe('rewriteBareSpecifiers ignores comments and unrelated string literals', () => {
+  it('leaves a line comment untouched: a registered mention does not get rewritten', () => {
+    const source = '// import "react" is external'
+    const rewritten = rewriteBareSpecifiers(source, (specifier) =>
+      specifier === 'react' ? 'blob:react' : undefined,
+    )
+    expect(rewritten).toBe(source)
+  })
+
+  it('leaves a string literal untouched, nested quotes and all', () => {
+    const source = `const msg = "please import 'lodash' manually"`
+    const rewritten = rewriteBareSpecifiers(source, (specifier) =>
+      specifier === 'lodash' ? 'blob:lodash' : undefined,
+    )
+    expect(rewritten).toBe(source)
+  })
+
+  it('leaves a block comment untouched, whether it names a registered or an unregistered specifier', () => {
+    const source = '/* import "react" is external, and so is "left-pad" */'
+    const rewritten = rewriteBareSpecifiers(source, (specifier) =>
+      specifier === 'react' ? 'blob:react' : undefined,
+    )
+    expect(rewritten).toBe(source)
+  })
+
+  it('leaves a template literal untouched, whether it names a registered or an unregistered specifier', () => {
+    const source = 'const msg = `please import "react" or "left-pad" manually`'
+    const rewritten = rewriteBareSpecifiers(source, (specifier) =>
+      specifier === 'react' ? 'blob:react' : undefined,
+    )
+    expect(rewritten).toBe(source)
+  })
+
+  it('still rewrites a genuine import on the line after a comment mentioning a specifier', () => {
+    const source = ['// see also "react" for context', `import { x } from 'react'`].join('\n')
+    const rewritten = rewriteBareSpecifiers(source, (specifier) =>
+      specifier === 'react' ? 'blob:react' : undefined,
+    )
+    expect(rewritten).toBe(
+      ['// see also "react" for context', `import { x } from 'blob:react'`].join('\n'),
+    )
   })
 })
 
