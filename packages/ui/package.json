@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@jobik/core": "workspace:*",
+    "@xyflow/react": "12.11.5",
     "errore": "0.14.1"
   },
   "peerDependencies": {
