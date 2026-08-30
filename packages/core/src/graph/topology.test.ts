@@ -58,4 +58,15 @@ describe('topologicalOrder()', () => {
     )
     expect(result).toEqual({ kind: 'cycle', cycle: ['x', 'y', 'x'] })
   })
+
+  it('finds the cycle even when an unsettled node also leads away from it and dead-ends', () => {
+    const result = topologicalOrder(
+      ['a', 'b', 'c'],
+      new Map([
+        ['a', ['c', 'b']],
+        ['b', ['a']],
+      ]),
+    )
+    expect(result).toEqual({ kind: 'cycle', cycle: ['a', 'b', 'a'] })
+  })
 })

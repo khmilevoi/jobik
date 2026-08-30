@@ -49,24 +49,47 @@ export function topologicalOrder(
 }
 
 /**
- * Walk forward from the first unsettled node, following one unsettled dependent at a time, until a
- * node repeats. Every unsettled node has at least one unsettled dependent — a node settles only
- * once all of its dependencies have — so the walk always closes; the `remaining` fallback is a
- * guard for a caller that passed an inconsistent map, not a reachable branch.
+ * Find one cycle among the nodes Kahn's algorithm could not settle, and report it closed —
+ * `a -> b -> a` is `['a', 'b', 'a']`, and a self-loop is `['a', 'a']`.
+ *
+ * Depth-first, because a forward walk that always takes the first unsettled dependent is not
+ * enough: an unsettled node can have an unsettled dependent that leads away from the cycle and
+ * dead-ends, and a walk with no way to back out then reports a path that is neither closed nor a
+ * cycle. The search keeps the current path, and the first edge back onto a node already on it
+ * closes the cycle.
+ *
+ * Deterministic: roots are tried in `remaining` order, and each node releases its dependents in
+ * the order they appear in its list. `visited` makes it linear — a node that has already been
+ * explored without closing a cycle cannot close one on a later attempt either.
  */
 function findCycle(
   remaining: readonly string[],
   dependents: ReadonlyMap<string, readonly string[]>,
 ): readonly string[] {
   const unsettled = new Set(remaining)
-  const seenAt = new Map<string, number>()
+  const visited = new Set<string>()
   const path: string[] = []
-  let current: string | undefined = remaining[0]
-  while (current !== undefined && !seenAt.has(current)) {
-    seenAt.set(current, path.length)
-    path.push(current)
-    current = (dependents.get(current) ?? []).find((id) => unsettled.has(id))
+  const onPath = new Set<string>()
+
+  const walk = (id: string): readonly string[] | undefined => {
+    if (onPath.has(id)) return [...path.slice(path.indexOf(id)), id]
+    if (visited.has(id)) return undefined
+    visited.add(id)
+    path.push(id)
+    onPath.add(id)
+    for (const dependent of dependents.get(id) ?? []) {
+      if (!unsettled.has(dependent)) continue
+      const cycle = walk(dependent)
+      if (cycle !== undefined) return cycle
+    }
+    path.pop()
+    onPath.delete(id)
+    return undefined
   }
-  if (current === undefined) return remaining
-  return [...path.slice(seenAt.get(current) ?? 0), current]
+
+  for (const id of remaining) {
+    const cycle = walk(id)
+    if (cycle !== undefined) return cycle
+  }
+  return remaining
 }
