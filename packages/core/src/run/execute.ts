@@ -38,7 +38,15 @@ export async function executeRunGraph(args: {
   options?: RunOptions
 }): Promise<RunReport> {
   const { graph, startOutput, runNumber, options } = args
-  const emit = (event: RunEvent) => options?.onEvent?.(event)
+  const emit = (event: RunEvent) => {
+    try {
+      options?.onEvent?.(event)
+    } catch {
+      // A consumer's stream failure is not the run's failure. The engine guarantees that a run
+      // which started always produces a report, and an `onEvent` that throws — a disconnected SSE
+      // client being the expected case — must not take the completed report down with it.
+    }
+  }
   const runStartedAt = performance.now()
 
   // The engine owns the signal handlers receive, so a caller's signal is linked into it rather
@@ -56,7 +64,7 @@ export async function executeRunGraph(args: {
     if (outerSignal.aborted) abortRun()
     else outerSignal.addEventListener('abort', abortRun, { once: true })
   }
-  // One listener for the whole run, not one per node: an AbortSignal warns past ten of them.
+  // One listener for the whole run, not one per node — nothing here needs per-node teardown.
   const aborted = whenAborted(controller.signal)
 
   const nodes: NodeReport[] = []
@@ -78,9 +86,8 @@ export async function executeRunGraph(args: {
     })
   }
 
-  // `onEvent` must not throw, but is deliberately unguarded (see `RunOptions`): if it throws
-  // anyway, the `finally` still detaches `abortRun` from a signal the engine does not own, while
-  // letting the throw propagate exactly as it would without this wrapping.
+  // `emit` above already contains anything `onEvent` throws, so nothing in this block escapes it;
+  // the `finally` still detaches `abortRun` from a signal the engine does not own on every path.
   try {
     emit({
       type: 'run-started',

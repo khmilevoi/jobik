@@ -42,7 +42,7 @@ export type NodeReport = {
    * swapping it for its descriptor is the server's serialisation step, not this package's.
    */
   readonly output: Readonly<Record<string, unknown>> | null
-  /** One descriptor per asset-declared output field that produced bytes; empty otherwise. */
+  /** One descriptor per top-level asset-declared output field with bytes; empty otherwise. */
   readonly assets: Readonly<Record<string, AssetDescriptor>>
   /** `null` when the status is `ok`. */
   readonly error: Error | null
@@ -96,7 +96,8 @@ export type RunOptions = {
   /** Cancels the run. Aborting settles it with `RunCancelledError` and keeps settled results. */
   readonly signal?: AbortSignal
   /**
-   * Called synchronously as the run progresses. It must not throw: the engine does not guard it.
+   * Called synchronously as the run progresses. A throw is contained: the run still settles and
+   * produces its report, and the event that triggered the throw is simply lost for this consumer.
    */
   readonly onEvent?: (event: RunEvent) => void
 }

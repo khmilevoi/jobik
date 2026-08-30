@@ -39,6 +39,10 @@ export function readAsset(id: string): AssetEntry | null {
  * by field name. A field the schema does not register as an asset is left alone, and so is an
  * asset field carrying no binary value — output validation has already accepted the object, so
  * this walk never rejects anything.
+ *
+ * Top-level only: this walks `schema.shape` one level deep and does not recurse into a nested
+ * `z.object` or `z.array`. An `asset()` declared inside one of those is never registered here —
+ * closing that gap is P6/P13 territory, not this module's.
  */
 export function collectAssets(args: {
   schema: z.ZodObject

@@ -116,11 +116,40 @@ describe('executeRunGraph() progress', () => {
     expect(withoutStream.nodes.map((node) => [node.nodeId, node.status])).toEqual(
       withStream.nodes.map((node) => [node.nodeId, node.status]),
     )
-    expect(withoutStream.nodes.map((node) => node.status)).toEqual(
-      withStream.nodes.map((node) => node.status),
-    )
     expect(withoutStream.logs.map((line) => line.message)).toEqual(
       withStream.logs.map((line) => line.message),
     )
+  })
+
+  it('still settles with a complete report when onEvent throws on every event', async () => {
+    const report = await executeRunGraph({
+      graph: publicationRunGraph(),
+      startOutput: { title: 'A title', markdown: 'hello' },
+      runNumber: 1,
+      options: {
+        onEvent: () => {
+          throw new Error('stream is gone')
+        },
+      },
+    })
+
+    expect(report.status).toBe('ok')
+    expect(report.nodes.map((node) => node.nodeId)).toEqual(['start1', 'render', 'publish'])
+  })
+
+  it('still settles with a complete report when onEvent throws only on run-settled', async () => {
+    const report = await executeRunGraph({
+      graph: publicationRunGraph(),
+      startOutput: { title: 'A title', markdown: 'hello' },
+      runNumber: 1,
+      options: {
+        onEvent: (event) => {
+          if (event.type === 'run-settled') throw new Error('stream is gone')
+        },
+      },
+    })
+
+    expect(report.status).toBe('ok')
+    expect(report.nodes.map((node) => node.nodeId)).toEqual(['start1', 'render', 'publish'])
   })
 })
