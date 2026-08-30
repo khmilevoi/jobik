@@ -1,11 +1,12 @@
 import path from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   publicationFixture,
   publicationSampleInput,
 } from '../../../../examples/publication/fixtures.js'
 import type { DiscoveredFlow } from './discovery.js'
 import { type JobikServer, serveFlowRegistry } from './httpServer.js'
+import { inFlightRunCount } from './runRegistry.js'
 import { jobikAllRoutes } from './runRoutes.js'
 import {
   collectNdjson,
@@ -45,6 +46,20 @@ function startRun(server: JobikServer, flowId: string, body: unknown): Promise<R
   })
 }
 
+/**
+ * Poll `inFlightRunCount()` until it reaches `target`, bounded so a stuck abort fails the
+ * assertion below rather than hanging the test until the suite's own timeout.
+ */
+async function waitForInFlightCount(target: number, timeoutMs = 2000): Promise<number> {
+  const deadline = Date.now() + timeoutMs
+  let count = inFlightRunCount()
+  while (count !== target && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    count = inFlightRunCount()
+  }
+  return count
+}
+
 describe('POST /api/flows/:id/run', () => {
   it('streams the run and settles with a report whose binary field is a descriptor', async () => {
     const flow = await temporaryFlow()
@@ -74,6 +89,39 @@ describe('POST /api/flows/:id/run', () => {
       id: expect.any(String),
     })
     expect(typeof render?.output?.caption).toBe('string')
+  })
+
+  it('still ends with a terminal line when the settled event cannot be serialised', async () => {
+    const flow = await temporaryFlow()
+    const server = await serve(flow)
+    const originalStringify = JSON.stringify
+    const stringifySpy = vi
+      .spyOn(JSON, 'stringify')
+      .mockImplementation((value: unknown, ...rest: unknown[]) => {
+        if (
+          typeof value === 'object' &&
+          value !== null &&
+          (value as { type?: unknown }).type === 'run-settled'
+        ) {
+          throw new TypeError('simulated: the settled event cannot be serialised')
+        }
+        return (originalStringify as (...args: unknown[]) => string)(value, ...rest)
+      })
+    try {
+      const response = await startRun(server, flow.id, {
+        startId: publicationFixture.startId,
+        input: publicationSampleInput,
+      })
+      const events = await collectNdjson(readNdjson(response))
+      expect(events.length).toBeGreaterThan(0)
+      // The doomed run-settled write never lands, so the last line is the stream's own fallback.
+      const last = events.at(-1)
+      expect(last?.type).toBe('run-failed')
+      if (last?.type !== 'run-failed') return
+      expect(last.error).toEqual({ _tag: null, message: WIRE_MESSAGES.internal })
+    } finally {
+      stringifySpy.mockRestore()
+    }
   })
 
   it('emits a node-status transition per node and the log lines a handler produced', async () => {
@@ -136,6 +184,29 @@ describe('POST /api/flows/:id/run', () => {
     expect(failed?.type).toBe('run-failed')
     if (failed?.type !== 'run-failed') return
     expect(failed.error._tag).toBe('StartNotFoundError')
+  })
+
+  it('aborts the handler when the client disconnects, leaving no run registered', async () => {
+    const { server, flow } = await serveProbe('parking')
+    const baseline = inFlightRunCount()
+
+    const controller = new AbortController()
+    const response = await fetch(`${server.url}/api/flows/${flow.id}/run`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ startId: 'start1', input: { text: 'wait' } }),
+      signal: controller.signal,
+    })
+    const events = readNdjson(response)
+    const first = await events.next()
+    expect(first.value?.type).toBe('run-accepted')
+
+    // The parking probe settles only when its run's own signal aborts, so the count actually
+    // falling back to baseline proves `controller.abort()` reached it — not merely that some
+    // `finally` ran on an already-settled run.
+    controller.abort()
+
+    expect(await waitForInFlightCount(baseline)).toBe(baseline)
   })
 
   it('400s a body with no startId', async () => {

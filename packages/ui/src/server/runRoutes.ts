@@ -73,12 +73,23 @@ function objectBodyOf(
   return value as Record<string, unknown>
 }
 
+/** Whether a `RunWireEvent` is the last line the stream's own contract allows. */
+function isTerminalEvent(event: RunWireEvent): boolean {
+  return event.type === 'run-settled' || event.type === 'run-failed'
+}
+
 /**
  * The chunked NDJSON writer.
  *
  * No `content-length`, so Node uses chunked transfer encoding and every `write` reaches the client
  * as it happens. `write` is a no-op once the stream is finished or the socket is gone, which is
  * what keeps a handler that outlives cancellation from throwing inside P9's synchronous `onEvent`.
+ *
+ * `## Wire contract` promises the last line is always `run-settled` or `run-failed`. Three things
+ * can otherwise break that silently: a cyclic or otherwise unstringifiable value reaching
+ * `JSON.stringify` here, and a `runStart` call that rejects instead of resolving with a value. So
+ * `write` never lets a `JSON.stringify` failure escape, and `end` writes the untagged terminal
+ * line itself whenever nothing else already did.
  */
 type EventStream = {
   write(event: RunWireEvent): void
@@ -92,16 +103,32 @@ function openEventStream(response: ServerResponse): EventStream {
     'cache-control': 'no-store',
   })
   let finished = false
+  let terminalWritten = false
+
+  function writeLine(event: RunWireEvent): void {
+    if (finished || response.writableEnded) return
+    let line: string
+    try {
+      line = JSON.stringify(event)
+    } catch {
+      // Unrepresentable despite `jsonSafe`'s own defences. Dropping the line, rather than sending
+      // a broken one, is what keeps `end`'s fallback below as the guaranteed terminal line.
+      return
+    }
+    response.write(`${line}\n`)
+    if (isTerminalEvent(event)) terminalWritten = true
+  }
+
   return {
     get finished() {
       return finished
     },
-    write(event) {
-      if (finished || response.writableEnded) return
-      response.write(`${JSON.stringify(event)}\n`)
-    },
+    write: writeLine,
     end() {
       if (finished) return
+      if (!terminalWritten) {
+        writeLine({ type: 'run-failed', error: { _tag: null, message: WIRE_MESSAGES.internal } })
+      }
       finished = true
       response.end()
     },
@@ -192,6 +219,10 @@ export const jobikRunRoutes: readonly JobikRoute[] = [
         // A descriptor id is a fresh uuid minted when the bytes were registered, so what it
         // stands for can never change. The browser may keep a thumbnail rather than refetch it.
         'cache-control': 'private, max-age=31536000, immutable',
+        // `entry.mime` is the flow author's own declaration (`jobik.asset({ mime })`). Without
+        // this, a browser may sniff an `image/svg+xml` asset as script and execute it on the
+        // Studio's own origin, which also serves `POST /api/flows/:id/save`.
+        'x-content-type-options': 'nosniff',
       })
       context.response.end(entry.data)
     },

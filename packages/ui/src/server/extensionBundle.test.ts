@@ -35,11 +35,12 @@ describe('buildExtensionBundle', () => {
     timeout: BUILD_TIMEOUT,
   }, async () => {
     clearExtensionBundleCache()
-    const [first, second] = await Promise.all([
-      buildExtensionBundle({ uiPath }),
-      buildExtensionBundle({ uiPath }),
-    ])
-    expect(first).toBe(second)
+    // Comparing the resolved strings would pass even with no cache at all — `Object.is` on two
+    // equal strings is always true. The cache stores the promise, so promise identity is what
+    // actually proves a second call reused it rather than rebuilding.
+    const pending = buildExtensionBundle({ uiPath })
+    await pending
+    expect(buildExtensionBundle({ uiPath })).toBe(pending)
   })
 
   it('returns the failure as a value when the entrypoint cannot be built', {

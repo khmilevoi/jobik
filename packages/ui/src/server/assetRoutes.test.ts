@@ -46,6 +46,9 @@ describe('GET /api/assets/:assetId', () => {
     expect(response.status).toBe(200)
     expect(response.headers.get('content-type')).toBe(descriptor.mime)
     expect(response.headers.get('content-length')).toBe(String(descriptor.bytes))
+    // The mime is author-declared (`jobik.asset({ mime })`); nosniff keeps the browser from
+    // executing an `image/svg+xml` asset as script on the Studio's own origin.
+    expect(response.headers.get('x-content-type-options')).toBe('nosniff')
 
     const bytes = new Uint8Array(await response.arrayBuffer())
     expect(bytes.byteLength).toBe(descriptor.bytes)

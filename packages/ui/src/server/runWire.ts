@@ -152,17 +152,23 @@ export function toNodeWireError(args: { error: Error; flowRoot: string }): NodeW
  * report". `bigint` matters second: `JSON.stringify` throws on it, which would take a whole
  * response down.
  */
-function jsonSafe(value: unknown): unknown {
+function jsonSafe(value: unknown, seen: WeakSet<object> = new WeakSet()): unknown {
   if (value instanceof Uint8Array) return null
   if (typeof value === 'bigint' || typeof value === 'function' || typeof value === 'symbol') {
     return null
   }
   if (value === null || typeof value !== 'object') return value
   if (value instanceof Date) return value.toISOString()
-  if (Array.isArray(value)) return value.map(jsonSafe)
+  // A cycle re-enters the same object through its own recursion. `Object.entries` has no notion
+  // of that, so left alone it recurses until the call stack itself gives up — inside `onEvent`,
+  // which the engine's `emit` swallows, and the wire stream never gets its terminal line. `null`
+  // is the same "unrepresentable" fallback every other unsafe-for-JSON shape here already gets.
+  if (seen.has(value)) return null
+  seen.add(value)
+  if (Array.isArray(value)) return value.map((entry) => jsonSafe(entry, seen))
   if (value instanceof Map || value instanceof Set) return null
   const result: Record<string, unknown> = {}
-  for (const [key, entry] of Object.entries(value)) result[key] = jsonSafe(entry)
+  for (const [key, entry] of Object.entries(value)) result[key] = jsonSafe(entry, seen)
   return result
 }
 

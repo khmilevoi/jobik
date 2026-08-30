@@ -89,6 +89,7 @@ describe('the run stream is browser-safe', () => {
 
   it('leaks nothing on a failed run, whose payload carries the trimmed stack', async () => {
     const { events, flow } = await probeEvents('throwing')
+    expect(events.length).toBeGreaterThan(0)
     const settled = events.at(-1)
     expect(settled?.type).toBe('run-settled')
     if (settled?.type !== 'run-settled') return
@@ -101,6 +102,7 @@ describe('the run stream is browser-safe', () => {
 
   it('leaks nothing on a run that produced log lines', async () => {
     const { events, flow } = await probeEvents('logging')
+    expect(events.length).toBeGreaterThan(0)
     for (const event of events) {
       expect(findUnsafeValues(event, forbidden(flow))).toEqual([])
     }
@@ -110,6 +112,7 @@ describe('the run stream is browser-safe', () => {
     const flow = await temporaryFlow()
     const server = await serve(flow)
     const events = await runEvents({ flow, server, startId: 'nope', input: {} })
+    expect(events.length).toBeGreaterThan(0)
     for (const event of events) {
       expect(findUnsafeValues(event, forbidden(flow))).toEqual([])
     }

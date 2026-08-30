@@ -43,9 +43,11 @@ async function bundleExtension(uiPath: string): Promise<string | Error> {
       configFile: false,
       logLevel: 'silent',
       root: path.dirname(uiPath),
-      // Oxc's automatic-runtime default otherwise tracks `process.env.NODE_ENV`, which a test
-      // runner sets to `'test'`; forcing it off is what keeps `react/jsx-runtime` (and no
-      // `_jsxFileName` absolute path) in the bundle regardless of the host process's own env.
+      // Oxc's automatic-runtime default otherwise tracks `process.env.NODE_ENV`: it computes
+      // `development` as `!isProduction`, and `isProduction` is only true when `NODE_ENV` is
+      // exactly `'production'` — which it ordinarily is not, `mode` here notwithstanding. So an
+      // unset `NODE_ENV` in production is the case that matters; forcing this off is what keeps
+      // `react/jsx-runtime` (and no `_jsxFileName` absolute path) in the bundle regardless.
       oxc: { jsx: { development: false } },
       build: {
         // Keep the bundle in memory: it is served, not written next to the author's flow.
@@ -60,11 +62,15 @@ async function bundleExtension(uiPath: string): Promise<string | Error> {
     const result = await build(config)
     const output = Array.isArray(result) ? result[0] : result
     if (output === undefined || !('output' in output)) {
-      return new Error(`jobik: bundling '${uiPath}' produced no output`)
+      const error = new Error(`jobik: bundling '${uiPath}' produced no output`)
+      console.error(`jobik: cannot bundle the flow UI extension '${uiPath}'`, error)
+      return error
     }
     const chunk = output.output.find((item) => item.type === 'chunk' && item.isEntry)
     if (chunk === undefined || chunk.type !== 'chunk') {
-      return new Error(`jobik: bundling '${uiPath}' produced no entry chunk`)
+      const error = new Error(`jobik: bundling '${uiPath}' produced no entry chunk`)
+      console.error(`jobik: cannot bundle the flow UI extension '${uiPath}'`, error)
+      return error
     }
     return chunk.code
   } catch (cause) {

@@ -69,6 +69,13 @@ describe('serialiseNodeOutput', () => {
   it('passes a null output through', () => {
     expect(serialiseNodeOutput({ output: null, assets: {} })).toBeNull()
   })
+
+  it('breaks a cycle rather than blowing the call stack', () => {
+    const cyclic: Record<string, unknown> = { name: 'self' }
+    cyclic.parent = cyclic
+    const serialised = serialiseNodeOutput({ output: { meta: cyclic }, assets: {} })
+    expect(() => JSON.stringify(serialised)).not.toThrow()
+  })
 })
 
 describe('toNodeWireError', () => {
