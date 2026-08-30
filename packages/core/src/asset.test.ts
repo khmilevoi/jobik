@@ -28,6 +28,12 @@ describe('asset()', () => {
     expect(assetMetaOf(image)).toEqual({ mime: 'image/png' })
   })
 
+  it('is still found by assetMetaOf after describe(), even though .has() misses it', () => {
+    const described = asset({ mime: 'image/png' }).describe('Rendered image')
+    expect(assetRegistry.has(described)).toBe(false)
+    expect(assetMetaOf(described)).toEqual({ mime: 'image/png' })
+  })
+
   it('registers each call independently', () => {
     const png = asset({ mime: 'image/png' })
     const pdf = asset({ mime: 'application/pdf' })

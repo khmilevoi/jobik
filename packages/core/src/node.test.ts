@@ -87,6 +87,15 @@ describe('node()', () => {
     expect(definition.title).toBe('Render image')
   })
 
+  it('is callable through the loose node bound with no cast', async () => {
+    const definition: AnyNodeDefinition = render
+    const result = await definition.run(
+      { markdown: 'hello' },
+      { signal: new AbortController().signal },
+    )
+    expect(result).toEqual({ imageUrl: 'https://cdn.test/hello' })
+  })
+
   it('types the handler argument from the input schema', () => {
     node({
       title: 'Typed',

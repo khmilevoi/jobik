@@ -24,7 +24,10 @@ export type AssetSchema = z.ZodCustom<Buffer, Buffer>
 
 /**
  * Core's asset registry. Deriving editor metadata (P6) consults it to decide that a field which is
- * not representable as JSON Schema is nonetheless an asset rather than an error.
+ * not representable as JSON Schema is nonetheless an asset rather than an error. Consumers should
+ * go through `assetMetaOf()`, not `.has()`: `.has()` is a bare lookup that does not walk zod's
+ * `_zod.parent` chain, so it returns `false` for the `.describe()` / `.refine()` derivatives that
+ * `assetMetaOf()` still recognises.
  */
 export const assetRegistry = z.registry<AssetMeta>()
 

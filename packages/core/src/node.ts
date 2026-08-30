@@ -45,7 +45,7 @@ export type NodeDefinition<
 /**
  * Loose upper bounds, for generic constraints and for storing definitions in one record.
  * `NodeDefinition<Specific>` is not assignable to `NodeDefinition<z.ZodObject>` — `run`'s parameter
- * is contravariant — but it is assignable to `AnyNodeDefinition`, whose `run` takes `never`.
+ * is contravariant — but it is assignable to `AnyNodeDefinition`.
  */
 export type AnyStartDefinition = {
   readonly kind: 'start'
@@ -58,7 +58,14 @@ export type AnyNodeDefinition = {
   readonly title: string
   readonly input: z.ZodObject
   readonly output: z.ZodObject
-  readonly run: (input: never, context: NodeRunContext) => unknown
+  /**
+   * Method syntax, not a property, and deliberately so: methods keep their parameters bivariant
+   * under `strictFunctionTypes`, which is what makes `definition.run(input, context)` callable
+   * across this loose bound without a cast (P9 needs exactly that). A property typed as a function
+   * would be checked contravariantly and would force `input` down to `never`. Do not "tidy" this
+   * back into a property.
+   */
+  run(input: unknown, context: NodeRunContext): unknown
 }
 
 export type AnyDefinition = AnyStartDefinition | AnyNodeDefinition
