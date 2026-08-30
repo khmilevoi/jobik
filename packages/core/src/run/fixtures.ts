@@ -134,3 +134,42 @@ export function literalRunGraph(count: unknown) {
   const graph = okOrThrow(validateFlowGraph({ flow: bound, document }))
   return okOrThrow(resolveRunGraph({ graph, startId: 's' }))
 }
+
+/**
+ * `s -> park -> after`, where `park` blocks until the run is cancelled and then resolves with its
+ * input. `entered` resolves the moment the handler is invoked, which is what lets a test cancel a
+ * run at a deterministic point instead of guessing at a timer.
+ */
+export function createParkingRunGraph() {
+  let enter: () => void = () => {}
+  const entered = new Promise<void>((resolve) => {
+    enter = resolve
+  })
+
+  const parking = node({
+    title: 'Parks until cancelled',
+    ...textIo,
+    run: (input, context) => {
+      enter()
+      return new Promise<{ text: string }>((resolve) => {
+        context.signal.addEventListener('abort', () => resolve(input), { once: true })
+      })
+    },
+  })
+
+  const bound = flow('parking')
+    .start('s', start({ title: 'S', input: z.object({ text: z.string() }) }))
+    .node('park', parking)
+    .node('after', upper)
+    .bind('path', flowPath)
+
+  const document = flowDocument({
+    connections: [
+      { from: { node: 's', field: 'text' }, to: { node: 'park', field: 'text' } },
+      { from: { node: 'park', field: 'text' }, to: { node: 'after', field: 'text' } },
+    ],
+  })
+
+  const graph = okOrThrow(validateFlowGraph({ flow: bound, document }))
+  return { graph: okOrThrow(resolveRunGraph({ graph, startId: 's' })), entered }
+}

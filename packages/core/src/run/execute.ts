@@ -1,4 +1,4 @@
-import { NodeExecutionError, UpstreamFailedError } from '../errors.js'
+import { NodeExecutionError, RunCancelledError, UpstreamFailedError } from '../errors.js'
 import type { GraphNode, RunGraph } from '../graph/types.js'
 import type { NodeRunContext } from '../node.js'
 import { collectAssets } from './assets.js'
@@ -20,6 +20,17 @@ import type {
  * always produces a report, and everything that could stop a run before it starts is handled by
  * `run.ts`.
  */
+
+/** What `Promise.race` resolves with when the run is cancelled before a handler settles. */
+const cancelledSentinel = Symbol('jobik.run.cancelled')
+
+function whenAborted(signal: AbortSignal): Promise<typeof cancelledSentinel> {
+  if (signal.aborted) return Promise.resolve(cancelledSentinel)
+  return new Promise((resolve) => {
+    signal.addEventListener('abort', () => resolve(cancelledSentinel), { once: true })
+  })
+}
+
 export async function executeRunGraph(args: {
   graph: RunGraph
   startOutput: Readonly<Record<string, unknown>>
@@ -29,6 +40,24 @@ export async function executeRunGraph(args: {
   const { graph, startOutput, runNumber, options } = args
   const emit = (event: RunEvent) => options?.onEvent?.(event)
   const runStartedAt = performance.now()
+
+  // The engine owns the signal handlers receive, so a caller's signal is linked into it rather than
+  // handed over: aborting always carries a `RunCancelledError`, which `errore.isAbortError` can then
+  // find anywhere in a cause chain.
+  const outerSignal = options?.signal
+  const controller = new AbortController()
+  const abortRun = () => {
+    if (controller.signal.aborted) return
+    controller.abort(new RunCancelledError({ runNumber, cause: outerSignal?.reason }))
+  }
+  // Only `abortRun` ever aborts this controller, so the reason is always a `RunCancelledError`.
+  const cancellation = () => controller.signal.reason as RunCancelledError
+  if (outerSignal !== undefined) {
+    if (outerSignal.aborted) abortRun()
+    else outerSignal.addEventListener('abort', abortRun, { once: true })
+  }
+  // One listener for the whole run, not one per node: an AbortSignal warns past ten of them.
+  const aborted = whenAborted(controller.signal)
 
   const nodes: NodeReport[] = []
   const outputs = new Map<string, Readonly<Record<string, unknown>>>()
@@ -80,6 +109,18 @@ export async function executeRunGraph(args: {
     // dependent of anything and no start but the selected one can be in a run graph.
     if (definition.kind === 'start') continue
 
+    if (controller.signal.aborted) {
+      settle({
+        nodeId,
+        status: 'skipped',
+        elapsedMs: 0,
+        output: null,
+        assets: {},
+        error: cancellation(),
+      })
+      continue
+    }
+
     const blocker = blockedBy({ node, graph, statuses, failureOrigin })
     if (blocker !== undefined) {
       failureOrigin.set(nodeId, blocker)
@@ -118,7 +159,7 @@ export async function executeRunGraph(args: {
     emit({ type: 'node-status', nodeId, status: 'running', elapsedMs: 0, error: null })
     const startedAt = performance.now()
     const context: NodeRunContext = {
-      signal: new AbortController().signal,
+      signal: controller.signal,
       log: (message: string) => {
         const line: RunLogLine = { nodeId, message, at: Date.now() }
         logs.push(line)
@@ -131,11 +172,27 @@ export async function executeRunGraph(args: {
     // `.catch` accepts any thrown value. `errore.try` is deliberately NOT used here: it rethrows
     // anything that is not an `Error` instance, which would punch a hole straight through the
     // boundary the spec requires.
-    const settledValue: unknown = await (async () =>
-      definition.run(parsedInput.data, context))().catch(
+    const invoked = (async () => definition.run(parsedInput.data, context))().catch(
       (cause: unknown) => new NodeExecutionError({ nodeId, runNumber, cause }),
     )
+    // `invoked` already has its rejection handled, so abandoning it here can never surface as an
+    // unhandled rejection.
+    const settledValue: unknown = await Promise.race([invoked, aborted])
     const elapsedMs = performance.now() - startedAt
+
+    if (controller.signal.aborted) {
+      // A handler still running is not a settled result, so it is skipped like the nodes behind it
+      // — but it keeps the time it really spent running.
+      settle({
+        nodeId,
+        status: 'skipped',
+        elapsedMs,
+        output: null,
+        assets: {},
+        error: cancellation(),
+      })
+      continue
+    }
 
     if (settledValue instanceof Error) {
       settle({
@@ -172,15 +229,17 @@ export async function executeRunGraph(args: {
     })
   }
 
+  outerSignal?.removeEventListener('abort', abortRun)
+
   const report: RunReport = {
     flowName: graph.flowName,
     startId: graph.startId,
     runNumber,
-    status: runStatusOf(nodes),
+    status: controller.signal.aborted ? 'cancelled' : runStatusOf(nodes),
     elapsedMs: performance.now() - runStartedAt,
     nodes,
     logs,
-    error: null,
+    error: controller.signal.aborted ? cancellation() : null,
   }
   emit({ type: 'run-settled', report })
   return report
