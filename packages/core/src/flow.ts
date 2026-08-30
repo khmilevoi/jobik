@@ -1,4 +1,5 @@
 import path from 'node:path'
+import type * as z from 'zod'
 import type { AnyDefinition, AnyNodeDefinition, AnyStartDefinition } from './node.js'
 
 /**
@@ -66,3 +67,51 @@ function createBuilder(name: string, nodes: Readonly<Record<string, AnyDefinitio
 export function flow(name: string): FlowBuilder<Record<never, never>> {
   return createBuilder(name, {}) as FlowBuilder<Record<never, never>>
 }
+
+/** Every id attached to this flow. */
+export type NodeIdOf<Nodes extends FlowNodes> = keyof Nodes & string
+
+/** The ids of the starts only. A flow may declare any number of them. */
+export type StartIdOf<Nodes extends FlowNodes> = {
+  [K in keyof Nodes]: Nodes[K] extends AnyStartDefinition ? K : never
+}[keyof Nodes] &
+  string
+
+export type InputSchemaOf<Nodes extends FlowNodes, Id extends NodeIdOf<Nodes>> = Nodes[Id] extends {
+  readonly input: infer S extends z.ZodObject
+}
+  ? S
+  : never
+
+/** A start has no output schema: its validated input becomes its output fields. */
+export type OutputSchemaOf<
+  Nodes extends FlowNodes,
+  Id extends NodeIdOf<Nodes>,
+> = Nodes[Id] extends {
+  readonly output: infer S extends z.ZodObject
+}
+  ? S
+  : Nodes[Id] extends { readonly input: infer S extends z.ZodObject }
+    ? S
+    : never
+
+export type InputFieldOf<Nodes extends FlowNodes, Id extends NodeIdOf<Nodes>> = keyof InputSchemaOf<
+  Nodes,
+  Id
+>['shape'] &
+  string
+
+export type OutputFieldOf<
+  Nodes extends FlowNodes,
+  Id extends NodeIdOf<Nodes>,
+> = keyof OutputSchemaOf<Nodes, Id>['shape'] & string
+
+/** What a caller hands `run(startId, input)`: pre-validation, so `z.input`. */
+export type StartInputOf<Nodes extends FlowNodes, Id extends StartIdOf<Nodes>> = z.input<
+  InputSchemaOf<Nodes, Id & NodeIdOf<Nodes>>
+>
+
+/** What a node produced: post-validation, so `z.output`. */
+export type NodeOutputOf<Nodes extends FlowNodes, Id extends NodeIdOf<Nodes>> = z.output<
+  OutputSchemaOf<Nodes, Id>
+>
