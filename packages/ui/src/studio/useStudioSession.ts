@@ -25,13 +25,21 @@ import { applyRunEvent, createRunSession, markCancelling, type RunSession } from
  * reload or copy-draft and never overwrites; a run that streams, locks the draft while it is in
  * flight, and can be cancelled from the editor.
  *
- * R10 — `selectFlow`, `selectNode` and a `validation` state field were dropped from this module's
- * public surface. `StudioApp` (task 12) never wires a selection callback (`Studio`/`FlowsSidebar`
- * expose none) and never renders anything derived from a validation result, so both were produced
- * with no consumer. `selectedNodeId` itself stays — `StudioApp` reads it — only the setter is gone.
- * `validate()` stays too, wired to the Validate button; it fires the request and does not keep the
- * result, because nothing downstream has anywhere left to show it. `isSettled` (R21) was deleted
- * from `runSession.ts` for the same reason and is neither imported nor re-exported here.
+ * R10 — `selectFlow`, `selectNode`, a `validation` state field, `loading` and `loadError` were all
+ * dropped from this module's public surface. `StudioApp` (task 12) never wires a selection
+ * callback (`Studio`/`FlowsSidebar` expose none) and never renders anything derived from a
+ * validation result or a loading/load-error flag, so all five were produced with no consumer.
+ * `selectedNodeId` itself stays — `StudioApp` reads it — only the setter is gone. `validate()`
+ * stays too, wired to the Validate button; it fires the request and does not keep the result,
+ * because nothing downstream has anywhere left to show it. `isSettled` (R21) was deleted from
+ * `runSession.ts` for the same reason and is neither imported nor re-exported here.
+ *
+ * R25 — `runError` is deleted too. A start that fails used to null the session and stash the
+ * failure only in `runError`, which nothing consumed: `runPanelState` fell through to `kind:
+ * 'idle'` and the failure vanished. Every failure this hook can produce — a rejected start, a
+ * failed cancel, a mid-stream parse error, a stream that ends without a terminal event — now
+ * lands on `session.failure`, the one surface the run panel already knows how to render as
+ * `kind: 'failed'`.
  */
 
 export type SaveState =
@@ -45,8 +53,6 @@ export type SaveState =
   | { readonly kind: 'error'; readonly error: WireErrorPayload }
 
 export type StudioSession = {
-  readonly loading: boolean
-  readonly loadError: Error | undefined
   readonly flows: readonly FlowListItem[]
   readonly flowId: string | undefined
   readonly descriptor: SafeFlowDescriptorPayload | undefined
@@ -59,7 +65,6 @@ export type StudioSession = {
   readonly running: boolean
   /** Ticks while a run is in flight; the settled elapsed time afterwards. */
   readonly elapsedMs: number
-  readonly runError: Error | undefined
   readonly saveState: SaveState
   readonly extension: FlowUiDescriptor | undefined
   readonly moveNode: (change: NodeLayoutChange) => void
@@ -76,6 +81,32 @@ export type StudioSession = {
 
 /** How often the running chip's clock re-renders. Fast enough for a `0.1s` readout. */
 const TICK_MS = 100
+
+/**
+ * R28: the reducer in `runSession.ts` relies on the server's structural guarantee that the
+ * stream's last line is always `run-settled` or `run-failed`, and deliberately does not defend
+ * against a stream that violates it — a pure reducer cannot repair that. A dropped connection is
+ * real, though, and this hook is the right place to catch it: iteration can complete normally
+ * with neither `report` nor `failure` set, and without this the run would vanish from the panel
+ * with no trace.
+ */
+const DROPPED_STREAM_PAYLOAD: WireErrorPayload = {
+  _tag: null,
+  message: 'The connection to the server closed before the run produced a result.',
+}
+
+/**
+ * Turns any `Error` this hook can receive from the client into the `WireErrorPayload` shape the
+ * run panel renders. A `JobikServerError`'s `.payload` is exactly what the server sent and is
+ * passed through untouched — never re-tagged, never re-humanised. Anything else (a
+ * `JobikTransportError`, an `NdjsonParseError`) has no server payload, so it is surfaced honestly
+ * as what it is: its own `_tag` when it is a tagged error, and its own message.
+ */
+function toFailurePayload(error: Error): WireErrorPayload {
+  if (error instanceof JobikServerError) return error.payload
+  const tag = (error as { _tag?: unknown })._tag
+  return { _tag: typeof tag === 'string' ? tag : null, message: error.message }
+}
 
 export function useStudioSession(args: {
   client: JobikClient
@@ -96,11 +127,8 @@ export function useStudioSession(args: {
   const [session, setSession] = useState<RunSession | undefined>(undefined)
   const [lastReport, setLastReport] = useState<WireRunReportPayload | undefined>(undefined)
   const [running, setRunning] = useState(false)
-  const [runError, setRunError] = useState<Error | undefined>(undefined)
   const [saveState, setSaveState] = useState<SaveState>({ kind: 'idle' })
   const [extension, setExtension] = useState<FlowUiDescriptor | undefined>(undefined)
-  const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState<Error | undefined>(undefined)
   const [tick, setTick] = useState(0)
 
   /** The run token, read by `cancel()` without making it a render dependency. */
@@ -108,6 +136,28 @@ export function useStudioSession(args: {
   const startedAtRef = useRef(0)
   /** The caller's initial flow choice, read once by discovery without widening its deps. */
   const initialFlowIdRef = useRef(args.flowId)
+  /**
+   * Guards `run()` against re-entrancy: `setRunning(true)` does not apply until the next render,
+   * so two calls issued in the same tick both see `running === false` from the closure. This ref
+   * is set synchronously, before either state update lands.
+   */
+  const runningRef = useRef(false)
+  /**
+   * Bumped by every fetch that can call `adopt()` — the mount load effect and `reloadFromDisk()`.
+   * Whichever request's generation stops matching this ref by the time it resolves is stale and
+   * is discarded, so a slow response from one can never land over a faster one from the other.
+   */
+  const loadGenerationRef = useRef(0)
+  /**
+   * R29: `externals`/`importModule` are read through refs, not the effect's dependency list.
+   * `StudioApp` (task 13) passes both as fresh object/function literals on every render, and
+   * `StudioApp` itself re-renders every `TICK_MS` while a run is in flight — a dependency list
+   * that included them would refetch and re-evaluate the extension bundle on every tick.
+   */
+  const externalsRef = useRef(args.externals)
+  externalsRef.current = args.externals
+  const importModuleRef = useRef(args.importModule)
+  importModuleRef.current = args.importModule
 
   const startId = descriptor?.startIds[0]
 
@@ -133,17 +183,10 @@ export function useStudioSession(args: {
     const discover = async () => {
       const listed = await client.listFlows()
       if (cancelled) return
-      if (listed instanceof Error) {
-        setLoadError(listed)
-        setLoading(false)
-        return
-      }
+      if (listed instanceof Error) return
       setFlows(listed)
       const nextId = initialFlowIdRef.current ?? listed[0]?.id
-      if (nextId === undefined) {
-        setLoading(false)
-        return
-      }
+      if (nextId === undefined) return
       setFlowId(nextId)
     }
 
@@ -154,22 +197,19 @@ export function useStudioSession(args: {
   }, [client])
 
   // Loads only once `flowId` is known — from discovery above, or from a caller-driven change.
+  // The generation guard (see `loadGenerationRef` above) keeps this from adopting a stale
+  // response over one `reloadFromDisk()` already landed while this fetch was still in flight.
   useEffect(() => {
     if (flowId === undefined) return
     let cancelled = false
-    setLoading(true)
+    loadGenerationRef.current += 1
+    const generation = loadGenerationRef.current
 
     const load = async () => {
       const loaded = await client.loadFlow(flowId)
-      if (cancelled) return
-      if (loaded instanceof Error) {
-        setLoadError(loaded)
-        setLoading(false)
-        return
-      }
+      if (cancelled || loadGenerationRef.current !== generation) return
+      if (loaded instanceof Error) return
       adopt(loaded)
-      setLoadError(undefined)
-      setLoading(false)
     }
 
     void load()
@@ -192,8 +232,8 @@ export function useStudioSession(args: {
           if (!response.ok) throw new Error(`the server answered ${response.status}`)
           return response.text()
         },
-        externals: args.externals ?? {},
-        ...(args.importModule === undefined ? {} : { importModule: args.importModule }),
+        externals: externalsRef.current ?? {},
+        ...(importModuleRef.current === undefined ? {} : { importModule: importModuleRef.current }),
       })
       if (cancelled) return
       setExtension(descriptorOrError instanceof Error ? undefined : descriptorOrError)
@@ -203,7 +243,7 @@ export function useStudioSession(args: {
     return () => {
       cancelled = true
     }
-  }, [client, flowId, args.externals, args.importModule])
+  }, [client, flowId])
 
   // The running chip's clock.
   useEffect(() => {
@@ -282,12 +322,12 @@ export function useStudioSession(args: {
 
   const reloadFromDisk = useCallback(() => {
     if (flowId === undefined) return
+    loadGenerationRef.current += 1
+    const generation = loadGenerationRef.current
     void (async () => {
       const loaded = await client.loadFlow(flowId)
-      if (loaded instanceof Error) {
-        setLoadError(loaded)
-        return
-      }
+      if (loadGenerationRef.current !== generation) return
+      if (loaded instanceof Error) return
       adopt(loaded)
     })()
   }, [client, flowId, adopt])
@@ -300,56 +340,68 @@ export function useStudioSession(args: {
 
   const run = useCallback(
     (values: Record<string, unknown>) => {
-      if (running || flowId === undefined || descriptor === undefined || startId === undefined) {
+      if (
+        runningRef.current ||
+        flowId === undefined ||
+        descriptor === undefined ||
+        startId === undefined
+      ) {
         return
       }
+      runningRef.current = true
 
       void (async () => {
-        setRunError(undefined)
         setLastReport(undefined)
         startedAtRef.current = now()
         runTokenRef.current = undefined
 
-        const seeded = createRunSession({
+        let current = createRunSession({
           startId,
           nodeIds: descriptor.nodes.map((node) => node.id),
           startedAt: startedAtRef.current,
         })
-        setSession(seeded)
+        setSession(current)
         setRunning(true)
 
         const stream = await client.startRun({ flowId, startId, input: values })
         if (stream instanceof Error) {
-          setRunError(stream)
+          // R25: a rejected start no longer nulls the session — it ends it as a failure, the
+          // same surface every other failure path below uses.
+          current = { ...current, failure: toFailurePayload(stream) }
+          setSession(current)
           setRunning(false)
-          setSession(undefined)
+          runningRef.current = false
           return
         }
 
-        let current = seeded
         try {
           for await (const event of stream) {
             current = applyRunEvent(current, event)
             if (event.type === 'run-accepted') runTokenRef.current = event.runToken
             setSession(current)
           }
+          // R28: the stream ended without a terminal line. `applyRunEvent` never sets `failure`
+          // or `report` on its own for that case — only `run-settled` and `run-failed` do — so a
+          // session that reaches here with neither is a dropped connection, not a settled run.
+          if (current.report === undefined && current.failure === undefined) {
+            current = { ...current, failure: DROPPED_STREAM_PAYLOAD }
+            setSession(current)
+          }
         } catch (cause) {
           // R16: `readNdjsonStream` throws `NdjsonParseError` mid-iteration on a protocol
           // violation, and `JobikClient.startRun` deliberately does not catch it — this `for
-          // await` is the one place that owns the failure. Surfaced two ways: `runError` for the
-          // raw cause, and `session.failure` so the run panel renders it as a failed run instead
-          // of leaving the stream silently unsettled.
+          // await` is the one place that owns the failure.
           const error = cause instanceof Error ? cause : new Error(String(cause))
-          setRunError(error)
-          current = { ...current, failure: { _tag: null, message: error.message } }
+          current = { ...current, failure: toFailurePayload(error) }
           setSession(current)
         }
 
         if (current.report !== undefined) setLastReport(current.report)
         setRunning(false)
+        runningRef.current = false
       })()
     },
-    [client, descriptor, flowId, now, running, startId],
+    [client, descriptor, flowId, now, startId],
   )
 
   const cancel = useCallback(() => {
@@ -358,7 +410,18 @@ export function useStudioSession(args: {
     setSession((current) => (current === undefined ? current : markCancelling(current)))
     // The stream is NOT closed here. `## Progress and cancellation`: the server settles the run with
     // the abort error and keeps already-settled node results, and that terminal line ends the run.
-    void client.cancelRun(token)
+    void (async () => {
+      const result = await client.cancelRun(token)
+      // R27: a failed cancel request used to be discarded with `void`, leaving `cancelling: true`
+      // forever with nothing telling the user the request never reached the server. Reuses the
+      // same `session.failure` surface R25 routes every other failure through.
+      if (result instanceof Error) {
+        const payload = toFailurePayload(result)
+        setSession((current) =>
+          current === undefined ? current : { ...current, failure: payload },
+        )
+      }
+    })()
   }, [client])
 
   const assetUrl = useCallback((asset: AssetDescriptor) => client.assetUrl(asset), [client])
@@ -372,8 +435,6 @@ export function useStudioSession(args: {
   }, [running, tick, now, lastReport])
 
   return {
-    loading,
-    loadError,
     flows,
     flowId,
     descriptor,
@@ -385,7 +446,6 @@ export function useStudioSession(args: {
     lastReport,
     running,
     elapsedMs,
-    runError,
     saveState,
     extension,
     moveNode: onMoveNode,

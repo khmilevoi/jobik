@@ -1,8 +1,8 @@
 import type { FlowDocument } from '@jobik/core'
 import { act, renderHook, waitFor } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { JobikClient, RunStreamEvent } from '../client/index.js'
-import { JobikServerError, NdjsonParseError } from '../client/index.js'
+import { JobikServerError, JobikTransportError, NdjsonParseError } from '../client/index.js'
 import { useStudioSession } from './useStudioSession.js'
 
 const DOCUMENT = {
@@ -68,11 +68,16 @@ function setup(client: JobikClient) {
   )
 }
 
+/** The hook no longer exposes `loading` (R10): a defined draft is the load having completed. */
+async function waitForReady(result: { current: ReturnType<typeof useStudioSession> }) {
+  await waitFor(() => expect(result.current.draft).toBeDefined())
+}
+
 describe('loading', () => {
   it('lists flows and loads the first one into a clean draft', async () => {
     const { result } = setup(stubClient())
 
-    await waitFor(() => expect(result.current.loading).toBe(false))
+    await waitForReady(result)
 
     expect(result.current.flowId).toBe('publication')
     expect(result.current.descriptor?.name).toBe('publication')
@@ -82,7 +87,7 @@ describe('loading', () => {
 
   it('seeds the run input draft from the start descriptor', async () => {
     const { result } = setup(stubClient())
-    await waitFor(() => expect(result.current.loading).toBe(false))
+    await waitForReady(result)
 
     expect(result.current.inputDraft.title).toBe('')
     expect(result.current.startId).toBe('start1')
@@ -101,7 +106,7 @@ describe('loading', () => {
     }))
     const { result } = setup(stubClient({ listFlows, loadFlow }))
 
-    await waitFor(() => expect(result.current.loading).toBe(false))
+    await waitForReady(result)
 
     expect(listFlows).toHaveBeenCalledTimes(1)
     expect(loadFlow).toHaveBeenCalledTimes(1)
@@ -111,7 +116,7 @@ describe('loading', () => {
 describe('editing', () => {
   it('marks the draft dirty on a node move', async () => {
     const { result } = setup(stubClient())
-    await waitFor(() => expect(result.current.loading).toBe(false))
+    await waitForReady(result)
 
     act(() => result.current.moveNode({ nodeId: 'start1', position: { x: 10, y: 20 } }))
 
@@ -121,7 +126,7 @@ describe('editing', () => {
 
   it('marks the draft dirty on a new connection', async () => {
     const { result } = setup(stubClient())
-    await waitFor(() => expect(result.current.loading).toBe(false))
+    await waitForReady(result)
 
     act(() =>
       result.current.connect({
@@ -140,11 +145,12 @@ describe('validate and save', () => {
   // R10: `validation` had no consumer (merged `Studio`/`FlowsSidebar` render nothing from it) and
   // is deleted, not left dangling. `validate()` itself stays, because `StudioApp` wires it to the
   // Validate button — the only thing left to assert is that it calls the server with the draft
-  // actually on screen.
+  // actually on screen. There is nothing else observable here after R10: no state field records
+  // the result, so a spy on the client call is the only remaining signal.
   it('validates the current draft against the server', async () => {
     const validate = vi.fn(async () => ({ valid: true }) as const)
     const { result } = setup(stubClient({ validate }))
-    await waitFor(() => expect(result.current.loading).toBe(false))
+    await waitForReady(result)
 
     await act(async () => result.current.validate())
 
@@ -153,7 +159,7 @@ describe('validate and save', () => {
 
   it('clears dirty and adopts the new revision on save', async () => {
     const { result } = setup(stubClient())
-    await waitFor(() => expect(result.current.loading).toBe(false))
+    await waitForReady(result)
     act(() => result.current.moveNode({ nodeId: 'start1', position: { x: 5, y: 5 } }))
 
     await act(async () => result.current.save())
@@ -177,7 +183,7 @@ describe('validate and save', () => {
         }),
     )
     const { result } = setup(stubClient({ save }))
-    await waitFor(() => expect(result.current.loading).toBe(false))
+    await waitForReady(result)
     act(() => result.current.moveNode({ nodeId: 'start1', position: { x: 5, y: 5 } }))
 
     await act(async () => result.current.save())
@@ -202,7 +208,7 @@ describe('validate and save', () => {
     })
     const save = vi.fn(async () => gate)
     const { result } = setup(stubClient({ save }))
-    await waitFor(() => expect(result.current.loading).toBe(false))
+    await waitForReady(result)
 
     act(() => result.current.save())
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1))
@@ -226,7 +232,7 @@ describe('validate and save', () => {
       .mockResolvedValueOnce({ descriptor: DESCRIPTOR, document: DOCUMENT, revision: 'rev-1' })
       .mockResolvedValueOnce({ descriptor: DESCRIPTOR, document: DOCUMENT, revision: 'rev-9' })
     const { result } = setup(stubClient({ loadFlow }))
-    await waitFor(() => expect(result.current.loading).toBe(false))
+    await waitForReady(result)
     act(() => result.current.moveNode({ nodeId: 'start1', position: { x: 5, y: 5 } }))
 
     await act(async () => result.current.reloadFromDisk())
@@ -234,6 +240,47 @@ describe('validate and save', () => {
     expect(result.current.draft?.baseRevision).toBe('rev-9')
     expect(result.current.draft?.dirty).toBe(false)
     expect(result.current.saveState).toEqual({ kind: 'idle' })
+  })
+
+  // Minor: `reloadFromDisk()` and the mount load effect both call `adopt()`, and without a
+  // generation guard, whichever response lands last wins regardless of which was actually
+  // fresher. Here the mount load (call #1) is held open; `reloadFromDisk()` (call #2) resolves
+  // first with `rev-9`, and the guard must keep call #1's late, now-stale `rev-1` from landing
+  // on top of it.
+  it('does not let a slow mount-load response overwrite a faster reloadFromDisk response', async () => {
+    let resolveMountLoad: (value: {
+      descriptor: typeof DESCRIPTOR
+      document: typeof DOCUMENT
+      revision: string
+    }) => void = () => {}
+    const mountLoadGate = new Promise<{
+      descriptor: typeof DESCRIPTOR
+      document: typeof DOCUMENT
+      revision: string
+    }>((resolve) => {
+      resolveMountLoad = resolve
+    })
+    const loadFlow = vi
+      .fn()
+      .mockImplementationOnce(() => mountLoadGate)
+      .mockResolvedValueOnce({ descriptor: DESCRIPTOR, document: DOCUMENT, revision: 'rev-9' })
+
+    const { result } = setup(stubClient({ loadFlow }))
+    await waitFor(() => expect(loadFlow).toHaveBeenCalledTimes(1))
+
+    await act(async () => {
+      result.current.reloadFromDisk()
+      await Promise.resolve()
+    })
+    await waitFor(() => expect(loadFlow).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(result.current.draft?.baseRevision).toBe('rev-9'))
+
+    await act(async () => {
+      resolveMountLoad({ descriptor: DESCRIPTOR, document: DOCUMENT, revision: 'rev-1' })
+      await mountLoadGate
+    })
+
+    expect(result.current.draft?.baseRevision).toBe('rev-9')
   })
 })
 
@@ -275,7 +322,7 @@ describe('running', () => {
           ]),
       }),
     )
-    await waitFor(() => expect(result.current.loading).toBe(false))
+    await waitForReady(result)
 
     await act(async () => result.current.run({ title: 't' }))
     await waitFor(() => expect(result.current.running).toBe(false))
@@ -301,7 +348,7 @@ describe('running', () => {
           })(),
       }),
     )
-    await waitFor(() => expect(result.current.loading).toBe(false))
+    await waitForReady(result)
 
     act(() => result.current.run({ title: 't' }))
     await waitFor(() => expect(result.current.running).toBe(true))
@@ -320,24 +367,108 @@ describe('running', () => {
     await waitFor(() => expect(result.current.running).toBe(false))
   })
 
-  it('cancels by the run token from the first line', async () => {
+  // Minor: `run()` sets `running` state asynchronously (it does not apply until the next render),
+  // so two calls issued in the same tick both read `running === false` from their closures. This
+  // asserts the hook guards re-entrancy itself, with a ref, rather than relying on state that has
+  // not caught up yet: `startRun` must fire exactly once for two synchronous `run()` calls.
+  it('ignores a second run() call issued before state catches up with the first', async () => {
+    const startRun = vi.fn(async () =>
+      streamOf([
+        { type: 'run-accepted', runToken: 'tok' },
+        { type: 'run-settled', report: REPORT },
+      ]),
+    )
+    const { result } = setup(stubClient({ startRun }))
+    await waitForReady(result)
+
+    act(() => {
+      result.current.run({ title: 't' })
+      result.current.run({ title: 't' })
+    })
+
+    await waitFor(() => expect(result.current.running).toBe(false))
+    expect(startRun).toHaveBeenCalledTimes(1)
+  })
+
+  // R26: the previous version of this test drained the whole stream before calling `cancel()` and
+  // asserted only that `cancelRun` fired — a hook that never called `markCancelling` at all would
+  // still pass it. This calls `cancel()` while the stream is still open (`run-accepted` has
+  // landed, `run-settled` is gated behind `release()`) and asserts `session.cancelling` itself.
+  it('marks the session cancelling while the stream is still open', async () => {
+    let release = () => {}
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
     const cancelRun = vi.fn(async () => true as const)
     const { result } = setup(
       stubClient({
         cancelRun,
         startRun: async () =>
-          streamOf([
-            { type: 'run-accepted', runToken: 'tok-9' },
-            { type: 'run-settled', report: { ...REPORT, status: 'cancelled' } },
-          ]),
+          (async function* () {
+            yield { type: 'run-accepted', runToken: 'tok-9' } as RunStreamEvent
+            await gate
+            yield {
+              type: 'run-settled',
+              report: { ...REPORT, status: 'cancelled' as const },
+            } as RunStreamEvent
+          })(),
       }),
     )
-    await waitFor(() => expect(result.current.loading).toBe(false))
+    await waitForReady(result)
 
-    await act(async () => result.current.run({ title: 't' }))
+    act(() => result.current.run({ title: 't' }))
+    await waitFor(() => expect(result.current.session?.runToken).toBe('tok-9'))
+    expect(result.current.session?.cancelling).toBe(false)
+
     await act(async () => result.current.cancel())
 
     expect(cancelRun).toHaveBeenCalledWith('tok-9')
+    expect(result.current.session?.cancelling).toBe(true)
+    expect(result.current.running).toBe(true)
+
+    await act(async () => {
+      release()
+      await gate
+    })
+    await waitFor(() => expect(result.current.running).toBe(false))
+  })
+
+  // R27: `cancel()` used to discard `client.cancelRun`'s `Promise<true | Error>` with a bare
+  // `void`. If the cancel request itself failed (e.g. a transport error), `cancelling` stayed
+  // `true` forever with nothing surfacing that the request never reached the server. This asserts
+  // the failure lands on `session.failure`, the same surface R25 routes every other failure
+  // through — never a new field.
+  it('surfaces a failed cancel request on session.failure', async () => {
+    let release = () => {}
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const cancelRun = vi.fn(async () => new JobikTransportError({ url: '/api/runs/tok-9/cancel' }))
+    const { result } = setup(
+      stubClient({
+        cancelRun,
+        startRun: async () =>
+          (async function* () {
+            yield { type: 'run-accepted', runToken: 'tok-9' } as RunStreamEvent
+            await gate
+            yield { type: 'run-settled', report: REPORT } as RunStreamEvent
+          })(),
+      }),
+    )
+    await waitForReady(result)
+
+    act(() => result.current.run({ title: 't' }))
+    await waitFor(() => expect(result.current.session?.runToken).toBe('tok-9'))
+
+    await act(async () => result.current.cancel())
+
+    expect(result.current.session?.cancelling).toBe(true)
+    expect(result.current.session?.failure?._tag).toBe('JobikTransportError')
+
+    await act(async () => {
+      release()
+      await gate
+    })
   })
 
   it('settles on a run-failed line without a report', async () => {
@@ -350,7 +481,7 @@ describe('running', () => {
           ]),
       }),
     )
-    await waitFor(() => expect(result.current.loading).toBe(false))
+    await waitForReady(result)
 
     await act(async () => result.current.run({ title: 't' }))
     await waitFor(() => expect(result.current.running).toBe(false))
@@ -362,7 +493,42 @@ describe('running', () => {
     expect(result.current.lastReport).toBeUndefined()
   })
 
-  it('surfaces a start failure as a value and never enters the running state', async () => {
+  // R28: the stream ended cleanly (no thrown error) but without either terminal event. The
+  // reducer in `runSession.ts` deliberately cannot repair this — it relies on the server's
+  // structural guarantee. This asserts the hook itself ends the run as a failure the panel can
+  // render, rather than letting it vanish with `report` and `failure` both `undefined`.
+  it('ends a stream that closes without a terminal event as a failure', async () => {
+    const { result } = setup(
+      stubClient({
+        startRun: async () =>
+          streamOf([
+            { type: 'run-accepted', runToken: 'tok' },
+            {
+              type: 'node-status',
+              nodeId: 'start1',
+              status: 'running',
+              elapsedMs: 5,
+              error: null,
+            },
+          ]),
+      }),
+    )
+    await waitForReady(result)
+
+    await act(async () => result.current.run({ title: 't' }))
+    await waitFor(() => expect(result.current.running).toBe(false))
+
+    expect(result.current.session?.report).toBeUndefined()
+    expect(result.current.session?.failure).toBeDefined()
+    expect(result.current.lastReport).toBeUndefined()
+  })
+
+  // R25: a start rejected by the server used to null the session and stash the failure only on
+  // `runError`, which nothing consumed — `runPanelState` fell through to `kind: 'idle'` and the
+  // failure vanished. This asserts the resulting session state the panel actually renders from:
+  // `session.failure` carries the server's own words, untouched, on `.message` (not the
+  // errore-interpolated wrapper message `JobikServerError.message` would give instead).
+  it('renders a start rejected by the server as a failed session, not a vanished one', async () => {
     const { result } = setup(
       stubClient({
         startRun: async () =>
@@ -373,23 +539,41 @@ describe('running', () => {
           }),
       }),
     )
-    await waitFor(() => expect(result.current.loading).toBe(false))
+    await waitForReady(result)
 
     await act(async () => result.current.run({ title: 't' }))
 
     expect(result.current.running).toBe(false)
-    // R3: `errore` interpolates the template, so `JobikServerError.message` reads
-    // 'The Jobik server rejected the request: no such start'. The server's own words are on
-    // `.payload.message`, untouched, and that is what this asserts.
-    expect(result.current.runError).toBeInstanceOf(JobikServerError)
-    expect((result.current.runError as JobikServerError).payload.message).toBe('no such start')
+    expect(result.current.session?.failure).toEqual({
+      _tag: 'StartNotFoundError',
+      message: 'no such start',
+    })
+  })
+
+  // R25: a transport failure (no server payload at all) must still surface, honestly as what it
+  // is — its own tag and its own message — rather than being silently dropped.
+  it('renders a start that fails in transport as a failed session', async () => {
+    const { result } = setup(
+      stubClient({
+        startRun: async () => new JobikTransportError({ url: '/api/flows/publication/run' }),
+      }),
+    )
+    await waitForReady(result)
+
+    await act(async () => result.current.run({ title: 't' }))
+
+    expect(result.current.running).toBe(false)
+    expect(result.current.session?.failure).toEqual({
+      _tag: 'JobikTransportError',
+      message: 'The Jobik server could not be reached at /api/flows/publication/run',
+    })
   })
 
   // R16: `readNdjsonStream` throws `NdjsonParseError` mid-iteration on a protocol violation, and
   // `JobikClient.startRun`'s own promise does not catch it — the throw lands in the consumer's
   // `for await`. This asserts the hook owns that `try`/`catch` and turns it into a failed run
   // rather than an unhandled rejection: `running` settles to `false`, and the failure is visible
-  // both on `runError` (the raw cause) and on the session the run panel renders from.
+  // on the session the run panel renders from.
   it('turns a stream parse failure into a failed run, not an unhandled rejection', async () => {
     const { result } = setup(
       stubClient({
@@ -402,13 +586,50 @@ describe('running', () => {
           })(),
       }),
     )
-    await waitFor(() => expect(result.current.loading).toBe(false))
+    await waitForReady(result)
 
     await act(async () => result.current.run({ title: 't' }))
     await waitFor(() => expect(result.current.running).toBe(false))
 
-    expect(result.current.runError).toBeInstanceOf(NdjsonParseError)
     expect(result.current.session?.failure?.message).toContain('not valid JSON')
     expect(result.current.lastReport).toBeUndefined()
+  })
+})
+
+describe('extension bundle', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  // R29: the effect's dependency list used to include `args.externals` and `args.importModule`
+  // directly. `StudioApp` (task 13) passes both as fresh object/function literals on every
+  // render, and re-renders every `TICK_MS` while a run is in flight, so that dependency list
+  // would refetch the bundle on every tick. This asserts the fix holds by giving the hook a new
+  // `externals`/`importModule` identity on every rerender and checking the fetch still fires once.
+  it('does not refetch the extension bundle when externals/importModule are new objects each render', async () => {
+    const fetchSpy = vi.fn(
+      async () => ({ ok: true, text: async () => 'export default {}' }) as unknown as Response,
+    )
+    vi.stubGlobal('fetch', fetchSpy)
+    const client = stubClient()
+
+    const { result, rerender } = renderHook(
+      (props: { externals: Record<string, never>; importModule: () => Promise<unknown> }) =>
+        useStudioSession({
+          client,
+          externals: props.externals,
+          importModule: props.importModule,
+          now: () => 1000,
+        }),
+      { initialProps: { externals: {}, importModule: async () => ({}) } },
+    )
+
+    await waitFor(() => expect(result.current.draft).toBeDefined())
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1))
+
+    rerender({ externals: {}, importModule: async () => ({}) })
+    rerender({ externals: {}, importModule: async () => ({}) })
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
   })
 })
