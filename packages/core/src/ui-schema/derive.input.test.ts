@@ -280,3 +280,17 @@ describe('deriveInputControls() — a non-array required from a node author meta
     ])
   })
 })
+
+describe('deriveInputControls() — a malformed properties map from a node author meta()', () => {
+  it('does not throw on a non-object properties value, and returns no fields', () => {
+    const result = derive(z.object({ a: z.string() }).meta({ properties: 'abc' }))
+    if (result instanceof Error) throw result
+    expect(result.fields).toStrictEqual([])
+  })
+
+  it('does not throw on a non-object property entry, and returns no fields', () => {
+    const result = derive(z.object({ a: z.string() }).meta({ properties: { a: 5 } }))
+    if (result instanceof Error) throw result
+    expect(result.fields).toStrictEqual([])
+  })
+})

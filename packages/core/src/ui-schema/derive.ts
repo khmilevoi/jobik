@@ -80,6 +80,25 @@ function requiredFieldsOf(document: JsonSchemaDocument): readonly string[] {
   return Array.isArray(document.required) ? document.required : []
 }
 
+/**
+ * `document.properties` is typed `{ readonly [field: string]: JsonSchemaFragment } | undefined`, but
+ * that type is a cast over `JSON.parse` output, not a runtime guarantee: a node author's `.meta()`
+ * merges into the JSON Schema document verbatim, and zod's `GlobalMeta` allows any value there, so
+ * `properties` — and every value inside it — can be anything at runtime
+ * (`z.object({...}).meta({ properties: 'abc' })` compiles, and `Object.entries('abc')` then yields
+ * single-character-string fragments; `.meta({ properties: { a: 5 } })` yields a numeric one instead).
+ * `controlOf` throws on a fragment that is not a plain object (`'const' in fragment`), so a non-object
+ * map degrades to no properties, and a non-object entry inside an otherwise-fine map is dropped,
+ * rather than reaching a field builder.
+ */
+function propertyEntriesOf(document: JsonSchemaDocument): [string, JsonSchemaFragment][] {
+  const properties = document.properties
+  if (typeof properties !== 'object' || properties === null || Array.isArray(properties)) return []
+  return Object.entries(properties).filter(
+    ([, fragment]) => typeof fragment === 'object' && fragment !== null && !Array.isArray(fragment),
+  )
+}
+
 /** The mono type annotation a field row shows: `string`, `Buffer`, `number`. */
 function annotationOf(fragment: JsonSchemaFragment): string {
   const title = fragment.title
@@ -215,7 +234,7 @@ export function deriveInputControls(args: {
   if (document instanceof JobUiSchemaError) return document
 
   const required = new Set(requiredFieldsOf(document))
-  const fields = Object.entries(document.properties ?? {}).map(([field, fragment]) =>
+  const fields = propertyEntriesOf(document).map(([field, fragment]) =>
     inputFieldOf(field, fragment, required.has(field)),
   )
 
@@ -266,7 +285,7 @@ export function deriveOutputFields(args: {
   if (document instanceof JobUiSchemaError) return document
 
   const required = new Set(requiredFieldsOf(document))
-  const fields = Object.entries(document.properties ?? {}).map(([field, fragment]) =>
+  const fields = propertyEntriesOf(document).map(([field, fragment]) =>
     outputFieldOf(field, fragment, required.has(field)),
   )
   return { nodeId: args.nodeId, fields }
