@@ -1,6 +1,8 @@
 import path from 'node:path'
 import type * as z from 'zod'
 import type { AnyDefinition, AnyNodeDefinition, AnyStartDefinition } from './node.js'
+import { runFlow } from './run/run.js'
+import type { RunOptions, RunReport, RunStartError } from './run/types.js'
 
 /**
  * The flow builder.
@@ -18,11 +20,23 @@ export type FreshNodeId<Id extends string, Nodes extends FlowNodes> = Id extends
   ? `duplicate node id: ${Id}`
   : Id
 
-/** A flow with its storage bound. P9 adds `run()` to this interface. */
+/** A flow with its storage bound. */
 export interface BoundFlow<Nodes extends FlowNodes = FlowNodes> {
   readonly name: string
   readonly path: string
   readonly nodes: Nodes
+
+  /**
+   * Run one start over the current document. Method syntax, not a property, and deliberately so:
+   * a method keeps its parameters bivariant, which is what keeps `BoundFlow<Specific>` assignable
+   * to `BoundFlow` — `validateFlowGraph` takes the loose bound. A property typed as a function
+   * would be checked contravariantly and would break every existing caller.
+   */
+  run<Id extends StartIdOf<Nodes>>(
+    startId: Id,
+    input: StartInputOf<Nodes, Id>,
+    options?: RunOptions,
+  ): Promise<RunReport | RunStartError>
 }
 
 export interface FlowBuilder<Nodes extends FlowNodes> {
@@ -56,7 +70,14 @@ function createBuilder(name: string, nodes: Readonly<Record<string, AnyDefinitio
           `jobik.flow('${name}'): bind('${kind}', ...) requires an absolute path, received '${value}'`,
         )
       }
-      return { name, path: value, nodes: { ...nodes } }
+      const bound: BoundFlow = {
+        name,
+        path: value,
+        nodes: { ...nodes },
+        run: (startId: string, input: unknown, options?: RunOptions) =>
+          runFlow({ flow: bound, startId, input, options }),
+      }
+      return bound
     },
   }
 

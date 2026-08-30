@@ -13,9 +13,14 @@ export type NodeKind = 'start' | 'transform' | 'sink'
 
 /**
  * The second argument every handler receives. P9 owns how it is populated and may add fields; P2
- * declares only the abort signal, which the spec's cancellation behaviour requires.
+ * declares only the abort signal, which the spec's cancellation behaviour requires; the log
+ * channel is P9's, and a line written through it reaches both the progress stream and the run
+ * report.
  */
-export type NodeRunContext = { readonly signal: AbortSignal }
+export type NodeRunContext = {
+  readonly signal: AbortSignal
+  readonly log: (message: string) => void
+}
 
 /** Expected failures come back as values: a handler returns `Error`, it does not throw one. */
 export type NodeHandler<Input extends z.ZodObject, Output extends z.ZodObject> = (

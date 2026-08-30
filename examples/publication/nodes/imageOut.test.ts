@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { PUBLICATION_IMAGE_HEIGHT, PUBLICATION_IMAGE_WIDTH } from '../types.js'
 import { ImageRenderError, imageOut } from './imageOut.js'
 
-const context = { signal: new AbortController().signal }
+const context = { signal: new AbortController().signal, log: () => {} }
 
 const designInput = {
   title: 'Typed flows, quietly',
