@@ -12,7 +12,10 @@ export type GraphNode = {
   readonly inputs: readonly GraphInputEdge[]
   /** Literal values for this node's unconnected input fields. Always empty for a start. */
   readonly literals: Readonly<Record<string, unknown>>
-  /** Distinct upstream node ids, ordered by first appearance in the document. */
+  /**
+   * Distinct upstream node ids, ordered by first appearance in the document. In a `RunGraph` an id
+   * here may name a node outside the run, for the same reason an input edge can — see `RunGraph`.
+   */
   readonly dependencies: readonly string[]
   /** Distinct downstream node ids, ordered by first appearance in the document. */
   readonly dependents: readonly string[]
@@ -24,7 +27,7 @@ export type ValidatedFlowGraph = {
   readonly nodes: ReadonlyMap<string, GraphNode>
   /** Topological order of every node in the flow. */
   readonly order: readonly string[]
-  /** Every start id, in flow-declaration order. */
+  /** Every start id, in flow-declaration order — except an integer-like id, enumerated numerically first. */
   readonly startIds: readonly string[]
 }
 

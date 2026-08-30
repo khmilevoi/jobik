@@ -5,7 +5,10 @@
  * The order is deterministic and is part of this module's contract: the queue is seeded with the
  * zero-indegree nodes in `nodeIds` order, and a settled node releases its dependents in the order
  * they appear in its list. Callers pass `nodeIds` in flow-declaration order and build `dependents`
- * in document order, so the same flow and document always produce the same order.
+ * in document order, so the same flow and document always produce the same order. That
+ * "flow-declaration order" is really the own-key order of `flow.nodes`, so an integer-like id
+ * (`'0'`, `'2'`, `'10'`) is enumerated first, in ascending numeric order, regardless of when
+ * `.node()` was called for it.
  */
 
 export type TopologicalResult =
