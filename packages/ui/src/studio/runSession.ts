@@ -9,6 +9,12 @@ import type { RunStreamEvent, WireErrorPayload, WireRunReportPayload } from '../
  * cancellation` says the editor renders the same report shape whether it arrived streamed or at
  * once — which is why `run-settled` overwrites the accumulated node statuses with the report's:
  * the report is the authority and the transitions are only what let the panel move before it lands.
+ *
+ * `applyRunEvent` relies on the server's structural guarantee (`## Execution`) that the stream's
+ * last line is always exactly one `run-settled` or `run-failed`. It does not guard against an event
+ * arriving after a terminal one, or a duplicate `run-accepted` — a pure reducer cannot repair a
+ * stream that violates that guarantee. If a stream ended without a terminal event, the session it
+ * produced stays permanently unsettled (`report` and `failure` both `undefined`).
  */
 
 export type NodeRunRecord = {
@@ -106,10 +112,6 @@ export function applyRunEvent(session: RunSession, event: RunStreamEvent): RunSe
 
 export function markCancelling(session: RunSession): RunSession {
   return { ...session, cancelling: true }
-}
-
-export function isSettled(session: RunSession): boolean {
-  return session.report !== undefined || session.failure !== undefined
 }
 
 export function completedNodeCount(session: RunSession): number {

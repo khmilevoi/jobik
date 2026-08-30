@@ -4,7 +4,6 @@ import {
   applyRunEvent,
   completedNodeCount,
   createRunSession,
-  isSettled,
   markCancelling,
 } from './runSession.js'
 
@@ -62,7 +61,8 @@ describe('createRunSession', () => {
     expect(created.nodes.get('render')).toEqual({ status: 'queued', elapsedMs: 0, error: null })
     expect(created.runNumber).toBeUndefined()
     expect(created.runToken).toBeUndefined()
-    expect(isSettled(created)).toBe(false)
+    expect(created.report).toBeUndefined()
+    expect(created.failure).toBeUndefined()
   })
 })
 
@@ -126,7 +126,7 @@ describe('applyRunEvent', () => {
       error: null,
     })
 
-    expect(next.nodes.get('ghost')?.status).toBe('ok')
+    expect(next.nodes.get('ghost')).toEqual({ status: 'ok', elapsedMs: 4, error: null })
   })
 
   it('appends log lines in arrival order', () => {
@@ -141,11 +141,26 @@ describe('applyRunEvent', () => {
   it('settles with the final report and adopts its node statuses', () => {
     const next = applyRunEvent(session(), { type: 'run-settled', report: REPORT })
 
-    expect(isSettled(next)).toBe(true)
     expect(next.report).toBe(REPORT)
     expect(next.runNumber).toBe(219)
     expect(next.nodes.get('publish')).toEqual({ status: 'ok', elapsedMs: 290, error: null })
     expect(next.logs).toEqual(REPORT.logs)
+  })
+
+  it('does not mutate the previous session or its node map when the run settles', () => {
+    const before = session()
+    const beforeNodes = before.nodes
+
+    const after = applyRunEvent(before, { type: 'run-settled', report: REPORT })
+
+    expect(after).not.toBe(before)
+    expect(after.nodes).not.toBe(beforeNodes)
+    expect(before.nodes).toBe(beforeNodes)
+    expect([...before.nodes.values()]).toEqual([
+      { status: 'queued', elapsedMs: 0, error: null },
+      { status: 'queued', elapsedMs: 0, error: null },
+      { status: 'queued', elapsedMs: 0, error: null },
+    ])
   })
 
   it('settles on run-failed with the error the server sent, untouched', () => {
@@ -154,7 +169,6 @@ describe('applyRunEvent', () => {
       error: { _tag: null, message: 'Internal server error' },
     })
 
-    expect(isSettled(next)).toBe(true)
     expect(next.failure).toEqual({ _tag: null, message: 'Internal server error' })
     expect(next.report).toBeUndefined()
   })
@@ -165,7 +179,6 @@ describe('applyRunEvent', () => {
       error: { _tag: 'RunInputError', message: 'missing field "title"', authored: true },
     })
 
-    expect(isSettled(next)).toBe(true)
     expect(next.failure).toEqual({
       _tag: 'RunInputError',
       message: 'missing field "title"',
@@ -314,7 +327,6 @@ describe('applyRunEvent', () => {
       failure: undefined,
       cancelling: false,
     })
-    expect(isSettled(final)).toBe(true)
     expect(completedNodeCount(final)).toBe(3)
   })
 
@@ -333,7 +345,8 @@ describe('applyRunEvent', () => {
     const withCancel = markCancelling(cancelled)
 
     expect(withCancel.cancelling).toBe(true)
-    expect(isSettled(withCancel)).toBe(false)
+    expect(withCancel.report).toBeUndefined()
+    expect(withCancel.failure).toBeUndefined()
     // `markCancelling` does not touch anything it did not seed itself.
     expect(withCancel.nodes).toBe(cancelled.nodes)
     expect(withCancel.runToken).toBe('tok-9')
@@ -343,8 +356,8 @@ describe('applyRunEvent', () => {
       error: { _tag: 'RunCancelledError', message: 'run cancelled', authored: true },
     })
 
-    expect(isSettled(settled)).toBe(true)
     expect(settled.cancelling).toBe(true)
+    expect(settled.report).toBeUndefined()
     expect(settled.failure).toEqual({
       _tag: 'RunCancelledError',
       message: 'run cancelled',
@@ -358,7 +371,8 @@ describe('markCancelling', () => {
     const next = markCancelling(session())
 
     expect(next.cancelling).toBe(true)
-    expect(isSettled(next)).toBe(false)
+    expect(next.report).toBeUndefined()
+    expect(next.failure).toBeUndefined()
   })
 
   it('does not mutate the previous session', () => {
