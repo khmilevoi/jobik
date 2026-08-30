@@ -16,6 +16,11 @@ import { StudioApp } from './StudioApp.js'
  *
  * A flow-local `flow.ui.tsx` bundle leaves the server with these specifiers unresolved; the
  * extension loader rewrites them to shims over these live namespaces.
+ *
+ * `@jobik/core` is deliberately absent from this map. It imports `node:fs` (`document/read.ts`),
+ * so it is not browser-safe and cannot be bundled here. An extension that imports a runtime value
+ * from it gets `extensionLoader.ts`'s own `FlowUiLoadError` and the generic output fallback — the
+ * honest outcome, not a gap to paper over.
  */
 const externals = {
   '@jobik/ui': jobikUi as unknown as Record<string, unknown>,

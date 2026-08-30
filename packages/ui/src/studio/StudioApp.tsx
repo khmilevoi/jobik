@@ -5,7 +5,7 @@ import type { JobikClient } from '../client/index.js'
 import { createJobikClient } from '../client/index.js'
 import { OutputViewer, resolveOutputComponent } from '../output/index.js'
 import type { RunOutputField, RunPanelState } from '../run/index.js'
-import { RunPanelCard } from '../run/index.js'
+import { RunPanel } from '../run/index.js'
 import { surfaces } from '../tokens.js'
 import { toOutputFields } from './assets.js'
 import type { ExternalModules } from './extensionLoader.js'
@@ -35,9 +35,11 @@ import { useStudioSession } from './useStudioSession.js'
 /**
  * The Studio, driven by a live server.
  *
- * `<Studio />` (P4) is the frame, `<FlowCanvas />` (P7) the canvas, `<RunPanelCard />` (P11) the
- * dock and `<OutputViewer />` (P12) the viewer. Every one of them is presentational and untouched;
- * this component's whole job is turning `useStudioSession`'s state into their props.
+ * `<Studio />` (P4) is the frame, `<FlowCanvas />` (P7) the canvas, `<OutputViewer />` (P12) the
+ * viewer, and `<RunPanel />` (P11) the dock's body — `RunDock` already draws the dock's one header
+ * (`RunStateHeader.tsx`'s own doc comment says so), so this passes `RunPanel`, never the standalone
+ * `RunPanelCard`, as `Studio`'s `runPanel`. Every one of them is presentational and untouched; this
+ * component's whole job is turning `useStudioSession`'s state into their props.
  *
  * **`nodes` and `edges` are memoised.** `FlowCanvas` syncs its internal state from prop ARRAY
  * IDENTITY, so rebuilding either array on every render silently resets an in-flight drag and
@@ -72,6 +74,7 @@ export function StudioApp(props: StudioAppProps) {
   })
 
   const [viewerNodeId, setViewerNodeId] = useState<string | undefined>(undefined)
+  const closeViewer = useCallback(() => setViewerNodeId(undefined), [])
 
   const { descriptor, draft, session, running, extension, assetUrl } = studio
   const document = draft?.document
@@ -87,6 +90,17 @@ export function StudioApp(props: StudioAppProps) {
   const runInputValues = useCallback(
     () => Object.fromEntries(Object.entries(studio.inputDraft).filter(([, value]) => value !== '')),
     [studio.inputDraft],
+  )
+
+  // Every run start closes whatever output the viewer still has open. Without this, the viewer
+  // only appears to close because `lastReport` goes briefly `undefined`; if the next report
+  // contains a node with the same id as `viewerNodeId`, it silently reopens with no user action.
+  const startRun = useCallback(
+    (values: Record<string, unknown>) => {
+      closeViewer()
+      studio.run(values)
+    },
+    [studio.run, closeViewer],
   )
 
   const overlays = useMemo<ReadonlyMap<string, NodeOverlay> | undefined>(() => {
@@ -204,7 +218,7 @@ export function StudioApp(props: StudioAppProps) {
               .join('\n'),
           )
         },
-        onRerun: () => studio.run(runInputValues()),
+        onRerun: () => startRun(runInputValues()),
       }
     }
 
@@ -231,10 +245,27 @@ export function StudioApp(props: StudioAppProps) {
       draft: studio.inputDraft,
       presentation: runInputPresentation(startNode.input, studio.inputDraft),
       onDraftChange: studio.setInputField,
-      onRun: studio.run,
+      onRun: startRun,
       ...(studio.lastReport === undefined ? {} : { lastRun: toRunSummary(studio.lastReport) }),
     }
-  }, [descriptor, startNode, running, session, studio, outputs, runInputValues])
+    // Depend on the specific `studio` fields this memo actually reads, not on `studio` itself —
+    // `useStudioSession` returns a fresh object every render, so depending on it defeats the memo
+    // on every 100ms elapsed-time tick while a run is in flight.
+  }, [
+    descriptor,
+    startNode,
+    running,
+    session,
+    studio.startId,
+    studio.elapsedMs,
+    studio.cancel,
+    studio.lastReport,
+    studio.inputDraft,
+    studio.setInputField,
+    startRun,
+    outputs,
+    runInputValues,
+  ])
 
   // `### Run panel`: P11 renders `⌘↵` and `esc` and binds neither.
   useEffect(() => {
@@ -243,7 +274,7 @@ export function StudioApp(props: StudioAppProps) {
       if (meta && event.key === 'Enter') {
         event.preventDefault()
         if (!running && startNode !== undefined) {
-          studio.run(runInputValues())
+          startRun(runInputValues())
         }
         return
       }
@@ -252,12 +283,31 @@ export function StudioApp(props: StudioAppProps) {
         studio.save()
         return
       }
-      if (event.key === 'Escape' && running) studio.cancel()
+      if (event.key === 'Escape') {
+        // R33: the `Output viewer` artboard (design lines 484–491) draws `Copy all` / `Download`
+        // and no close control of its own. `Escape` is the least-invented way to keep it
+        // closable without inventing a button the design does not have; it takes priority over
+        // cancelling a run, since the viewer only ever opens once a run has already settled.
+        if (viewerNodeId !== undefined) {
+          closeViewer()
+          return
+        }
+        if (running) studio.cancel()
+      }
     }
 
     globalThis.addEventListener('keydown', onKeyDown)
     return () => globalThis.removeEventListener('keydown', onKeyDown)
-  }, [running, startNode, studio, runInputValues])
+  }, [
+    running,
+    startNode,
+    startRun,
+    studio.save,
+    studio.cancel,
+    runInputValues,
+    viewerNodeId,
+    closeViewer,
+  ])
 
   const openViewerNode = useMemo(
     () => studio.lastReport?.nodes.find((node) => node.nodeId === viewerNodeId),
@@ -266,7 +316,6 @@ export function StudioApp(props: StudioAppProps) {
 
   const onNodeLayoutChange = studio.moveNode
   const onConnectFields = studio.connect
-  const closeViewer = useCallback(() => setViewerNodeId(undefined), [])
 
   const viewerLogs = useMemo(
     () =>
@@ -275,6 +324,32 @@ export function StudioApp(props: StudioAppProps) {
         : toRunLog(session).lines.map((line) => ({ time: line.time, message: line.text })),
     [session],
   )
+
+  // R33: `Copy all` and `Download` were both wired to `closeViewer` — neither did what it said,
+  // and closing the viewer required pressing a button labelled "Copy all". Both now act on the
+  // same payload the `Raw` tab already renders (`raw={studio.lastReport}` below).
+  const onCopyAllOutput = useCallback(() => {
+    if (studio.lastReport === undefined) return
+    void globalThis.navigator?.clipboard?.writeText(JSON.stringify(studio.lastReport, null, 2))
+  }, [studio.lastReport])
+
+  const onDownloadOutput = useCallback(() => {
+    if (studio.lastReport === undefined || openViewerNode === undefined) return
+    try {
+      const blob = new Blob([JSON.stringify(studio.lastReport, null, 2)], {
+        type: 'application/json',
+      })
+      const url = globalThis.URL.createObjectURL(blob)
+      const link = globalThis.document.createElement('a')
+      link.href = url
+      link.download = `${openViewerNode.nodeId}-run-${studio.lastReport.runNumber}.json`
+      link.click()
+      globalThis.URL.revokeObjectURL(url)
+    } catch {
+      // No Blob/URL.createObjectURL support in this environment. `Copy all` is the fallback;
+      // there is nothing more useful to do client-side.
+    }
+  }, [studio.lastReport, openViewerNode])
 
   const canvas = (
     <div style={{ flex: 1, minWidth: 0, position: 'relative', display: 'flex' }}>
@@ -308,8 +383,8 @@ export function StudioApp(props: StudioAppProps) {
             assetUrl={assetUrl}
             raw={studio.lastReport}
             logs={viewerLogs}
-            onCopyAll={closeViewer}
-            onDownload={closeViewer}
+            onCopyAll={onCopyAllOutput}
+            onDownload={onDownloadOutput}
             style={{ width: '100%', height: '100%' }}
           />
         </div>
@@ -334,26 +409,40 @@ export function StudioApp(props: StudioAppProps) {
   // half-loaded top bar and sidebar rather than the two becoming true together.
   const loaded = descriptor !== undefined
 
+  // These three were being rebuilt inline in JSX on every render, including every 100ms
+  // elapsed-time tick while a run is in flight — `descriptor` and `studio.flows` are the only
+  // inputs that actually change their output.
+  const flowSummaries = useMemo(
+    () => (loaded ? toFlowSummaries(studio.flows) : []),
+    [loaded, studio.flows],
+  )
+  const flowNodeSummaries = useMemo(
+    () => (descriptor === undefined ? [] : toFlowNodeSummaries(descriptor)),
+    [descriptor],
+  )
+  const inventory = useMemo(
+    () => (descriptor === undefined ? [] : toInventory(descriptor)),
+    [descriptor],
+  )
+
   return (
     <Studio
       {...(props.accent === undefined ? {} : { accent: props.accent })}
-      flows={loaded ? toFlowSummaries(studio.flows) : []}
+      flows={flowSummaries}
       {...(loaded && studio.flowId !== undefined ? { activeFlowId: studio.flowId } : {})}
       {...(descriptor === undefined ? {} : { flowFile: descriptor.documentFile })}
       dirty={draft?.dirty ?? false}
-      nodes={descriptor === undefined ? [] : toFlowNodeSummaries(descriptor)}
+      nodes={flowNodeSummaries}
       {...(studio.selectedNodeId === undefined ? {} : { selectedNodeId: studio.selectedNodeId })}
-      inventory={descriptor === undefined ? [] : toInventory(descriptor)}
+      inventory={inventory}
       {...(studio.startId === undefined ? {} : { entryNodeId: studio.startId })}
       running={running}
       {...(runningChip === undefined ? {} : { runningChip })}
       canvas={canvas}
-      {...(runPanelState === undefined || studio.startId === undefined
-        ? {}
-        : { runPanel: <RunPanelCard state={runPanelState} entryNodeId={studio.startId} /> })}
+      {...(runPanelState === undefined ? {} : { runPanel: <RunPanel state={runPanelState} /> })}
       onValidate={studio.validate}
       onSave={studio.save}
-      onRun={() => studio.run(runInputValues())}
+      onRun={() => startRun(runInputValues())}
     />
   )
 }

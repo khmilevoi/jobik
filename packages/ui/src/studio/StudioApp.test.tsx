@@ -1,9 +1,9 @@
 import type { FlowDocument } from '@jobik/core'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { JobikClient, RunStreamEvent, WireRunReportPayload } from '../client/index.js'
-import { JobikServerError } from '../client/index.js'
+import { JobikServerError, JobikTransportError } from '../client/index.js'
 import { StudioApp } from './StudioApp.js'
 
 afterEach(cleanup)
@@ -144,11 +144,14 @@ describe('the loaded Studio', () => {
     expect(screen.getByTestId('studio-inventory-row-imageOut')).toBeInTheDocument()
   })
 
-  it('draws both node cards on the canvas', async () => {
-    mount(stubClient())
+  it('draws both node cards and the one connecting edge on the canvas', async () => {
+    const { container } = mount(stubClient())
 
     await waitFor(() => expect(screen.getByTestId('node-card-start1')).toBeInTheDocument())
     expect(screen.getByTestId('node-card-render')).toBeInTheDocument()
+    // `ResizeObserver` is mocked and fires on a macrotask (vitest.setup.ts); React Flow does not
+    // draw an edge until both its endpoints have been measured.
+    await waitFor(() => expect(container.querySelectorAll('.react-flow__edge')).toHaveLength(1))
   })
 
   it('shows no unsaved-changes dot on a freshly loaded flow', async () => {
@@ -167,7 +170,7 @@ describe('the loaded Studio', () => {
 })
 
 describe('running from the panel', () => {
-  it('streams to a completed panel showing the run number and the outputs', async () => {
+  it('streams to a completed panel showing the outputs, docked with no nested card', async () => {
     mount(
       stubClient({
         startRun: async () =>
@@ -190,8 +193,12 @@ describe('running from the panel', () => {
     await userEvent.click(screen.getByTestId('run-start-button'))
 
     await waitFor(() => expect(screen.getByTestId('run-outputs-label')).toBeInTheDocument())
-    expect(screen.getByTestId('run-panel-card').textContent).toContain('219')
     expect(screen.getByTestId('run-output-name-image')).toBeInTheDocument()
+    // R30: `RunDock` already draws the dock's one header; `Studio`'s `runPanel` must be `RunPanel`
+    // (no header, no card frame), never the standalone `RunPanelCard` — which would stack a second
+    // header and a fixed-size card inside the dock.
+    expect(screen.queryByTestId('run-panel-card')).toBeNull()
+    expect(screen.queryByTestId('run-state-header')).toBeNull()
   })
 
   it('shows the running chip and locks Validate and Save while in flight', async () => {
@@ -287,7 +294,7 @@ describe('running from the panel', () => {
         startRun: async () =>
           streamOf([
             { type: 'run-accepted', runToken: 'tok' },
-            { type: 'run-settled', report: failed as never },
+            { type: 'run-settled', report: failed },
           ]),
       }),
     )
@@ -301,6 +308,60 @@ describe('running from the panel', () => {
     expect(screen.getByTestId('run-error-node').textContent).toContain('render')
     expect(screen.getByTestId('run-error-message').textContent).toContain(
       'Unsupported colour profile',
+    )
+  })
+})
+
+// R32: `runPanelState` reads `session.failure` — the surface every run failure now arrives on,
+// including these two, which never produce a `report` at all. Both must fail against a
+// `runPanelState` that ignores `session.failure` and only reaches the failed panel through a
+// `run-settled` report.
+describe('a run failure that never produces a report', () => {
+  it('renders the failed panel from a rejected start, with an empty node id', async () => {
+    mount(
+      stubClient({
+        startRun: async () => new JobikTransportError({ url: '/api/flows/publication/run' }),
+      }),
+    )
+
+    await waitFor(() => expect(screen.getByTestId('run-input-title')).toBeInTheDocument())
+    await userEvent.type(screen.getByTestId('run-input-title'), 'A post')
+    await userEvent.click(screen.getByTestId('run-start-button'))
+
+    await waitFor(() => expect(screen.getByTestId('run-error-name')).toBeInTheDocument())
+    expect(screen.getByTestId('run-error-name').textContent).toBe('JobikTransportError')
+    expect(screen.getByTestId('run-error-node').textContent).toBe('')
+    expect(screen.getByTestId('run-error-message').textContent).toContain(
+      'The Jobik server could not be reached',
+    )
+  })
+
+  it('renders the failed panel when the stream drops with no terminal event', async () => {
+    mount(
+      stubClient({
+        startRun: async () =>
+          streamOf([
+            { type: 'run-accepted', runToken: 'tok' },
+            {
+              type: 'run-started',
+              runNumber: 219,
+              flowName: 'publication',
+              startId: 'start1',
+              nodeCount: 2,
+            },
+          ]),
+      }),
+    )
+
+    await waitFor(() => expect(screen.getByTestId('run-input-title')).toBeInTheDocument())
+    await userEvent.type(screen.getByTestId('run-input-title'), 'A post')
+    await userEvent.click(screen.getByTestId('run-start-button'))
+
+    await waitFor(() => expect(screen.getByTestId('run-error-name')).toBeInTheDocument())
+    expect(screen.getByTestId('run-error-name').textContent).toBe('Error')
+    expect(screen.getByTestId('run-error-node').textContent).toBe('')
+    expect(screen.getByTestId('run-error-message').textContent).toContain(
+      'connection to the server closed',
     )
   })
 })
@@ -334,15 +395,101 @@ describe('saving', () => {
 
 describe('the collapsed layout', () => {
   it('docks the flows control and the run control into the top bar, wired to the real actions', async () => {
-    mount(stubClient())
+    let release = () => {}
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    mount(
+      stubClient({
+        startRun: async () =>
+          (async function* () {
+            yield { type: 'run-accepted', runToken: 'tok' } as RunStreamEvent
+            await gate
+            yield { type: 'run-settled', report: REPORT } as RunStreamEvent
+          })(),
+      }),
+    )
     await waitFor(() => expect(screen.getByTestId('studio-sidebar')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByTestId('run-input-title')).toBeInTheDocument())
+    await userEvent.type(screen.getByTestId('run-input-title'), 'A post')
 
     await userEvent.click(screen.getByLabelText('Collapse flows and nodes'))
     await userEvent.click(screen.getByLabelText('Collapse run panel'))
 
     expect(screen.queryByTestId('studio-sidebar')).toBeNull()
     expect(screen.queryByTestId('studio-dock')).toBeNull()
-    expect(screen.getByTestId('studio-docked-run').textContent).toContain('start1')
+    const dockedRun = screen.getByTestId('studio-docked-run')
+    expect(dockedRun.textContent).toContain('start1')
     expect(screen.getByTestId('node-card-start1')).toBeInTheDocument()
+
+    // Asserting the docked control's own text would pass even with `onRun` unwired. Click its
+    // `Run` button and confirm a real run actually starts.
+    await userEvent.click(within(dockedRun).getByRole('button', { name: 'Run' }))
+    await waitFor(() => expect(screen.getByTestId('studio-running-chip')).toBeInTheDocument())
+
+    release()
+    await waitFor(() => expect(screen.queryByTestId('studio-running-chip')).toBeNull())
+  })
+})
+
+// R33: `onCopyAll` and `onDownload` were both wired to `closeViewer` — neither did what its label
+// said, and closing the viewer required pressing the button labelled "Copy all". The `Output
+// viewer` artboard (design lines 484–491) draws `Preview | Raw | Logs`, the source field, and
+// `Copy all` / `Download` — no close control of its own, so `Escape` is what this plan adds.
+describe('the output viewer', () => {
+  async function openViewer() {
+    mount(
+      stubClient({
+        startRun: async () =>
+          streamOf([
+            { type: 'run-accepted', runToken: 'tok' },
+            {
+              type: 'run-started',
+              runNumber: 219,
+              flowName: 'publication',
+              startId: 'start1',
+              nodeCount: 2,
+            },
+            { type: 'run-settled', report: REPORT },
+          ]),
+      }),
+    )
+
+    await waitFor(() => expect(screen.getByTestId('run-input-title')).toBeInTheDocument())
+    await userEvent.type(screen.getByTestId('run-input-title'), 'A post')
+    await userEvent.click(screen.getByTestId('run-start-button'))
+
+    await waitFor(() => expect(screen.getByTestId('run-output-open-image')).toBeInTheDocument())
+    await userEvent.click(screen.getByTestId('run-output-open-image'))
+    await waitFor(() => expect(screen.getByTestId('output-viewer')).toBeInTheDocument())
+  }
+
+  it('wires Copy all to the clipboard, not to closing', async () => {
+    const writeText = vi.fn(async (_text: string) => {})
+    Object.defineProperty(globalThis.navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true,
+    })
+
+    await openViewer()
+    await userEvent.click(screen.getByText('Copy all'))
+
+    expect(writeText).toHaveBeenCalledTimes(1)
+    expect(writeText.mock.calls[0]?.[0]).toContain('"runNumber": 219')
+    expect(screen.getByTestId('output-viewer')).toBeInTheDocument()
+  })
+
+  it('wires Download to a real download, not to closing', async () => {
+    await openViewer()
+    await userEvent.click(screen.getByText('Download'))
+
+    expect(screen.getByTestId('output-viewer')).toBeInTheDocument()
+  })
+
+  it('closes on Escape, the artboard drawing no close control of its own', async () => {
+    await openViewer()
+    await userEvent.keyboard('{Escape}')
+
+    expect(screen.queryByTestId('output-viewer')).toBeNull()
   })
 })
