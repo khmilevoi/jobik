@@ -1,5 +1,5 @@
 import { cleanup, render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { userEvent } from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Button } from './Button.js'
 
@@ -109,7 +109,6 @@ describe('Button', () => {
         Validate
       </Button>,
     )
-    // @ts-expect-error userEvent.click exists as direct API in v14+
     await userEvent.click(screen.getByRole('button'))
     expect(onClick).toHaveBeenCalledTimes(1)
 
@@ -118,7 +117,6 @@ describe('Button', () => {
         Validate
       </Button>,
     )
-    // @ts-expect-error userEvent.click exists as direct API in v14+
     await userEvent.click(screen.getByRole('button'))
     expect(onClick).toHaveBeenCalledTimes(1)
   })
