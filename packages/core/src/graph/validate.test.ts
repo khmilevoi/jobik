@@ -335,4 +335,18 @@ describe('validateFlowGraph() — literals', () => {
     const error = errorOrThrow(validateFlowGraph({ flow: pairFlow, document }), ConnectionError)
     expect(error.cycle).toEqual(['a', 'b', 'a'])
   })
+
+  it('reports the cycle even when a required literal is also missing', () => {
+    const document = flowDocument({
+      connections: [
+        { from: { node: 'render', field: 'caption' }, to: { node: 'render', field: 'markdown' } },
+      ],
+    })
+    const error = errorOrThrow(
+      validateFlowGraph({ flow: publicationFlow, document }),
+      ConnectionError,
+    )
+    expect(error.reason).toBe('the graph contains a cycle: render -> render')
+    expect(error.cycle).toEqual(['render', 'render'])
+  })
 })
