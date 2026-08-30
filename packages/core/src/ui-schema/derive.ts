@@ -6,6 +6,8 @@ import type {
   JsonSchemaFragment,
   JsonValue,
   NodeInputDescriptor,
+  NodeOutputDescriptor,
+  OutputFieldDescriptor,
 } from './descriptor.js'
 import {
   assetMimeOf,
@@ -214,4 +216,47 @@ export function deriveInputControls(args: {
 
   if (document.$defs !== undefined) descriptor.$defs = document.$defs
   return descriptor
+}
+
+function outputFieldOf(
+  field: string,
+  fragment: JsonSchemaFragment,
+  required: boolean,
+): OutputFieldDescriptor {
+  const descriptor: {
+    field: string
+    required: boolean
+    annotation: string
+    title?: string
+    description?: string
+    asset?: { readonly mime: string }
+  } = { field, required, annotation: annotationOf(fragment) }
+
+  const title = fragment.title
+  if (typeof title === 'string') descriptor.title = title
+  const description = fragment.description
+  if (typeof description === 'string') descriptor.description = description
+  const mime = assetMimeOf(fragment)
+  if (mime !== undefined) descriptor.asset = { mime }
+  return descriptor
+}
+
+/**
+ * The type annotation for each top-level field of a node's output schema — `string`, `Buffer` — plus
+ * the marker the run panel and the output viewer use to render a thumbnail instead of a JSON well.
+ * A start has no output schema: its validated input becomes its output fields, so a caller passes the
+ * start's input schema here.
+ */
+export function deriveOutputFields(args: {
+  nodeId: string
+  output: z.ZodObject
+}): NodeOutputDescriptor | JobUiSchemaError {
+  const document = convert({ nodeId: args.nodeId, schema: args.output, io: 'output' })
+  if (document instanceof JobUiSchemaError) return document
+
+  const required = new Set(document.required ?? [])
+  const fields = Object.entries(document.properties ?? {}).map(([field, fragment]) =>
+    outputFieldOf(field, fragment, required.has(field)),
+  )
+  return { nodeId: args.nodeId, fields }
 }
