@@ -15,26 +15,34 @@ function responseOf(chunks: readonly string[]): Response {
   })
 }
 
+/**
+ * `cancelCalled` resolves from *inside* the stream's own `cancel()` callback, not at helper
+ * construction time — the only way to actually observe whether `readNdjsonStream` cancelled the
+ * underlying reader on early abandonment rather than merely releasing its lock.
+ */
 function responseOfWithCancel(chunks: readonly string[]): {
   response: Response
   cancelCalled: Promise<boolean>
 } {
   const encoder = new TextEncoder()
-  let cancelCalled = false
+  let resolveCancelCalled!: (value: boolean) => void
+  const cancelCalled = new Promise<boolean>((resolve) => {
+    resolveCancelCalled = resolve
+  })
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
       for (const chunk of chunks) controller.enqueue(encoder.encode(chunk))
       controller.close()
     },
     cancel() {
-      cancelCalled = true
+      resolveCancelCalled(true)
     },
   })
   return {
     response: new Response(stream, {
       headers: { 'content-type': 'application/x-ndjson; charset=utf-8' },
     }),
-    cancelCalled: Promise.resolve(cancelCalled),
+    cancelCalled,
   }
 }
 
@@ -71,50 +79,34 @@ describe('readNdjsonStream', () => {
     expect(events).toHaveLength(1)
   })
 
-  it('reassembles a multi-byte UTF-8 character split across chunks with streaming decoder', async () => {
-    // Cyrillic character "т" (U+0442) has UTF-8 encoding: 0xD1 0x82 (2 bytes)
-    // We'll encode a line with this character and split the byte stream mid-character
-    // This test verifies that TextDecoder with { stream: true } is essential.
+  it('reassembles a multi-byte UTF-8 character split across chunks', async () => {
+    // "т" (U+0442) encodes to the two UTF-8 bytes 0xD1 0x82. The 35-byte ASCII prefix before it
+    // is fixed, so byte 36 always falls between those two bytes — a hard-coded offset, not a
+    // runtime search, so this test cannot silently skip its own assertions.
     const line = '{"type":"run-accepted","runToken":"тест"}\n'
-    const encoder = new TextEncoder()
-    const bytes = encoder.encode(line)
+    const bytes = new TextEncoder().encode(line)
+    const splitIndex = 36
 
-    // Find a multi-byte character in the encoded bytes and split in the middle
-    let splitIndex = -1
-    for (let i = 0; i < bytes.length - 1; i++) {
-      const byte = bytes[i]
-      const nextByte = bytes[i + 1]
-      // UTF-8 multibyte sequences start with bytes >= 0xc0 and continue with 0x80-0xbf
-      if (byte && nextByte && (byte & 0xc0) === 0xc0 && (nextByte & 0xc0) === 0x80) {
-        splitIndex = i + 1 // Split in the middle of the multibyte sequence
-        break
-      }
-    }
+    // Self-check the fixture: byte 35 is a two-byte UTF-8 lead byte, byte 36 its continuation.
+    const leadByte = bytes[splitIndex - 1]
+    const continuationByte = bytes[splitIndex]
+    expect(leadByte !== undefined && (leadByte & 0xe0) === 0xc0).toBe(true)
+    expect(continuationByte !== undefined && (continuationByte & 0xc0) === 0x80).toBe(true)
 
-    if (splitIndex > 0) {
-      const chunk1 = bytes.slice(0, splitIndex)
-      const chunk2 = bytes.slice(splitIndex)
+    const response = new Response(
+      new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(bytes.slice(0, splitIndex))
+          controller.enqueue(bytes.slice(splitIndex))
+          controller.close()
+        },
+      }),
+      { headers: { 'content-type': 'application/x-ndjson; charset=utf-8' } },
+    )
 
-      // responseOf expects string chunks, but we need to send bytes
-      // Create response manually to properly test byte-split encoding
-      const response = new Response(
-        new ReadableStream<Uint8Array>({
-          start(controller) {
-            controller.enqueue(chunk1)
-            controller.enqueue(chunk2)
-            controller.close()
-          },
-        }),
-        { headers: { 'content-type': 'application/x-ndjson; charset=utf-8' } },
-      )
+    const events = await collect(response)
 
-      const events = await collect(response)
-
-      expect(events).toHaveLength(1)
-      expect(events[0]?.type).toBe('run-accepted')
-      const event = events[0] as { type: string; runToken?: string }
-      expect(event.runToken).toBe('тест')
-    }
+    expect(events).toEqual([{ type: 'run-accepted', runToken: 'тест' }])
   })
 
   it('throws NdjsonParseError on a truncated final line', async () => {
@@ -149,19 +141,20 @@ describe('readNdjsonStream', () => {
   })
 
   it('cancels the reader on early abandonment', async () => {
-    const { response } = responseOfWithCancel([
+    const { response, cancelCalled } = responseOfWithCancel([
       '{"type":"run-accepted","runToken":"tok"}\n',
       '{"type":"node-log","line":{"nodeId":"x","message":"y","at":0}}\n',
     ])
 
     const iterator = readNdjsonStream(response)
-    await iterator.next() // Read the first event
+    await iterator.next() // consume the first event; the stream stays open
 
-    // Early return from the generator (abandonment)
+    // Abandon the generator early. `.return()` drives execution through the generator's
+    // `finally` block before its own promise resolves, so by the time this settles, the
+    // production code has already had its chance to cancel the reader.
     await iterator.return?.(undefined)
 
-    // Give a microtask for the finally block to execute
-    await new Promise((resolve) => setTimeout(resolve, 0))
+    await expect(cancelCalled).resolves.toBe(true)
   })
 
   it('distinguishes error messages for different failure modes', async () => {

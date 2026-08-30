@@ -11,52 +11,49 @@ import type { RunStreamEvent } from './wire.js'
  * catches it and turns it back into a value; nothing else calls this directly.
  */
 
-class NdjsonParseErrorBase extends errore.createTaggedError({
+/**
+ * `message` is omitted from the template on purpose: `errore.createTaggedError` lets the caller
+ * supply the message at construction time when the template is absent, which is exactly this
+ * class's shape — one tag, four distinct failure modes, each with its own message built from the
+ * line or type that triggered it. The base class still owns `this.message`, `messageTemplate` and
+ * `fingerprint`; nothing here reassigns `this.message` after `super()`.
+ */
+export class NdjsonParseError extends errore.createTaggedError({
   name: 'NdjsonParseError',
-  message: 'The run stream ended in a line that is not a complete JSON object: $line',
-}) {}
+}) {
+  /** The offending line, when the failure is line-scoped. `null` for a missing response body. */
+  readonly line: string | null
 
-export class NdjsonParseError extends NdjsonParseErrorBase {
-  constructor(fields: Record<string, unknown> = {}) {
-    // Provide a default line value if not present, to satisfy the base constructor
-    const line =
-      typeof fields.line === 'string' || typeof fields.line === 'number' ? fields.line : ''
-    const fieldsWithDefault = {
-      ...fields,
-      line,
-    }
-    super(fieldsWithDefault)
-    // Override the message based on the specific error type
-    if ('customMessage' in fields && typeof fields.customMessage === 'string') {
-      this.message = fields.customMessage
-    } else if ('message' in fields && typeof fields.message === 'string') {
-      // Interpolate template in the provided message
-      let msg = fields.message as string
-      for (const [key, value] of Object.entries(fields)) {
-        if (key !== 'message' && key !== 'customMessage' && key !== 'cause') {
-          msg = msg.replace(new RegExp(`\\$${key}`, 'g'), String(value))
-        }
-      }
-      this.message = msg
-    }
+  constructor(args: { message: string; line?: string; cause?: unknown }) {
+    super(args)
+    this.line = args.line ?? null
   }
 }
 
-const VALID_TYPES = [
-  'run-accepted',
-  'run-started',
-  'node-status',
-  'node-log',
-  'run-settled',
-  'run-failed',
-] as const
+/**
+ * Every literal `RunStreamEvent['type']` can take, keyed so `satisfies` enforces both directions
+ * against the union: a key missing here fails to satisfy `Record<RunStreamEvent['type'], true>`,
+ * and a key present here but absent from the union fails as an excess property. Add a case to
+ * `RunStreamEvent` and this object must grow with it, or `typecheck` fails — no silent drift.
+ */
+const RUN_STREAM_EVENT_TYPES = {
+  'run-accepted': true,
+  'run-started': true,
+  'node-status': true,
+  'node-log': true,
+  'run-settled': true,
+  'run-failed': true,
+} as const satisfies Record<RunStreamEvent['type'], true>
+
+function isRunStreamEventType(type: unknown): type is RunStreamEvent['type'] {
+  return typeof type === 'string' && type in RUN_STREAM_EVENT_TYPES
+}
 
 export async function* readNdjsonStream(
   response: Response,
 ): AsyncGenerator<RunStreamEvent, void, undefined> {
   const body = response.body
-  if (body === null)
-    throw new NdjsonParseError({ customMessage: 'The response stream has no body' })
+  if (body === null) throw new NdjsonParseError({ message: 'The response stream has no body' })
 
   const decoder = new TextDecoder()
   const reader = body.getReader()
@@ -68,27 +65,20 @@ export async function* readNdjsonStream(
       parsed = JSON.parse(line)
     } catch (cause) {
       throw new NdjsonParseError({
+        message: `The run stream contained a line that is not valid JSON: ${line}`,
         line,
         cause,
-        message: 'The run stream contained a line that is not valid JSON: $line',
       })
     }
 
-    // Validate the type discriminant
-    if (!parsed || typeof parsed !== 'object') {
+    const type =
+      typeof parsed === 'object' && parsed !== null
+        ? (parsed as { type?: unknown }).type
+        : undefined
+    if (!isRunStreamEventType(type)) {
       throw new NdjsonParseError({
+        message: `The run stream contained an event with an unknown type: ${String(type)}`,
         line,
-        type: 'not an object',
-        message: 'The run stream contained an event with an unknown type: $type',
-      })
-    }
-
-    const type = (parsed as Record<string, unknown>).type
-    if (!VALID_TYPES.includes(type as never)) {
-      throw new NdjsonParseError({
-        line,
-        type: String(type),
-        message: 'The run stream contained an event with an unknown type: $type',
       })
     }
 
@@ -114,14 +104,15 @@ export async function* readNdjsonStream(
     const tail = buffer.trim()
     if (tail.length > 0)
       throw new NdjsonParseError({
+        message: `The run stream ended in a line that is not a complete JSON object: ${tail}`,
         line: tail,
-        message: 'The run stream ended in a line that is not a complete JSON object: $line',
       })
   } finally {
     try {
       await reader.cancel()
     } catch {
-      // Ignore errors from cancel — may already be closed
+      // The stream may already be closed on normal completion — cancel() then throws, which is
+      // expected and not a failure of teardown.
     }
     reader.releaseLock()
   }
