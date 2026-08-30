@@ -133,6 +133,38 @@ describe('collectRunInputValues', () => {
     }
     expect(collectRunInputValues([field], {})).toEqual({ draft: false })
   })
+
+  it('omits an untouched defaulted boolean, so the schema default applies', () => {
+    const field: InputFieldDescriptor = {
+      field: 'draft',
+      required: false,
+      annotation: 'boolean',
+      default: true,
+      control: { kind: 'boolean' },
+    }
+    expect(collectRunInputValues([field], {})).toEqual({})
+  })
+
+  it('omits an untouched optional boolean, so it stays undefined', () => {
+    const field: InputFieldDescriptor = {
+      field: 'flag',
+      required: false,
+      annotation: 'boolean',
+      control: { kind: 'boolean' },
+    }
+    expect(collectRunInputValues([field], {})).toEqual({})
+  })
+
+  it('collects an explicit false over a defaulted boolean, letting the user override it', () => {
+    const field: InputFieldDescriptor = {
+      field: 'draft',
+      required: false,
+      annotation: 'boolean',
+      default: true,
+      control: { kind: 'boolean' },
+    }
+    expect(collectRunInputValues([field], { draft: false })).toEqual({ draft: false })
+  })
 })
 
 describe('validateRunInputs', () => {
@@ -241,6 +273,54 @@ describe('validateRunInputs', () => {
       },
     ]
     const result = validateRunInputs({ input: booleanInput, fields: booleanFields, draft: {} })
+    expect(result).toEqual({ draft: false })
+  })
+
+  it('returns the schema default for an untouched defaulted boolean, rather than false', () => {
+    const booleanInput = z.object({ draft: z.boolean().default(true) })
+    const booleanFields: readonly InputFieldDescriptor[] = [
+      {
+        field: 'draft',
+        required: false,
+        annotation: 'boolean',
+        default: true,
+        control: { kind: 'boolean' },
+      },
+    ]
+    const result = validateRunInputs({ input: booleanInput, fields: booleanFields, draft: {} })
+    expect(result).toEqual({ draft: true })
+  })
+
+  it('returns an empty object for an untouched optional boolean', () => {
+    const booleanInput = z.object({ flag: z.boolean().optional() })
+    const booleanFields: readonly InputFieldDescriptor[] = [
+      {
+        field: 'flag',
+        required: false,
+        annotation: 'boolean',
+        control: { kind: 'boolean' },
+      },
+    ]
+    const result = validateRunInputs({ input: booleanInput, fields: booleanFields, draft: {} })
+    expect(result).toEqual({})
+  })
+
+  it('lets an explicit false win over a defaulted boolean', () => {
+    const booleanInput = z.object({ draft: z.boolean().default(true) })
+    const booleanFields: readonly InputFieldDescriptor[] = [
+      {
+        field: 'draft',
+        required: false,
+        annotation: 'boolean',
+        default: true,
+        control: { kind: 'boolean' },
+      },
+    ]
+    const result = validateRunInputs({
+      input: booleanInput,
+      fields: booleanFields,
+      draft: { draft: false },
+    })
     expect(result).toEqual({ draft: false })
   })
 })

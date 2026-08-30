@@ -17,10 +17,12 @@ import type { RunInputDraft, RunInputIssue } from './types.js'
  * Turn the control drafts into the value object the schema expects.
  *
  * A `literal` uses its fixed value and ignores the draft. An `asset` is omitted entirely: an
- * unconnected asset input is a graph validation error, not a form control. A `boolean` is always
- * collected, never omitted: an unchecked box is a real `false`, not an absent value, so a required
- * `z.boolean()` must not fail with "required" just because the user never touched the control. A
- * field with no draft entry, and an optional field left empty, are both omitted so the schema's own
+ * unconnected asset input is a graph validation error, not a form control. A `boolean` follows a
+ * three-case rule: if the draft already holds an actual boolean, it is collected as-is — an
+ * explicit `false` wins over a schema `default: true`; otherwise, if the field is REQUIRED, `false`
+ * is collected, because an untouched required checkbox is a real `false`; otherwise the field is
+ * omitted entirely, so the schema's own `.default()` or `.optional()` applies undisturbed. A field
+ * with no draft entry, and an optional field left empty, are both omitted so the schema's own
  * default or `optional` applies; a REQUIRED field left empty is passed through empty, so the schema
  * reports it rather than this function guessing.
  */
@@ -40,7 +42,12 @@ export function collectRunInputValues(
     }
 
     if (control.kind === 'boolean') {
-      values[field.field] = draft[field.field] === true
+      const rawBoolean = draft[field.field]
+      if (typeof rawBoolean === 'boolean') {
+        values[field.field] = rawBoolean
+      } else if (field.required) {
+        values[field.field] = false
+      }
       continue
     }
 
