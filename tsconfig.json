@@ -4,5 +4,5 @@
     "lib": ["ES2023", "ESNext.Disposable", "DOM", "DOM.Iterable"],
     "types": ["node"]
   },
-  "include": ["vitest.config.ts", "vitest.setup.ts"]
+  "include": ["jobik.config.ts", "vitest.config.ts", "vitest.setup.ts"]
 }
