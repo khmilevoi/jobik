@@ -5,5 +5,6 @@
 
 export * from './migrate.js'
 export * from './parse.js'
+export * from './read.js'
 export * from './revision.js'
 export * from './schema.js'
