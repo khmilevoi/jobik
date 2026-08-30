@@ -31,7 +31,7 @@ export async function readFlowDocument(args: {
   if (bytes instanceof Error) return bytes
   const revision = revisionOf(bytes)
   // A hand-edited JSON file on Windows can carry a byte order mark, which JSON.parse rejects.
-  const text = bytes.toString('utf8').replace(/^﻿/, '')
+  const text = bytes.toString('utf8').replace(/^\uFEFF/, '')
   let value: unknown
   try {
     value = JSON.parse(text)

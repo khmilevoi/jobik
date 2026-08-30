@@ -90,12 +90,12 @@ describe('readFlowDocument', () => {
 
   it('tolerates a utf-8 byte order mark and still hashes the raw bytes', async () => {
     const text = '{"format":"jobik.flow","version":1}\n'
-    await fs.writeFile(documentPath, `﻿${text}`, 'utf8')
+    await fs.writeFile(documentPath, `\uFEFF${text}`, 'utf8')
     const result = await readFlowDocument({ path: documentPath })
     expect(result).not.toBeInstanceOf(Error)
     if (result instanceof Error) throw new Error('unreachable')
     expect(result.document.connections).toEqual([])
-    expect(result.revision).toBe(revisionOf(Buffer.from(`﻿${text}`, 'utf8')))
+    expect(result.revision).toBe(revisionOf(Buffer.from(`\uFEFF${text}`, 'utf8')))
     expect(result.revision).not.toBe(revisionOf(text))
   })
 
