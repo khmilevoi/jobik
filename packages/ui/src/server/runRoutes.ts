@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import path from 'node:path'
-import type * as jobik from '@jobik/core'
+import * as jobik from '@jobik/core'
 import {
   type JobikRoute,
   type JobikRouteContext,
@@ -24,6 +24,9 @@ import { untaggedWireErrorBody, WIRE_MESSAGES } from './wireError.js'
  * The transport is newline-delimited JSON over a chunked `POST` response, not Server-Sent Events:
  * a run carries an input body, and `EventSource` cannot send one. One `RunWireEvent` per line, the
  * first always `run-accepted`.
+ *
+ * `GET /api/assets/:assetId` is the other half of the descriptor swap `runWire.ts` performs: the
+ * report carries the descriptor, this serves the bytes P9's store holds under its id.
  */
 
 /**
@@ -171,6 +174,25 @@ export const jobikRunRoutes: readonly JobikRoute[] = [
       }
       // 200 with a JSON body rather than 204: every response on this surface parses as JSON.
       sendJson(context.response, 200, { cancelled: true })
+    },
+  },
+  {
+    method: 'GET',
+    pattern: '/api/assets/:assetId',
+    handle: async (context) => {
+      const entry = jobik.readAsset(context.params.assetId ?? '')
+      if (entry === null) {
+        sendWireError(context.response, 404, untaggedWireErrorBody(WIRE_MESSAGES.notFound))
+        return
+      }
+      context.response.writeHead(200, {
+        'content-type': entry.mime,
+        'content-length': entry.data.byteLength,
+        // A descriptor id is a fresh uuid minted when the bytes were registered, so what it
+        // stands for can never change. The browser may keep a thumbnail rather than refetch it.
+        'cache-control': 'private, max-age=31536000, immutable',
+      })
+      context.response.end(entry.data)
     },
   },
 ]
