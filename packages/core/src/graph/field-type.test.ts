@@ -48,6 +48,15 @@ describe('fieldTypeOf()', () => {
     expect(fieldTypeOf(z.custom<symbol>(() => true))).toBe('unknown')
     expect(fieldTypeOf(z.string().transform((value) => value.length))).toBe('unknown')
   })
+
+  it('reads an input field as what it accepts and an output field as what it produces', () => {
+    expect(fieldTypeOf(z.string().pipe(z.coerce.number()), 'input')).toBe('string')
+    expect(fieldTypeOf(z.string().pipe(z.coerce.number()), 'output')).toBe('number')
+    expect(fieldTypeOf(z.coerce.number(), 'input')).toBe('unknown')
+    expect(fieldTypeOf(z.coerce.number(), 'output')).toBe('number')
+    expect(fieldTypeOf(z.number(), 'input')).toBe('number')
+    expect(fieldTypeOf(z.string(), 'input')).toBe('string')
+  })
 })
 
 describe('areFieldTypesCompatible()', () => {

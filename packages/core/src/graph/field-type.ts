@@ -22,6 +22,12 @@ export type FieldTypeKind =
   | 'asset'
   | 'unknown'
 
+/**
+ * Which side of a connection a field sits on. An output's kind is what it produces; an input's
+ * kind is what it accepts. They differ whenever a schema transforms or coerces.
+ */
+export type FieldIo = 'input' | 'output'
+
 /** Wrappers that change a field's cardinality, not the kind of value it carries. */
 const CARDINALITY_WRAPPERS = new Set([
   'optional',
@@ -39,9 +45,11 @@ const MAX_UNWRAP_DEPTH = 32
 type LooseDef = {
   type: string
   innerType?: z.core.$ZodType
+  in?: z.core.$ZodType
   out?: z.core.$ZodType
   entries?: Record<string, unknown>
   values?: readonly unknown[]
+  coerce?: boolean
 }
 
 function defOf(schema: z.core.$ZodType): LooseDef {
@@ -49,7 +57,7 @@ function defOf(schema: z.core.$ZodType): LooseDef {
 }
 
 /** Peel cardinality wrappers and pipes down to the schema that decides the kind. */
-function unwrap(schema: z.core.$ZodType): z.core.$ZodType {
+function unwrap(schema: z.core.$ZodType, io: FieldIo): z.core.$ZodType {
   let current = schema
   for (let depth = 0; depth < MAX_UNWRAP_DEPTH; depth += 1) {
     const def = defOf(current)
@@ -57,9 +65,12 @@ function unwrap(schema: z.core.$ZodType): z.core.$ZodType {
       current = def.innerType
       continue
     }
-    if (def.type === 'pipe' && def.out !== undefined) {
-      current = def.out
-      continue
+    if (def.type === 'pipe') {
+      const next = io === 'input' ? def.in : def.out
+      if (next !== undefined) {
+        current = next
+        continue
+      }
     }
     return current
   }
@@ -81,12 +92,20 @@ function kindOfValues(values: readonly unknown[]): FieldTypeKind {
   return kinds.size === 1 && only !== undefined ? only : 'unknown'
 }
 
-/** Classify one field schema. Never throws. */
-export function fieldTypeOf(schema: z.core.$ZodType): FieldTypeKind {
+/**
+ * Classify one field schema. Never throws.
+ *
+ * `io` says which end of a connection the field sits on, and it matters: a pipe's input kind is
+ * `def.in` while its output kind is `def.out`, and a coercing primitive accepts far more than its
+ * own kind — `z.coerce.number()` parses the string '42'. On the input side this plan therefore
+ * cannot decide, and the policy is to reject only what can never work.
+ */
+export function fieldTypeOf(schema: z.core.$ZodType, io: FieldIo = 'output'): FieldTypeKind {
   if (assetMetaOf(schema) !== undefined) return 'asset'
-  const inner = unwrap(schema)
+  const inner = unwrap(schema, io)
   if (assetMetaOf(inner) !== undefined) return 'asset'
   const def = defOf(inner)
+  if (io === 'input' && def.coerce === true) return 'unknown'
   switch (def.type) {
     case 'string':
       return 'string'
@@ -126,8 +145,10 @@ export function isRequiredField(schema: z.core.$ZodType): boolean {
   try {
     return !z.safeParse(schema, undefined).success
   } catch {
-    // An async refinement cannot be checked synchronously and `z.safeParse` throws on it. Follow
-    // the plan's policy — reject only what can never work — and treat the field as not required.
+    // `z.safeParse` throws on a schema whose refinement is async, and this clause deliberately
+    // catches every synchronous failure rather than only that one: this function must stay total,
+    // because the whole module contracts never to throw. Following the plan's policy — reject only
+    // what can never work — an undecidable field is treated as not required.
     return false
   }
 }

@@ -86,6 +86,19 @@ export const branchFlow = flow('branch')
   .node('d', join)
   .bind('path', flowPath)
 
+const counter = node({
+  title: 'Counter',
+  input: z.object({ count: z.coerce.number() }),
+  output: z.object({ count: z.number() }),
+  run: ({ count }) => ({ count }),
+})
+
+/** A start whose string output feeds an input that coerces it to a number. */
+export const coercingFlow = flow('coercing')
+  .start('s', start({ title: 'S', input: z.object({ text: z.string() }) }))
+  .node('counter', counter)
+  .bind('path', flowPath)
+
 /** A current-version document with the three mutable sections defaulted to empty. */
 export function flowDocument(
   parts: Partial<Pick<FlowDocument, 'connections' | 'literals' | 'layout'>> = {},

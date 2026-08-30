@@ -54,8 +54,8 @@ export function validateFlowGraph(args: {
       return connectionError(`node '${to.node}' has no input field '${to.field}'`, from, to)
     }
 
-    const fromKind = fieldTypeOf(sourceShape[from.field])
-    const toKind = fieldTypeOf(targetShape[to.field])
+    const fromKind = fieldTypeOf(sourceShape[from.field], 'output')
+    const toKind = fieldTypeOf(targetShape[to.field], 'input')
     if (!areFieldTypesCompatible(fromKind, toKind)) {
       return connectionError(
         `cannot connect ${fromKind} '${from.node}.${from.field}' to ${toKind} '${to.node}.${to.field}'`,
@@ -155,7 +155,11 @@ function outputShapeOf(definition: AnyDefinition): Record<string, z.core.$ZodTyp
   return definition.kind === 'start' ? definition.input.shape : definition.output.shape
 }
 
-/** A slot key that cannot be forged by a node id or field name containing a separator. */
+/**
+ * A slot key for one input field. Safe because both arguments are already proven by the checks
+ * above to be a node id declared in code and a field name declared in a Zod schema, not arbitrary
+ * document strings — the separator alone would not prevent a collision.
+ */
 function fieldKey(nodeId: string, field: string): string {
   return `${nodeId}\u0000${field}`
 }

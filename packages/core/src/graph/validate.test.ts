@@ -3,6 +3,7 @@ import { ConnectionError } from '../errors.js'
 import {
   branchDocument,
   branchFlow,
+  coercingFlow,
   errorOrThrow,
   flowDocument,
   okOrThrow,
@@ -211,7 +212,7 @@ describe('validateFlowGraph() — field types', () => {
     expect(error.reason).toBe("cannot connect asset 'render.image' to string 'publish.caption'")
   })
 
-  it('accepts a required string feeding an optional string, and never guesses beyond kind', () => {
+  it('accepts a chain of compatible string fields, and never guesses beyond kind', () => {
     const document = flowDocument({
       connections: [
         { from: { node: 'start1', field: 'markdown' }, to: { node: 'render', field: 'markdown' } },
@@ -220,6 +221,15 @@ describe('validateFlowGraph() — field types', () => {
       literals: { publish: { channel: 'blog' } },
     })
     expect(validateFlowGraph({ flow: publicationFlow, document })).not.toBeInstanceOf(Error)
+  })
+
+  it('accepts a string feeding an input that coerces it to a number', () => {
+    const document = flowDocument({
+      connections: [
+        { from: { node: 's', field: 'text' }, to: { node: 'counter', field: 'count' } },
+      ],
+    })
+    expect(validateFlowGraph({ flow: coercingFlow, document })).not.toBeInstanceOf(Error)
   })
 })
 
@@ -242,6 +252,20 @@ describe('validateFlowGraph() — one connection per input field', () => {
   it('allows one output field to feed several different input fields', () => {
     const result = validateFlowGraph({ flow: branchFlow, document: branchDocument() })
     expect(result).not.toBeInstanceOf(Error)
+  })
+
+  it('reports the type problem first when a second connection is also incompatible', () => {
+    const document = flowDocument({
+      connections: [
+        { from: { node: 'start1', field: 'markdown' }, to: { node: 'render', field: 'width' } },
+        { from: { node: 'start1', field: 'title' }, to: { node: 'render', field: 'width' } },
+      ],
+    })
+    const error = errorOrThrow(
+      validateFlowGraph({ flow: publicationFlow, document }),
+      ConnectionError,
+    )
+    expect(error.reason).toBe("cannot connect string 'start1.markdown' to number 'render.width'")
   })
 })
 
@@ -302,6 +326,13 @@ describe('validateFlowGraph() — literals', () => {
     )
   })
 
+  it('accepts a literal on an optional unconnected input', () => {
+    const document = publicationDocument()
+    document.literals = { render: { width: 640 }, publish: { channel: 'blog' } }
+    const graph = okOrThrow(validateFlowGraph({ flow: publicationFlow, document }))
+    expect(graph.nodes.get('render')?.literals).toEqual({ width: 640 })
+  })
+
   it('rejects literals on a start, whose input comes from run()', () => {
     const document = publicationDocument()
     document.literals = { start1: { title: 'x' }, publish: { channel: 'blog' } }
@@ -325,7 +356,7 @@ describe('validateFlowGraph() — literals', () => {
     expect(error.reason).toBe("literals reference node 'ghost', which does not exist")
   })
 
-  it('reports a cycle before it reports a missing literal', () => {
+  it('reports a cycle when the literals stage has nothing to say', () => {
     const document = flowDocument({
       connections: [
         { from: { node: 'a', field: 'value' }, to: { node: 'b', field: 'value' } },
@@ -348,5 +379,48 @@ describe('validateFlowGraph() — literals', () => {
     )
     expect(error.reason).toBe('the graph contains a cycle: render -> render')
     expect(error.cycle).toEqual(['render', 'render'])
+  })
+})
+
+describe('validateFlowGraph() — the document is untrusted', () => {
+  it('treats a prototype key as an ordinary unknown node id', () => {
+    const document = flowDocument({
+      connections: [
+        { from: { node: '__proto__', field: 'x' }, to: { node: 'render', field: 'markdown' } },
+      ],
+    })
+    const error = errorOrThrow(
+      validateFlowGraph({ flow: publicationFlow, document }),
+      ConnectionError,
+    )
+    expect(error.reason).toBe("connection source node '__proto__' does not exist")
+  })
+
+  it('treats a prototype key as an ordinary unknown field name', () => {
+    const document = flowDocument({
+      connections: [
+        {
+          from: { node: 'start1', field: 'markdown' },
+          to: { node: 'render', field: 'constructor' },
+        },
+      ],
+    })
+    const error = errorOrThrow(
+      validateFlowGraph({ flow: publicationFlow, document }),
+      ConnectionError,
+    )
+    expect(error.reason).toBe("node 'render' has no input field 'constructor'")
+  })
+
+  it('rejects a literal keyed by a prototype property rather than inheriting one', () => {
+    const document = publicationDocument()
+    document.literals = { publish: { channel: 'blog', toString: 'x' } }
+    const error = errorOrThrow(
+      validateFlowGraph({ flow: publicationFlow, document }),
+      ConnectionError,
+    )
+    expect(error.reason).toBe(
+      "node 'publish' has no input field 'toString', so it cannot take a literal for it",
+    )
   })
 })
