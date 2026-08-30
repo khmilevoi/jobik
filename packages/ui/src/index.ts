@@ -26,3 +26,6 @@ export * from './run/index.js'
 // --- P12 ui-output-viewer ---
 // `defineFlowUi` ships on this existing entry point; a `flow.ui.tsx` imports it by name.
 export * from './output/index.js'
+
+// --- P14 studio-integration ---
+export * from './client/index.js'
