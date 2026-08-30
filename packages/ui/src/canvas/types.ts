@@ -165,7 +165,17 @@ export interface FieldConnection {
 }
 
 export interface FlowCanvasProps {
+  /**
+   * Must be referentially stable across renders. The canvas rebuilds its internal node
+   * state (positions and selection) whenever `nodes` or `edges` changes identity, which
+   * discards any in-flight drag position and React Flow's own selection state. Memoise
+   * this array rather than constructing it inline in render.
+   */
   readonly nodes: readonly FlowCanvasNode[]
+  /**
+   * Must be referentially stable across renders — see `nodes`. A new identity here
+   * triggers the same internal rebuild and the same loss of drag/selection state.
+   */
   readonly edges: readonly FlowCanvasEdge[]
   /** The selected entry point. Edges leaving it default to the accent tone. */
   readonly startNodeId?: string

@@ -50,7 +50,7 @@ function defaultKindDot(state: NodeRunState, isStart: boolean): NodeKindDot {
 /**
  * The whole `Node states` table in one place. `failed` outranks selection: a failed card keeps its
  * own border, halo, divider, wash and title even when selected. `running` always wears the
- * selection treatment always — per `### Node states`.
+ * selection treatment, whether or not it is selected — per `### Node states`.
  */
 export function resolveCardChrome(options: CardChromeOptions): CardChrome {
   const { state } = options

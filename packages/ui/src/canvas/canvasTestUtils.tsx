@@ -17,7 +17,9 @@ function HarnessNode() {
 const harnessNodeTypes = { harness: HarnessNode }
 const harnessNodes = [{ id: 'harness-node', type: 'harness', position: { x: 0, y: 0 }, data: {} }]
 
-/** Mounts `children` inside a real React Flow node — only context a `<Handle>` can live in. */
+/**
+ * Mounts `children` inside a real React Flow node — the only context a `<Handle>` can live in.
+ */
 export function renderInNodeContext(children: ReactNode) {
   harnessContent = children
   return render(
