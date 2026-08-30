@@ -33,6 +33,16 @@ export default defineConfig({
           include: ['examples/**/*.test.ts'],
         },
       },
+      {
+        plugins: [react()],
+        test: {
+          name: 'example-ui',
+          root: import.meta.dirname,
+          environment: 'jsdom',
+          setupFiles: ['./vitest.setup.ts'],
+          include: ['examples/**/*.test.tsx'],
+        },
+      },
     ],
   },
 })
