@@ -4,6 +4,7 @@ import { type AssetDescriptor, asset } from '../asset.js'
 import {
   assetExtensionKey,
   assetJsonSchema,
+  assetMimeOf,
   createAssetUnrepresentableHandler,
   fieldPathOf,
   jsonPointerOf,
@@ -139,5 +140,19 @@ describe('jsonPointerOf()', () => {
 
   it('writes the root as #', () => {
     expect(jsonPointerOf([])).toBe('#')
+  })
+})
+
+describe('assetMimeOf()', () => {
+  it('reads the mime an x-jobik-asset marker carries', () => {
+    expect(assetMimeOf({ type: 'object', 'x-jobik-asset': { mime: 'image/png' } })).toBe(
+      'image/png',
+    )
+  })
+
+  it('is undefined for a fragment with no marker, or a malformed one', () => {
+    expect(assetMimeOf({ type: 'string' })).toBeUndefined()
+    expect(assetMimeOf({ 'x-jobik-asset': 'image/png' })).toBeUndefined()
+    expect(assetMimeOf({ 'x-jobik-asset': { mime: 7 } })).toBeUndefined()
   })
 })

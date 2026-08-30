@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import * as z from 'zod'
+import { asset } from '../asset.js'
 import { JobUiSchemaError } from '../errors.js'
 import { deriveInputControls } from './derive.js'
 
@@ -155,5 +156,100 @@ describe('deriveInputControls() — JobUiSchemaError', () => {
     if (!(result instanceof JobUiSchemaError)) throw new Error('expected a JobUiSchemaError')
     expect(result.field).toBe('days')
     expect(result.reason).toContain('#/properties/days/items')
+  })
+})
+
+describe('deriveInputControls() — asset and JSON controls', () => {
+  it('derives an asset control, annotated Buffer, and never an editable one', () => {
+    expect(fieldsOf(z.object({ image: asset({ mime: 'image/png' }) }))).toStrictEqual([
+      {
+        field: 'image',
+        required: true,
+        annotation: 'Buffer',
+        title: 'Buffer',
+        control: { kind: 'asset', mime: 'image/png' },
+      },
+    ])
+  })
+
+  it('derives a JSON control for a nested object, keeping the fragment verbatim', () => {
+    expect(fieldsOf(z.object({ meta: z.object({ a: z.string() }) }))).toStrictEqual([
+      {
+        field: 'meta',
+        required: true,
+        annotation: 'object',
+        control: {
+          kind: 'json',
+          schema: { type: 'object', properties: { a: { type: 'string' } }, required: ['a'] },
+        },
+      },
+    ])
+  })
+
+  it('derives a JSON control for an array', () => {
+    expect(fieldsOf(z.object({ tags: z.array(z.string()) }))[0]).toStrictEqual({
+      field: 'tags',
+      required: true,
+      annotation: 'array',
+      control: { kind: 'json', schema: { type: 'array', items: { type: 'string' } } },
+    })
+  })
+
+  it('derives a JSON control for a union, a record and a tuple', () => {
+    const fields = fieldsOf(
+      z.object({
+        either: z.union([z.string(), z.number()]),
+        bag: z.record(z.string(), z.number()),
+        pair: z.tuple([z.string(), z.number()]),
+      }),
+    )
+    expect(fields.map((field) => field.control.kind)).toStrictEqual(['json', 'json', 'json'])
+    expect(fields.map((field) => field.annotation)).toStrictEqual([
+      'string | number',
+      'object',
+      'array',
+    ])
+  })
+
+  it('annotates a shape with no type at all as unknown', () => {
+    const fields = fieldsOf(
+      z.object({
+        choice: z.discriminatedUnion('t', [
+          z.object({ t: z.literal('a'), x: z.string() }),
+          z.object({ t: z.literal('b'), y: z.number() }),
+        ]),
+      }),
+    )
+    expect(fields[0]?.annotation).toBe('unknown')
+    expect(fields[0]?.control.kind).toBe('json')
+  })
+
+  it('carries the root $defs a recursive schema produces, so its $ref resolves', () => {
+    // Zod v4's recursive-schema pattern: a getter that names the schema being defined. If
+    // TypeScript reports a circular self-reference here, annotate `branch` as `z.ZodType` instead
+    // and pass `branch as z.ZodObject` below — the runtime schema is identical either way.
+    const branch: z.ZodObject = z.object({
+      name: z.string(),
+      get children() {
+        return z.array(branch)
+      },
+    })
+    const descriptor = derive(z.object({ tree: branch }))
+    if (descriptor instanceof Error) throw descriptor
+
+    expect(descriptor.fields[0]?.control).toStrictEqual({
+      kind: 'json',
+      schema: { $ref: '#/$defs/__schema0' },
+    })
+    expect(Object.keys(descriptor.$defs ?? {})).toStrictEqual(['__schema0'])
+  })
+
+  it('omits $defs when the schema needs none', () => {
+    expect(derive(z.object({ title: z.string() }))).toStrictEqual({
+      nodeId: 'render',
+      fields: [
+        { field: 'title', required: true, annotation: 'string', control: { kind: 'string' } },
+      ],
+    })
   })
 })

@@ -1,5 +1,6 @@
 import type * as z from 'zod'
 import { type AssetMeta, assetMetaOf } from '../asset.js'
+import type { JsonSchemaFragment, JsonValue } from './descriptor.js'
 
 /**
  * The `unrepresentable` callback both `z.toJSONSchema` calls pass.
@@ -92,4 +93,18 @@ export function jsonPointerOf(path: readonly (string | number)[]): string {
     String(segment).replaceAll('~', '~0').replaceAll('/', '~1'),
   )
   return `#/${segments.join('/')}`
+}
+
+function isAssetMarker(value: JsonValue): value is { readonly [key: string]: JsonValue } {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/** The mime an `x-jobik-asset` marker carries, or `undefined` when the fragment is not an asset. */
+export function assetMimeOf(fragment: JsonSchemaFragment): string | undefined {
+  const marker = fragment[assetExtensionKey]
+  if (isAssetMarker(marker)) {
+    const mime = marker.mime
+    return typeof mime === 'string' ? mime : undefined
+  }
+  return undefined
 }

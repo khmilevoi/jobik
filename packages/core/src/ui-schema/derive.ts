@@ -7,7 +7,12 @@ import type {
   JsonValue,
   NodeInputDescriptor,
 } from './descriptor.js'
-import { createAssetUnrepresentableHandler, fieldPathOf, jsonPointerOf } from './unrepresentable.js'
+import {
+  assetMimeOf,
+  createAssetUnrepresentableHandler,
+  fieldPathOf,
+  jsonPointerOf,
+} from './unrepresentable.js'
 
 /**
  * Editor metadata for one node.
@@ -130,6 +135,9 @@ function numberControl(fragment: JsonSchemaFragment): ControlDescriptor {
  * `type` array such as `['string','null']` is not a native control.
  */
 function controlOf(fragment: JsonSchemaFragment): ControlDescriptor {
+  const mime = assetMimeOf(fragment)
+  if (mime !== undefined) return { kind: 'asset', mime }
+
   if ('const' in fragment) {
     const value = fragment.const
     if (isLiteralValue(value)) return { kind: 'literal', value }
@@ -150,7 +158,7 @@ function controlOf(fragment: JsonSchemaFragment): ControlDescriptor {
     case 'boolean':
       return { kind: 'boolean' }
     default:
-      return { kind: 'json', schema: {} }
+      return { kind: 'json', schema: fragment }
   }
 }
 
@@ -197,5 +205,13 @@ export function deriveInputControls(args: {
   const fields = Object.entries(document.properties ?? {}).map(([field, fragment]) =>
     inputFieldOf(field, fragment, required.has(field)),
   )
-  return { nodeId: args.nodeId, fields }
+
+  const descriptor: {
+    nodeId: string
+    fields: InputFieldDescriptor[]
+    $defs?: { readonly [name: string]: JsonSchemaFragment }
+  } = { nodeId: args.nodeId, fields }
+
+  if (document.$defs !== undefined) descriptor.$defs = document.$defs
+  return descriptor
 }
