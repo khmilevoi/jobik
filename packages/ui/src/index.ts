@@ -17,3 +17,7 @@ export * from './tokens.js'
 // Mounting `FlowCanvas` outside the bundled Studio also needs React Flow's base stylesheet:
 // `import '@xyflow/react/dist/style.css'`.
 export * from './canvas/index.js'
+
+// --- P12 ui-output-viewer ---
+// `defineFlowUi` ships on this existing entry point; a `flow.ui.tsx` imports it by name.
+export * from './output/index.js'
