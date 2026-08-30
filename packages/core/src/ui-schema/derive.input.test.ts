@@ -252,4 +252,31 @@ describe('deriveInputControls() — asset and JSON controls', () => {
       ],
     })
   })
+
+  it('emits { $ref: "#" } with no $defs for a root self-reference', () => {
+    const Node: z.ZodObject = z.object({
+      name: z.string(),
+      get parent() {
+        return Node.optional()
+      },
+    })
+    const descriptor = derive(Node)
+    if (descriptor instanceof Error) throw descriptor
+
+    expect(descriptor.fields.find((field) => field.field === 'parent')?.control).toStrictEqual({
+      kind: 'json',
+      schema: { $ref: '#' },
+    })
+    expect(descriptor.$defs).toBeUndefined()
+  })
+})
+
+describe('deriveInputControls() — a non-array required from a node author meta()', () => {
+  it('does not throw, and treats a field as not required', () => {
+    const result = derive(z.object({ a: z.string() }).meta({ required: 5 }))
+    if (result instanceof Error) throw result
+    expect(result.fields).toStrictEqual([
+      { field: 'a', required: false, annotation: 'string', control: { kind: 'string' } },
+    ])
+  })
 })

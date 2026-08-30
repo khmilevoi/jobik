@@ -78,3 +78,11 @@ describe('deriveOutputFields()', () => {
     expect(derive(z.object({ image: asset({ mime: 'image/png' }) }))).not.toBeInstanceOf(Error)
   })
 })
+
+describe('deriveOutputFields() — a non-array required from a node author meta()', () => {
+  it('does not throw, and treats a field as not required', () => {
+    const result = derive(z.object({ a: z.string() }).meta({ required: 5 }))
+    if (result instanceof Error) throw result
+    expect(result.fields).toStrictEqual([{ field: 'a', required: false, annotation: 'string' }])
+  })
+})

@@ -69,6 +69,17 @@ function convert(args: {
   }
 }
 
+/**
+ * `document.required` is typed `readonly string[] | undefined`, but that type is a cast over
+ * `JSON.parse` output, not a runtime guarantee: a node author's `.meta()` merges into the JSON
+ * Schema document verbatim, and zod's `GlobalMeta` allows any value there, so `required` can be
+ * anything at runtime (`z.object({...}).meta({ required: 5 })` compiles). A non-array value
+ * degrades to "nothing is required" rather than throwing out of a public function.
+ */
+function requiredFieldsOf(document: JsonSchemaDocument): readonly string[] {
+  return Array.isArray(document.required) ? document.required : []
+}
+
 /** The mono type annotation a field row shows: `string`, `Buffer`, `number`. */
 function annotationOf(fragment: JsonSchemaFragment): string {
   const title = fragment.title
@@ -203,7 +214,7 @@ export function deriveInputControls(args: {
   const document = convert({ nodeId: args.nodeId, schema: args.input, io: 'input' })
   if (document instanceof JobUiSchemaError) return document
 
-  const required = new Set(document.required ?? [])
+  const required = new Set(requiredFieldsOf(document))
   const fields = Object.entries(document.properties ?? {}).map(([field, fragment]) =>
     inputFieldOf(field, fragment, required.has(field)),
   )
@@ -254,7 +265,7 @@ export function deriveOutputFields(args: {
   const document = convert({ nodeId: args.nodeId, schema: args.output, io: 'output' })
   if (document instanceof JobUiSchemaError) return document
 
-  const required = new Set(document.required ?? [])
+  const required = new Set(requiredFieldsOf(document))
   const fields = Object.entries(document.properties ?? {}).map(([field, fragment]) =>
     outputFieldOf(field, fragment, required.has(field)),
   )

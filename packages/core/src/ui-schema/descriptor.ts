@@ -33,6 +33,11 @@ export type NumberControlDescriptor = {
   readonly kind: 'number'
   /** `true` when the schema was `z.number().int()`, which JSON Schema types `integer`. */
   readonly integer: boolean
+  /**
+   * A bare `z.number().int()` with no explicit bounds still carries zod's safe-integer bounds here
+   * (`-9007199254740991` / `9007199254740991`) — a renderer should not present those two as
+   * author-chosen limits.
+   */
   readonly minimum?: number
   readonly maximum?: number
 }
@@ -59,6 +64,10 @@ export type AssetControlDescriptor = { readonly kind: 'asset'; readonly mime: st
  * Everything with no native control: nested objects, arrays, unions, records, tuples, `$ref`s.
  * `schema` feeds the editor's hints ONLY. The field is validated against the node's original Zod
  * schema before a run or a save — never against this fragment.
+ *
+ * `schema` may itself contain a `$ref`: `#/$defs/<name>` resolves against the sibling
+ * `NodeInputDescriptor.$defs`; `#` denotes the node's own input schema (a root self-reference),
+ * which has no `$defs` entry to resolve against — a consumer already has that schema by `nodeId`.
  */
 export type JsonControlDescriptor = { readonly kind: 'json'; readonly schema: JsonSchemaFragment }
 
@@ -77,7 +86,11 @@ export type AssetFieldMeta = { readonly mime: string }
 export type InputFieldDescriptor = {
   readonly field: string
   readonly required: boolean
-  /** The mono type annotation the design's field rows show: `string`, `Buffer`, `number`. */
+  /**
+   * The mono type annotation the design's field rows show: `string`, `Buffer`, `number`. When
+   * `title` is present, it is also the source of `annotation`, so the two are equal — a consumer
+   * should render one, not both.
+   */
   readonly annotation: string
   readonly title?: string
   readonly description?: string
@@ -88,6 +101,11 @@ export type InputFieldDescriptor = {
 export type OutputFieldDescriptor = {
   readonly field: string
   readonly required: boolean
+  /**
+   * The mono type annotation the design's field rows show: `string`, `Buffer`, `number`. When
+   * `title` is present, it is also the source of `annotation`, so the two are equal — a consumer
+   * should render one, not both.
+   */
   readonly annotation: string
   readonly title?: string
   readonly description?: string
@@ -102,6 +120,10 @@ export type NodeInputDescriptor = {
    * The root `$defs` a recursive schema produces. A `json` control's `schema` may hold
    * `{ $ref: '#/$defs/__schema0' }`, which resolves against THIS object — spread it back as `$defs`
    * to get a standalone JSON Schema document.
+   *
+   * A node whose own input object is the recursion target (a root self-reference) instead emits
+   * `{ $ref: '#' }` with no `$defs` at all: `#` denotes the node's own input schema, which a
+   * consumer already has by `nodeId` — there is nothing to spread back.
    */
   readonly $defs?: { readonly [name: string]: JsonSchemaFragment }
 }
