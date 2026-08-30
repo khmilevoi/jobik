@@ -1,9 +1,9 @@
 import { cleanup, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
-import { accent, statusColors, surfaces, textColors } from '../tokens.js'
+import { accent, borders, statusColors, surfaces, textColors } from '../tokens.js'
 import { renderInNodeContext } from './canvasTestUtils.js'
 import { canvasColors } from './canvasTokens.js'
-import { NodeCard } from './NodeCard.js'
+import { JobikNode, NodeCard } from './NodeCard.js'
 import { MetadataRow } from './NodeStateBody.js'
 import type { NodeCardData } from './types.js'
 
@@ -272,5 +272,87 @@ describe('NodeCard — the Node states artboard', () => {
     expect(screen.getByTestId('node-status')).toHaveTextContent('cached · 0.0s')
     expect(screen.getByTestId('node-state-media-block')).toHaveStyle({ opacity: '0.55' })
     expect(screen.getByTestId('node-state-caption')).toHaveTextContent('reused from run #218')
+  })
+})
+
+type JobikNodeTestProps = {
+  readonly data: NodeCardData
+  readonly selected: boolean
+}
+
+type JobikNodeProps = Parameters<typeof JobikNode>[0]
+
+function makeJobikNodeProps(nodeId: string, opts: JobikNodeTestProps): JobikNodeProps {
+  return {
+    id: nodeId,
+    data: opts.data,
+    selected: opts.selected,
+    isConnectable: true,
+    xPos: 0,
+    yPos: 0,
+  } as unknown as JobikNodeProps
+}
+
+describe('JobikNode — the React Flow adapter', () => {
+  it('prefers data.selected when true, over React Flow selected false', () => {
+    const props = makeJobikNodeProps('test-node', {
+      data: {
+        id: 'test-node',
+        state: 'idle',
+        selected: true,
+      },
+      selected: false,
+    })
+    const { container } = render(JobikNode(props))
+    const card = container.querySelector('[data-testid="node-card-test-node"]')
+    expect(card).toHaveStyle({
+      border: `1px solid ${accent.selectionBorder}`,
+    })
+  })
+
+  it('uses React Flow selected when data.selected is undefined', () => {
+    const props = makeJobikNodeProps('test-node', {
+      data: {
+        id: 'test-node',
+        state: 'idle',
+      },
+      selected: true,
+    })
+    const { container } = render(JobikNode(props))
+    const card = container.querySelector('[data-testid="node-card-test-node"]')
+    expect(card).toHaveStyle({
+      border: `1px solid ${accent.selectionBorder}`,
+    })
+  })
+
+  it('respects data.selected false even when React Flow selected true', () => {
+    const props = makeJobikNodeProps('test-node', {
+      data: {
+        id: 'test-node',
+        state: 'idle',
+        selected: false,
+      },
+      selected: true,
+    })
+    const { container } = render(JobikNode(props))
+    const card = container.querySelector('[data-testid="node-card-test-node"]')
+    expect(card).toHaveStyle({
+      border: `1px solid ${borders.control}`,
+    })
+  })
+
+  it('falls back to React Flow selected false when data.selected is undefined', () => {
+    const props = makeJobikNodeProps('test-node', {
+      data: {
+        id: 'test-node',
+        state: 'idle',
+      },
+      selected: false,
+    })
+    const { container } = render(JobikNode(props))
+    const card = container.querySelector('[data-testid="node-card-test-node"]')
+    expect(card).toHaveStyle({
+      border: `1px solid ${borders.control}`,
+    })
   })
 })
