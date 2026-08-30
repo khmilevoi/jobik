@@ -3,22 +3,13 @@ import * as jobik from '@jobik/core'
 import { describe, expect, it } from 'vitest'
 import * as z from 'zod'
 import { publicationFixture } from '../../../../examples/publication/fixtures.js'
-import { defineJobikConfig } from './config.js'
 import { describeFlow, summariseFlow } from './descriptor.js'
-import { type DiscoveredFlow, discoverFlows } from './discovery.js'
+import type { DiscoveredFlow } from './discovery.js'
+import { committedFlow, uiPath } from './testSupport.js'
 import { findUnsafeValues } from './wireSafety.js'
 
 async function discoverPublication(): Promise<DiscoveredFlow> {
-  const config = defineJobikConfig({
-    flows: [
-      {
-        binding: publicationFixture.bindingPath,
-        ui: path.resolve(publicationFixture.root, 'flow.ui.tsx'),
-      },
-    ],
-  })
-  const registry = await discoverFlows({ config })
-  return registry.flows[0]
+  return committedFlow()
 }
 
 describe('summariseFlow', () => {
@@ -108,7 +99,7 @@ describe('describeFlow', () => {
       id: unrepresentable.name,
       flow: unrepresentable,
       bindingPath: publicationFixture.bindingPath,
-      uiPath: path.resolve(publicationFixture.root, 'flow.ui.tsx'),
+      uiPath,
       documentPath: unrepresentable.path,
     }
     const result = describeFlow(discovered)
