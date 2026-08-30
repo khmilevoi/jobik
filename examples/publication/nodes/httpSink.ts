@@ -23,15 +23,18 @@ export const httpSink = jobik.node({
   }),
   output: z.object({ url: z.string().url() }),
   run: (input) => {
-    // Use length-prefixing to make the digest unambiguous: each field is prefixed with its
-    // length in hex (zero-padded to 16 chars). This prevents delimiter-injection collisions.
+    // Use length-prefixing with UTF-16LE encoding to make the digest unambiguous and uniquely
+    // decodable: each field is prefixed with its length in bytes (zero-padded to 16 chars), and
+    // the caption is encoded as UTF-16LE (not UTF-8) so that distinct strings always produce
+    // distinct byte sequences, including those with unpaired surrogates.
     const imageLen = input.image.length.toString(16).padStart(16, '0')
-    const captionLen = input.caption.length.toString(16).padStart(16, '0')
+    const captionBuffer = Buffer.from(input.caption, 'utf16le')
+    const captionLen = captionBuffer.length.toString(16).padStart(16, '0')
     const digest = createHash('sha256')
       .update(imageLen)
       .update(input.image)
       .update(captionLen)
-      .update(input.caption)
+      .update(captionBuffer)
       .digest('hex')
       .slice(0, 12)
     return { url: `${PUBLICATION_CDN_BASE}/${digest}/${PUBLICATION_ASSET_NAME}` }

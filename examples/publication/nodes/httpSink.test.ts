@@ -57,4 +57,20 @@ describe('httpSink', () => {
     // With proper length-prefixing, these should produce different URLs
     expect(result1.url).not.toBe(result2.url)
   })
+
+  it('distinguishes captions with lone surrogates', async () => {
+    // Same image, but two different captions with lone surrogates
+    const sameImage = Buffer.from('image data')
+    const caption1 = '\uD800' // lone high surrogate
+    const caption2 = '\uDC00' // lone low surrogate
+
+    const result1 = await httpSink.run({ image: sameImage, caption: caption1 }, context)
+    const result2 = await httpSink.run({ image: sameImage, caption: caption2 }, context)
+
+    if (result1 instanceof Error || result2 instanceof Error) throw result1
+
+    // Even though both captions have .length === 1 and would encode to the same UTF-8 bytes
+    // (U+FFFD), they should produce different digests when hashed as UTF-16LE
+    expect(result1.url).not.toBe(result2.url)
+  })
 })
