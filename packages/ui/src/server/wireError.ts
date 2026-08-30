@@ -114,6 +114,7 @@ export const WIRE_MESSAGES = {
   notFound: 'Not found',
   flowNotFound: 'No such flow',
   badBody: 'Malformed request body',
+  malformedTarget: 'Malformed request target',
   methodNotAllowed: 'Method not allowed',
 } as const
 
