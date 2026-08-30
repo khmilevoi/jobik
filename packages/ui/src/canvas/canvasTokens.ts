@@ -6,7 +6,10 @@
  * value `tokens.ts` already carries — import it.** Every entry below names the
  * artboard it came from.
  */
-import { surfaces } from '../tokens.js'
+import { motion, surfaces } from '../tokens.js'
+
+/** `Node states` → running: the lit band that sweeps across the skeleton. */
+const skeletonHighlight = '#161a1d'
 
 export const canvasColors = {
   /** `Studio — default`: the canvas dot grid. The cached card's header divider
@@ -29,8 +32,10 @@ export const canvasColors = {
   spinnerTrack: 'rgba(31,214,189,.25)',
 
   /** The 1.5s skeleton shimmer, over `surfaces.imagePlaceholder`. */
-  skeletonHighlight: '#161a1d',
-  skeleton: `linear-gradient(100deg,${surfaces.imagePlaceholder} 30%,#161a1d 50%,${surfaces.imagePlaceholder} 70%)`,
+  skeletonHighlight,
+  skeleton:
+    `linear-gradient(100deg,${surfaces.imagePlaceholder} 30%,` +
+    `${skeletonHighlight} 50%,${surfaces.imagePlaceholder} 70%)`,
 
   /** The 45° striped image placeholder. */
   stripeBase: '#0e1113',
@@ -109,8 +114,8 @@ export const canvasMetrics = {
   placeholderBarHeight: 6,
 
   skeletonBackgroundSize: '220% 100%',
-  /** Must stay equal to P4's `motion.shimmer`; the token test asserts it. */
-  skeletonAnimation: 'jshim 1.5s linear infinite',
+  /** P4 owns the shimmer timing; this is a reference, not a copy. */
+  skeletonAnimation: motion.shimmer,
 
   zoomButtonSize: 26,
   zoomControlsInset: { left: 20, bottom: 16 },
