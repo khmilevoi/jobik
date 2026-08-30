@@ -5,4 +5,5 @@
  * several plans touch this file in the same wave.
  */
 
+export * from './document/index.js'
 export * from './errors.js'
