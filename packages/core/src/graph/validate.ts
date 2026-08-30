@@ -1,7 +1,9 @@
+import type * as z from 'zod'
 import type { FlowDocument } from '../document/schema.js'
 import { ConnectionError, type FieldRef } from '../errors.js'
 import type { BoundFlow } from '../flow.js'
 import type { AnyDefinition } from '../node.js'
+import { areFieldTypesCompatible, fieldTypeOf } from './field-type.js'
 import { topologicalOrder } from './topology.js'
 import type { GraphInputEdge, GraphNode, ValidatedFlowGraph } from './types.js'
 
@@ -52,7 +54,26 @@ export function validateFlowGraph(args: {
       return connectionError(`node '${to.node}' has no input field '${to.field}'`, from, to)
     }
 
-    connected.add(fieldKey(to.node, to.field))
+    const fromKind = fieldTypeOf(sourceShape[from.field])
+    const toKind = fieldTypeOf(targetShape[to.field])
+    if (!areFieldTypesCompatible(fromKind, toKind)) {
+      return connectionError(
+        `cannot connect ${fromKind} '${from.node}.${from.field}' to ${toKind} '${to.node}.${to.field}'`,
+        from,
+        to,
+      )
+    }
+
+    const slot = fieldKey(to.node, to.field)
+    if (connected.has(slot)) {
+      return connectionError(
+        `input field '${to.node}.${to.field}' already has an incoming connection`,
+        from,
+        to,
+      )
+    }
+
+    connected.add(slot)
     inputs.get(to.node)?.push({ field: to.field, from: { node: from.node, field: from.field } })
     pushUnique(dependencies, to.node, from.node)
     pushUnique(dependents, from.node, to.node)
@@ -87,7 +108,7 @@ export function validateFlowGraph(args: {
 }
 
 /** A start has no output schema: its validated run input becomes its output fields. */
-function outputShapeOf(definition: AnyDefinition): Record<string, unknown> {
+function outputShapeOf(definition: AnyDefinition): Record<string, z.core.$ZodType> {
   return definition.kind === 'start' ? definition.input.shape : definition.output.shape
 }
 

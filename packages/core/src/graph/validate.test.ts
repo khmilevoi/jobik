@@ -181,3 +181,66 @@ describe('validateFlowGraph() — cycles', () => {
     expect(error.cycle).toEqual(['a', 'a'])
   })
 })
+
+describe('validateFlowGraph() — field types', () => {
+  it('rejects a string feeding a number', () => {
+    const document = flowDocument({
+      connections: [
+        { from: { node: 'start1', field: 'title' }, to: { node: 'render', field: 'width' } },
+      ],
+    })
+    const error = errorOrThrow(
+      validateFlowGraph({ flow: publicationFlow, document }),
+      ConnectionError,
+    )
+    expect(error.reason).toBe("cannot connect string 'start1.title' to number 'render.width'")
+    expect(error.from).toEqual({ node: 'start1', field: 'title' })
+    expect(error.to).toEqual({ node: 'render', field: 'width' })
+  })
+
+  it('rejects binary output feeding a text input', () => {
+    const document = flowDocument({
+      connections: [
+        { from: { node: 'render', field: 'image' }, to: { node: 'publish', field: 'caption' } },
+      ],
+    })
+    const error = errorOrThrow(
+      validateFlowGraph({ flow: publicationFlow, document }),
+      ConnectionError,
+    )
+    expect(error.reason).toBe("cannot connect asset 'render.image' to string 'publish.caption'")
+  })
+
+  it('accepts a required string feeding an optional string, and never guesses beyond kind', () => {
+    const document = flowDocument({
+      connections: [
+        { from: { node: 'start1', field: 'markdown' }, to: { node: 'render', field: 'markdown' } },
+        { from: { node: 'render', field: 'caption' }, to: { node: 'publish', field: 'caption' } },
+      ],
+      literals: { publish: { channel: 'blog' } },
+    })
+    expect(validateFlowGraph({ flow: publicationFlow, document })).not.toBeInstanceOf(Error)
+  })
+})
+
+describe('validateFlowGraph() — one connection per input field', () => {
+  it('rejects a second connection into a field that already has one', () => {
+    const document = flowDocument({
+      connections: [
+        { from: { node: 'start1', field: 'markdown' }, to: { node: 'render', field: 'markdown' } },
+        { from: { node: 'start1', field: 'title' }, to: { node: 'render', field: 'markdown' } },
+      ],
+    })
+    const error = errorOrThrow(
+      validateFlowGraph({ flow: publicationFlow, document }),
+      ConnectionError,
+    )
+    expect(error.reason).toBe("input field 'render.markdown' already has an incoming connection")
+    expect(error.from).toEqual({ node: 'start1', field: 'title' })
+  })
+
+  it('allows one output field to feed several different input fields', () => {
+    const result = validateFlowGraph({ flow: branchFlow, document: branchDocument() })
+    expect(result).not.toBeInstanceOf(Error)
+  })
+})
