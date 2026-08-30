@@ -24,6 +24,15 @@ export default defineConfig({
           exclude: ['packages/ui/src/server/**'],
         },
       },
+      {
+        test: {
+          name: 'example',
+          root: import.meta.dirname,
+          environment: 'node',
+          setupFiles: ['./vitest.setup.ts'],
+          include: ['examples/**/*.test.ts'],
+        },
+      },
     ],
   },
 })

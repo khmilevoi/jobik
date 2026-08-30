@@ -1,0 +1,64 @@
+{
+  "format": "jobik.flow",
+  "version": 1,
+  "connections": [
+    {
+      "from": {
+        "node": "start1",
+        "field": "title"
+      },
+      "to": {
+        "node": "render",
+        "field": "title"
+      }
+    },
+    {
+      "from": {
+        "node": "start1",
+        "field": "markdown"
+      },
+      "to": {
+        "node": "render",
+        "field": "markdown"
+      }
+    },
+    {
+      "from": {
+        "node": "render",
+        "field": "image"
+      },
+      "to": {
+        "node": "publish",
+        "field": "image"
+      }
+    },
+    {
+      "from": {
+        "node": "render",
+        "field": "caption"
+      },
+      "to": {
+        "node": "publish",
+        "field": "caption"
+      }
+    }
+  ],
+  "literals": {
+    "render": {},
+    "publish": {}
+  },
+  "layout": {
+    "start1": {
+      "x": 56,
+      "y": 248
+    },
+    "render": {
+      "x": 386,
+      "y": 150
+    },
+    "publish": {
+      "x": 786,
+      "y": 380
+    }
+  }
+}
