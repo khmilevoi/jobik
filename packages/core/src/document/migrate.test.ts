@@ -137,4 +137,36 @@ describe('migrateFlowDocument', () => {
     })
     expect(result).toMatchObject({ version: 1 })
   })
+
+  it('chains steps in sequence, feeding each step the previous step output', () => {
+    const result = migrateFlowDocument({
+      path: documentPath,
+      document: { format: 'jobik.flow', version: -1 },
+      migrations: [
+        { from: -1, migrate: (document) => ({ ...document, first: document.version }) },
+        { from: 0, migrate: (document) => ({ ...document, second: document.version }) },
+      ],
+    })
+    expect(result).toEqual({ format: 'jobik.flow', version: 1, first: -1, second: 0 })
+  })
+
+  it('names the failing step when a later hop is the one that fails', () => {
+    const result = migrateFlowDocument({
+      path: documentPath,
+      document: { format: 'jobik.flow', version: -1 },
+      migrations: [
+        { from: -1, migrate: (document) => ({ ...document }) },
+        {
+          from: 0,
+          migrate: () => {
+            throw new Error('the second hop failed')
+          },
+        },
+      ],
+    })
+    expect(result).toBeInstanceOf(FlowMigrationError)
+    if (!(result instanceof FlowMigrationError)) throw new Error('unreachable')
+    expect(result.from).toBe(0)
+    expect(result.to).toBe(1)
+  })
 })

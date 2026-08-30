@@ -5,8 +5,8 @@ import { CURRENT_FLOW_VERSION, FLOW_DOCUMENT_FORMAT, type FlowDocumentEnvelope }
 /**
  * One step of the sequential pipeline. A step declares only the version it reads; it always
  * produces `from + 1`, and the pipeline stamps the new `version` itself, so no step can forget to
- * and the loop is provably finite. A step may return an error value or throw — either becomes a
- * `FlowMigrationError`.
+ * bump it, and the loop is provably finite. A step may return an error value or throw — either
+ * becomes a `FlowMigrationError`.
  */
 export type FlowMigration = {
   readonly from: number
@@ -52,20 +52,24 @@ export function migrateFlowDocument(args: {
       })
     }
     const to = step.from + 1
-    let output: unknown
     try {
-      output = step.migrate(current)
+      const output = step.migrate(current)
+      if (output instanceof Error) {
+        return new FlowMigrationError({ path: args.path, from: step.from, to, cause: output })
+      }
+      const checked = migrationOutputSchema.safeParse(output)
+      if (!checked.success) {
+        return new FlowMigrationError({
+          path: args.path,
+          from: step.from,
+          to,
+          cause: checked.error,
+        })
+      }
+      current = { ...checked.data, version: to }
     } catch (cause) {
       return new FlowMigrationError({ path: args.path, from: step.from, to, cause })
     }
-    if (output instanceof Error) {
-      return new FlowMigrationError({ path: args.path, from: step.from, to, cause: output })
-    }
-    const checked = migrationOutputSchema.safeParse(output)
-    if (!checked.success) {
-      return new FlowMigrationError({ path: args.path, from: step.from, to, cause: checked.error })
-    }
-    current = { ...checked.data, version: to }
   }
   return current
 }

@@ -10,7 +10,7 @@ import {
 } from '../errors.js'
 import type { FlowMigration } from './migrate.js'
 import { readFlowDocument } from './read.js'
-import { revisionOf } from './revision.js'
+import { readFlowRevision, revisionOf } from './revision.js'
 
 let directory: string
 let documentPath: string
@@ -145,5 +145,13 @@ describe('readFlowDocument', () => {
     if (third instanceof Error) throw new Error('unreachable')
     expect(third.revision).not.toBe(first.revision)
     expect(third.document).toEqual(first.document)
+  })
+
+  it('agrees with readFlowRevision, including on a file carrying a byte order mark', async () => {
+    const text = '{"format":"jobik.flow","version":1}\n'
+    await fs.writeFile(documentPath, `\uFEFF${text}`, 'utf8')
+    const file = await readFlowDocument({ path: documentPath })
+    if (file instanceof Error) throw new Error('unreachable')
+    await expect(readFlowRevision({ path: documentPath })).resolves.toBe(file.revision)
   })
 })

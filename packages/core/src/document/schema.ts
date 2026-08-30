@@ -13,7 +13,11 @@ export const flowFieldRefSchema = z.object({
   field: z.string().min(1),
 })
 
-/** Connections are field-to-field. */
+/**
+ * Connections are field-to-field. Unlike the top level, unknown keys inside a connection are
+ * stripped rather than rejected — deliberately: the spec's "never duplicates node definitions,
+ * schemas, handlers, or start declarations" is a statement about the top level, not this shape.
+ */
 export const flowConnectionSchema = z.object({
   from: flowFieldRefSchema,
   to: flowFieldRefSchema,
@@ -60,7 +64,10 @@ export function toSchemaIssues(error: z.ZodError): readonly SchemaIssue[] {
 /**
  * The canonical on-disk text for a document: fixed key order, two-space indent, trailing newline.
  * Key order inside `literals` and `layout` and the order of `connections` are preserved as given,
- * so a save rewrites only what the editor actually changed.
+ * so a save rewrites only what the editor actually changed. Precondition: `literals` must hold
+ * only JSON values, as it does for any document from `parseFlowDocument` or `readFlowDocument` —
+ * `JSON.stringify` throws on a BigInt or a circular reference, and a hand-built document holding
+ * one is a caller error, not one this function reports.
  */
 export function serializeFlowDocument(document: FlowDocument): string {
   const ordered = {
