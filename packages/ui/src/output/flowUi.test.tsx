@@ -29,6 +29,8 @@ describe('isFlowUiDescriptor', () => {
     expect(isFlowUiDescriptor({})).toBe(false)
     expect(isFlowUiDescriptor({ nodes: { render: {} } })).toBe(false)
     expect(isFlowUiDescriptor({ nodes: { render: { Output: 'nope' } } })).toBe(false)
+    expect(isFlowUiDescriptor({ nodes: [] })).toBe(false)
+    expect(isFlowUiDescriptor({ nodes: [{ Output: RenderedImage }] })).toBe(false)
   })
 })
 

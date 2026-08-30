@@ -64,7 +64,7 @@ export function defineFlowUi(descriptor: FlowUiDescriptor): FlowUiDescriptor {
 export function isFlowUiDescriptor(value: unknown): value is FlowUiDescriptor {
   if (value === null || typeof value !== 'object') return false
   const nodes = (value as { nodes?: unknown }).nodes
-  if (nodes === null || typeof nodes !== 'object') return false
+  if (nodes === null || typeof nodes !== 'object' || Array.isArray(nodes)) return false
   return Object.values(nodes).every(
     (entry) =>
       entry !== null &&
