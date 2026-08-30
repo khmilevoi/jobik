@@ -7,4 +7,5 @@
 
 // --- P10 server-core ---
 export * from './config.js'
+export * from './descriptor.js'
 export * from './discovery.js'
