@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react'
-import { accent, borders, fontFamilies, px, radii, surfaces } from '../tokens.js'
+import { accent, borders, fontFamilies, layout, px, radii, surfaces } from '../tokens.js'
 
 export type ChipTone = 'neutral' | 'accent'
 
@@ -19,7 +19,7 @@ export function chipStyle(options: ChipStyleOptions = {}): CSSProperties {
   return {
     display: 'flex',
     alignItems: 'center',
-    height: px(28),
+    height: px(layout.chipHeight),
     padding: hasTrailing ? '0 4px 0 10px' : '0 10px',
     gap: px(gap),
     borderRadius: px(radii.control),

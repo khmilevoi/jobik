@@ -57,7 +57,7 @@ export function Studio(props: StudioProps) {
   const [rightCollapsed, setRightCollapsed] = useState(false)
 
   const flows = props.flows ?? FIXTURE_FLOWS
-  const activeFlowId = props.activeFlowId ?? 'publication'
+  const activeFlowId = props.activeFlowId ?? flows[0]?.id ?? ''
   const nodes = props.nodes ?? FIXTURE_NODES
   const inventory = props.inventory ?? FIXTURE_INVENTORY
   const entryNodeId = props.entryNodeId ?? 'start1'

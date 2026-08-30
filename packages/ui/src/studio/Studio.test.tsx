@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Studio } from './Studio.js'
@@ -83,5 +83,11 @@ describe('Studio', () => {
   it('passes the accent through to the frame', () => {
     render(<Studio accent="#c8a24a" />)
     expect(screen.getByTestId('studio-frame').style.getPropertyValue('--accent')).toBe('#c8a24a')
+  })
+
+  it('defaults the active flow to the first supplied flow when none is given', () => {
+    render(<Studio flows={[{ id: 'alpha', name: 'alpha', nodeCount: 1 }]} />)
+    expect(within(screen.getByTestId('studio-top-bar')).getByText('alpha')).toBeInTheDocument()
+    expect(screen.getByText('Nodes in alpha')).toBeInTheDocument()
   })
 })

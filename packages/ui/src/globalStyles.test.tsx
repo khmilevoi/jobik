@@ -1,6 +1,8 @@
-import { render } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { cleanup, render } from '@testing-library/react'
+import { afterEach, describe, expect, it } from 'vitest'
 import { STUDIO_GLOBAL_CSS, StudioStyles } from './globalStyles.js'
+
+afterEach(cleanup)
 
 describe('STUDIO_GLOBAL_CSS', () => {
   it('declares the four motion loops the design uses', () => {
