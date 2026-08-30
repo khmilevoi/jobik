@@ -13,6 +13,8 @@ export * from './flowService.js'
 export * from './httpServer.js'
 export * from './routes.js'
 export * from './runRegistry.js'
+// `runTestSupport.js` stays out of the barrel, like `testSupport.js`.
+export * from './runRoutes.js'
 // --- P13 server-run ---
 // `stackFrames.js` stays internal, like `wireSafety.js`: it is a detail of how `runWire.js`
 // projects a failed node, not something a consumer calls.
