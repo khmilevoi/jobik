@@ -29,7 +29,7 @@ const MAX_REQUEST_BYTES = 4 * 1024 * 1024
 export type JobikRouteContext = {
   readonly request: IncomingMessage
   readonly response: ServerResponse
-  readonly url: URL
+  readonly url: URL // P13 owns query string parsing and route dispatch
   readonly params: Readonly<Record<string, string>>
   readonly registry: FlowRegistry
 }
@@ -235,33 +235,36 @@ export function createJobikRequestListener(args: {
 }): (request: IncomingMessage, response: ServerResponse) => void {
   const routes = args.routes ?? jobikFlowRoutes
   return (request, response) => {
+    let url: URL
+    let match: RouteMatch | 'method-not-allowed' | undefined
     try {
-      const url = new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`)
-      const match = findRoute(routes, request.method ?? 'GET', url.pathname)
-
-      if (match === undefined) {
-        sendWireError(response, 404, untaggedWireErrorBody(WIRE_MESSAGES.notFound))
-        return
-      }
-      if (match === 'method-not-allowed') {
-        sendWireError(response, 405, untaggedWireErrorBody(WIRE_MESSAGES.methodNotAllowed))
-        return
-      }
-
-      match.route
-        .handle({ request, response, url, params: match.params, registry: args.registry })
-        .catch(() => {
-          if (response.headersSent) {
-            response.end()
-            return
-          }
-          sendWireError(response, 500, untaggedWireErrorBody(WIRE_MESSAGES.internal))
-        })
+      url = new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`)
+      match = findRoute(routes, request.method ?? 'GET', url.pathname)
     } catch {
       // Malformed URL target (e.g., invalid percent-escape)
       if (!response.headersSent) {
         sendWireError(response, 400, untaggedWireErrorBody(WIRE_MESSAGES.malformedTarget))
       }
+      return
     }
+
+    if (match === undefined) {
+      sendWireError(response, 404, untaggedWireErrorBody(WIRE_MESSAGES.notFound))
+      return
+    }
+    if (match === 'method-not-allowed') {
+      sendWireError(response, 405, untaggedWireErrorBody(WIRE_MESSAGES.methodNotAllowed))
+      return
+    }
+
+    match.route
+      .handle({ request, response, url, params: match.params, registry: args.registry })
+      .catch(() => {
+        if (response.headersSent) {
+          response.end()
+          return
+        }
+        sendWireError(response, 500, untaggedWireErrorBody(WIRE_MESSAGES.internal))
+      })
   }
 }

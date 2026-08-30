@@ -8,13 +8,9 @@ import type { DiscoveredFlow } from './discovery.js'
 import { committedFlow, uiPath } from './testSupport.js'
 import { findUnsafeValues } from './wireSafety.js'
 
-async function discoverPublication(): Promise<DiscoveredFlow> {
-  return committedFlow()
-}
-
 describe('summariseFlow', () => {
   it('produces the sidebar row: id, name and node count', async () => {
-    expect(summariseFlow(await discoverPublication())).toEqual({
+    expect(summariseFlow(await committedFlow())).toEqual({
       id: 'publication',
       name: 'publication',
       nodeCount: 3,
@@ -24,7 +20,7 @@ describe('summariseFlow', () => {
 
 describe('describeFlow', () => {
   it('carries every node id, kind and title in builder order', async () => {
-    const descriptor = describeFlow(await discoverPublication())
+    const descriptor = describeFlow(await committedFlow())
     if (descriptor instanceof Error) throw descriptor
     expect(descriptor.nodes.map((node) => [node.id, node.kind, node.title])).toEqual([
       ['start1', 'start', 'Publication input'],
@@ -34,7 +30,7 @@ describe('describeFlow', () => {
   })
 
   it('lists the flow id, name and the document file name only', async () => {
-    const descriptor = describeFlow(await discoverPublication())
+    const descriptor = describeFlow(await committedFlow())
     if (descriptor instanceof Error) throw descriptor
     expect(descriptor.id).toBe('publication')
     expect(descriptor.name).toBe('publication')
@@ -42,13 +38,13 @@ describe('describeFlow', () => {
   })
 
   it('lists the starts', async () => {
-    const descriptor = describeFlow(await discoverPublication())
+    const descriptor = describeFlow(await committedFlow())
     if (descriptor instanceof Error) throw descriptor
     expect(descriptor.startIds).toEqual(['start1'])
   })
 
   it('carries P6 control descriptors and type annotations for a normal node', async () => {
-    const descriptor = describeFlow(await discoverPublication())
+    const descriptor = describeFlow(await committedFlow())
     if (descriptor instanceof Error) throw descriptor
     const render = descriptor.nodes.find((node) => node.id === 'render')
     expect(render?.input.fields.map((field) => [field.field, field.control.kind])).toEqual([
@@ -63,7 +59,7 @@ describe('describeFlow', () => {
   })
 
   it("uses a start's input schema for its output fields", async () => {
-    const descriptor = describeFlow(await discoverPublication())
+    const descriptor = describeFlow(await committedFlow())
     if (descriptor instanceof Error) throw descriptor
     const start = descriptor.nodes.find((node) => node.id === 'start1')
     expect(start?.input.fields.map((field) => field.field)).toEqual(['title', 'markdown'])
@@ -71,13 +67,13 @@ describe('describeFlow', () => {
   })
 
   it('is pure JSON: a round trip changes nothing', async () => {
-    const descriptor = describeFlow(await discoverPublication())
+    const descriptor = describeFlow(await committedFlow())
     if (descriptor instanceof Error) throw descriptor
     expect(JSON.parse(JSON.stringify(descriptor))).toStrictEqual(descriptor)
   })
 
   it('carries no handler, no absolute path and no forbidden key', async () => {
-    const discovered = await discoverPublication()
+    const discovered = await committedFlow()
     const descriptor = describeFlow(discovered)
     if (descriptor instanceof Error) throw descriptor
     expect(

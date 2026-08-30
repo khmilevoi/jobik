@@ -3,9 +3,9 @@ import { describe, expect, it } from 'vitest'
 import { publicationFixture } from '../../../../examples/publication/fixtures.js'
 import { defineJobikConfig } from './config.js'
 import { discoverFlows, loadJobikConfig } from './discovery.js'
+import { uiPath } from './testSupport.js'
 
 const fixtures = path.resolve(import.meta.dirname, 'fixtures')
-const uiPath = path.resolve(publicationFixture.root, 'flow.ui.tsx')
 
 const publicationConfig = defineJobikConfig({
   server: { host: '127.0.0.1', port: 0 },

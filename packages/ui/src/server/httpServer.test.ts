@@ -1,53 +1,29 @@
 import * as fs from 'node:fs/promises'
 import path from 'node:path'
 import * as jobik from '@jobik/core'
-import { afterEach, describe, expect, it } from 'vitest'
-import {
-  bindPublicationTo,
-  createPublicationDocumentCopy,
-  publicationFixture,
-} from '../../../../examples/publication/fixtures.js'
+import { describe, expect, it } from 'vitest'
+import { publicationFixture } from '../../../../examples/publication/fixtures.js'
 import { defineJobikConfig } from './config.js'
-import type { DiscoveredFlow } from './discovery.js'
 import { type JobikServer, serveFlowRegistry, startJobikServer } from './httpServer.js'
+import { pushCleanup, setupCleanups, temporaryFlow, uiPath } from './testSupport.js'
 import { WIRE_MESSAGES } from './wireError.js'
 import { findUnsafeValues } from './wireSafety.js'
 
-const uiPath = path.resolve(publicationFixture.root, 'flow.ui.tsx')
-const cleanups: (() => Promise<void>)[] = []
-
-afterEach(async () => {
-  while (cleanups.length > 0) await cleanups.pop()?.()
-})
+setupCleanups()
 
 /**
  * A server on an ephemeral port, serving the publication graph bound to a throwaway copy of the
  * document — so a save test rewrites the copy and never the committed example.
- *
- * It builds the `DiscoveredFlow` directly rather than going through `discoverFlows`, because the
- * example's own binding entrypoint is bound to the committed document. Discovery itself is covered
- * by `discovery.test.ts` and `rootConfig.test.ts`.
  */
 async function startOverCopy(): Promise<{ server: JobikServer; documentPath: string }> {
-  const copy = await createPublicationDocumentCopy()
-  cleanups.push(copy.cleanup)
-
-  const flow = bindPublicationTo(copy.documentPath)
-  const discovered: DiscoveredFlow = {
-    id: flow.name,
-    flow,
-    bindingPath: publicationFixture.bindingPath,
-    uiPath,
-    documentPath: copy.documentPath,
-  }
-
+  const discovered = await temporaryFlow()
   const server = await serveFlowRegistry({
     registry: { flows: [discovered], get: (id) => (id === discovered.id ? discovered : undefined) },
     host: '127.0.0.1',
     port: 0,
   })
-  cleanups.push(() => server.close())
-  return { server, documentPath: copy.documentPath }
+  pushCleanup(() => server.close())
+  return { server, documentPath: discovered.documentPath }
 }
 
 /** Every forbidden substring a payload from this fixture could possibly leak. */
@@ -300,6 +276,13 @@ describe('the wire payload of every endpoint', () => {
         await fetch(`${server.url}/api/flows/${publicationFixture.flowName}/save`, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ document: loaded.document, expectedRevision: loaded.revision }),
+        })
+      ).json(),
+      await (
+        await fetch(`${server.url}/api/flows/${publicationFixture.flowName}/save`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ document: loaded.document, expectedRevision: 'stale' }),
         })
       ).json(),
@@ -320,7 +303,7 @@ describe('startJobikServer (R9)', () => {
       flows: [{ binding: publicationFixture.bindingPath, ui: uiPath }],
     })
     const server = await startJobikServer({ config })
-    cleanups.push(() => server.close())
+    pushCleanup(() => server.close())
 
     const response = await fetch(`${server.url}/api/flows`)
     expect(response.status).toBe(200)

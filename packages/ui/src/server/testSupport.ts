@@ -18,15 +18,29 @@ import { type DiscoveredFlow, discoverFlows } from './discovery.js'
 export const uiPath = path.resolve(publicationFixture.root, 'flow.ui.tsx')
 
 const cleanups: (() => Promise<void>)[] = []
+let setupCleanupsCalled = false
 
 export function setupCleanups() {
+  setupCleanupsCalled = true
   afterEach(async () => {
     while (cleanups.length > 0) await cleanups.pop()?.()
   })
 }
 
+/** Register a teardown function to be run in LIFO order in the same drain as `setupCleanups()`. */
+export function pushCleanup(fn: () => void | Promise<void>): void {
+  cleanups.push(async () => {
+    await fn()
+  })
+}
+
 /** A discovered flow bound to a throwaway copy of the example document. */
 export async function temporaryFlow(): Promise<DiscoveredFlow> {
+  if (!setupCleanupsCalled) {
+    throw new Error(
+      'temporaryFlow() requires setupCleanups() to have been called in this file to register the cleanup drain',
+    )
+  }
   const copy = await createPublicationDocumentCopy()
   cleanups.push(copy.cleanup)
   const flow = bindPublicationTo(copy.documentPath)
