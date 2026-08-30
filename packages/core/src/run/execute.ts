@@ -2,7 +2,7 @@ import { NodeExecutionError } from '../errors.js'
 import type { RunGraph } from '../graph/types.js'
 import type { NodeRunContext } from '../node.js'
 import { collectAssets } from './assets.js'
-import type { NodeReport, NodeStatus, RunEvent, RunOptions, RunReport } from './types.js'
+import type { NodeReport, NodeStatus, RunEvent, RunOptions, RunReport, RunStatus } from './types.js'
 
 /**
  * The execution engine over one selected start's reachable subgraph.
@@ -77,8 +77,29 @@ export async function executeRunGraph(args: {
     statuses.set(nodeId, 'running')
     const startedAt = performance.now()
     const context: NodeRunContext = { signal: new AbortController().signal }
-    const settledValue: unknown = await definition.run(parsedInput.data, context)
+    // The handler is third-party code, so this is an error boundary: a synchronous throw, a
+    // rejection and a thrown non-Error all have to come back as a value. The async IIFE turns a
+    // synchronous throw into a rejection while still invoking the handler synchronously, and
+    // `.catch` accepts any thrown value. `errore.try` is deliberately NOT used here: it rethrows
+    // anything that is not an `Error` instance, which would punch a hole straight through the
+    // boundary the spec requires.
+    const settledValue: unknown = await (async () =>
+      definition.run(parsedInput.data, context))().catch(
+      (cause: unknown) => new NodeExecutionError({ nodeId, runNumber, cause }),
+    )
     const elapsedMs = performance.now() - startedAt
+
+    if (settledValue instanceof Error) {
+      settle({
+        nodeId,
+        status: 'failed',
+        elapsedMs,
+        output: null,
+        assets: {},
+        error: settledValue,
+      })
+      continue
+    }
 
     const parsedOutput = definition.output.safeParse(settledValue)
     if (!parsedOutput.success) {
@@ -107,7 +128,7 @@ export async function executeRunGraph(args: {
     flowName: graph.flowName,
     startId: graph.startId,
     runNumber,
-    status: 'ok',
+    status: runStatusOf(nodes),
     elapsedMs: performance.now() - runStartedAt,
     nodes,
     logs: [],
@@ -115,4 +136,13 @@ export async function executeRunGraph(args: {
   }
   emit({ type: 'run-settled', report })
   return report
+}
+
+/**
+ * How the run settled. A run with no failed node is `ok` even when a node was skipped for want of a
+ * start that did not run — nothing failed in that run.
+ */
+function runStatusOf(nodes: readonly NodeReport[]): RunStatus {
+  if (nodes.some((node) => node.status === 'failed')) return 'failed'
+  return 'ok'
 }
