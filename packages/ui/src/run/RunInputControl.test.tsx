@@ -136,6 +136,21 @@ describe('RunInputControl', () => {
     expect(input).toHaveValue('Buffer')
   })
 
+  it('gives each mounted control a document-unique id, with htmlFor matching its own', () => {
+    render(
+      <div>
+        <RunInputControl field={title} value="a" />
+        <RunInputControl field={title} value="b" />
+      </div>,
+    )
+    const inputs = screen.getAllByTestId('run-input-title')
+    const labels = screen.getAllByTestId('run-input-label-title')
+    expect(inputs).toHaveLength(2)
+    expect(inputs[0]?.id).not.toBe(inputs[1]?.id)
+    expect(labels[0]).toHaveAttribute('for', inputs[0]?.id)
+    expect(labels[1]).toHaveAttribute('for', inputs[1]?.id)
+  })
+
   it('draws a nested schema in the monospace area whatever the caller asks for', () => {
     const field: InputFieldDescriptor = {
       field: 'meta',

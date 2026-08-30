@@ -1,5 +1,5 @@
 import type { InputFieldDescriptor } from '@jobik/core'
-import type { CSSProperties } from 'react'
+import { type CSSProperties, useId } from 'react'
 import { TypeAnnotation } from '../primitives/index.js'
 import { borders, fontFamilies, px, radii, surfaces, textColors } from '../tokens.js'
 import { runPanelColors, runPanelMetrics } from './runPanelTokens.js'
@@ -47,7 +47,11 @@ export interface RunInputControlProps {
 export function RunInputControl(props: RunInputControlProps) {
   const { field, onChange } = props
   const control = field.control
-  const id = `run-input-${field.field}`
+  const testId = `run-input-${field.field}`
+  // A document may mount more than one run panel — a RunPanelCard beside a docked RunPanel, or
+  // several state cards side by side — so the real DOM id must be unique per mounted control.
+  // data-testid stays the field-only form: existing tests and the label's own testid depend on it.
+  const domId = `${useId()}-${field.field}`
   const emit = (next: RunInputDraftValue) => onChange?.(field.field, next)
   const text = typeof props.value === 'string' ? props.value : ''
 
@@ -55,8 +59,8 @@ export function RunInputControl(props: RunInputControlProps) {
     if (control.kind === 'json') {
       return (
         <textarea
-          data-testid={id}
-          id={id}
+          data-testid={testId}
+          id={domId}
           value={text}
           onChange={(event) => emit(event.target.value)}
           style={areaShell}
@@ -67,14 +71,16 @@ export function RunInputControl(props: RunInputControlProps) {
     if (control.kind === 'literal' || control.kind === 'asset') {
       const fixed =
         control.kind === 'literal' ? String(control.value ?? 'null') : (field.title ?? 'Buffer')
-      return <input data-testid={id} id={id} disabled readOnly value={fixed} style={lineShell} />
+      return (
+        <input data-testid={testId} id={domId} disabled readOnly value={fixed} style={lineShell} />
+      )
     }
 
     if (control.kind === 'boolean') {
       return (
         <input
-          data-testid={id}
-          id={id}
+          data-testid={testId}
+          id={domId}
           type="checkbox"
           checked={props.value === true}
           onChange={(event) => emit(event.target.checked)}
@@ -86,8 +92,8 @@ export function RunInputControl(props: RunInputControlProps) {
     if (control.kind === 'enum') {
       return (
         <select
-          data-testid={id}
-          id={id}
+          data-testid={testId}
+          id={domId}
           value={text}
           onChange={(event) => emit(event.target.value)}
           style={lineShell}
@@ -104,8 +110,8 @@ export function RunInputControl(props: RunInputControlProps) {
     if (control.kind === 'number') {
       return (
         <input
-          data-testid={id}
-          id={id}
+          data-testid={testId}
+          id={domId}
           type="number"
           step={control.integer ? 1 : 'any'}
           value={text}
@@ -118,8 +124,8 @@ export function RunInputControl(props: RunInputControlProps) {
     if (props.presentation === 'area') {
       return (
         <textarea
-          data-testid={id}
-          id={id}
+          data-testid={testId}
+          id={domId}
           value={text}
           onChange={(event) => emit(event.target.value)}
           style={areaShell}
@@ -129,8 +135,8 @@ export function RunInputControl(props: RunInputControlProps) {
 
     return (
       <input
-        data-testid={id}
-        id={id}
+        data-testid={testId}
+        id={domId}
         type="text"
         value={text}
         onChange={(event) => emit(event.target.value)}
@@ -143,7 +149,7 @@ export function RunInputControl(props: RunInputControlProps) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: px(7) }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
         <label
-          htmlFor={id}
+          htmlFor={domId}
           data-testid={`run-input-label-${field.field}`}
           style={{
             fontFamily: fontFamilies.mono,
