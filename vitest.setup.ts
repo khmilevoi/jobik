@@ -18,6 +18,7 @@ class ResizeObserverMock implements ResizeObserver {
   observe(target: Element): void {
     setTimeout(() => {
       const element = target as HTMLElement
+      // @xyflow/system's pane-extent observer callback reads entry.contentRect.width/.height unguarded
       const contentRect = new DOMRectReadOnly(0, 0, element.offsetWidth, element.offsetHeight)
       this.callback([{ target, contentRect } as ResizeObserverEntry], this)
     }, 0)
@@ -55,7 +56,6 @@ if (typeof document !== 'undefined') {
     },
   })
 
-  Object.defineProperty(globalThis.SVGElement.prototype, 'getBBox', {
-    value: () => ({ x: 0, y: 0, width: 0, height: 0 }) as DOMRect,
-  })
+  ;(globalThis.SVGElement.prototype as any).getBBox = () =>
+    ({ x: 0, y: 0, width: 0, height: 0 }) as DOMRect
 }
