@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { accent, statusColors, textColors } from '../tokens.js'
-import { formatRawJson, rawJsonToneColors } from './rawJson.js'
+import { formatRawJson, rawJsonToneColors } from './rawJsonFormat.js'
 
 /** The report the artboard's Raw panel serialises, design lines 964–975. */
 const artboardReport = {
