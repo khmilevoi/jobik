@@ -1,7 +1,11 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import type { FlowDocument } from '@jobik/core'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
+import * as React from 'react'
+import * as ReactJsxRuntime from 'react/jsx-runtime'
+import * as ReactDOM from 'react-dom'
+import * as ReactDOMClient from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   publicationExpectedUrlPattern,
@@ -9,6 +13,7 @@ import {
 } from '../../../../examples/publication/fixtures.js'
 import type { JobikClient } from '../client/index.js'
 import { createJobikClient } from '../client/index.js'
+import * as jobikUi from '../index.js'
 import type { JobikServer } from '../server/httpServer.js'
 import { serveFlowRegistry } from '../server/httpServer.js'
 import { jobikAllRoutes } from '../server/runRoutes.js'
@@ -198,6 +203,101 @@ describe('the Studio over the publication example', () => {
     )
   })
 
+  it('renders the flow-local Output component in the node card once the run completes', {
+    timeout: 120_000,
+  }, async () => {
+    /**
+     * R34 (fix round 1): the plan's `## Verification` names "custom output slots" as something
+     * this file must demonstrate, but no test before this one ever mounted `StudioApp` against a
+     * loaded extension — `'serves a real flow-local extension bundle over HTTP'` below only ever
+     * fetched the raw bytes. This test mounts `StudioApp` against the REAL served bundle
+     * (`GET /api/flows/publication/ui.js`, the same Vite build that route invokes) and asserts the
+     * real `RenderedImage` component (`examples/publication/components/RenderedImage.tsx`, the
+     * `flow.ui.tsx` default-exports it for the `render` node) actually renders inside the `render`
+     * node card's inline output slot — not `GenericOutput`'s raw-JSON fallback every other test in
+     * this file exercises instead, deliberately, by pointing `extensionBundleUrl` at an unknown
+     * flow id.
+     *
+     * ONE substitution, exactly where the brief allows it: `importModule`. It does nothing but
+     * forward to a genuine dynamic `import()` — the same expression `loadFlowUi`'s own
+     * `defaultImportModule` already uses. Everything upstream of it stays real: the real `fetch`
+     * of the real bundle, and `extensionLoader.ts`'s own unedited `rewriteBareSpecifiers`.
+     *
+     * WHY the substitution is still needed even though it only forwards to a real `import()`:
+     * probed directly against this exact vitest/jsdom environment before writing this test.
+     * `globalThis.URL` inside a test file is not the same `URL` class `node:buffer`'s blob
+     * registry is keyed against — the same cross-realm split as the `Uint8Array` fix earlier in
+     * this file — so `URL.createObjectURL` exists here and returns a plausible `blob:nodedata:…`
+     * string, but that string is neither `import()`-able (`Cannot find package
+     * 'blob:nodedata:…'`) nor readable back out through `fetch` or `node:buffer`'s
+     * `resolveObjectURL` from this realm. `extensionLoader.ts`'s own `toBlobUrl` already has a
+     * working, UNEDITED fallback for exactly this situation — a `data:` URL — gated on
+     * `typeof URL.createObjectURL !== 'function'`; probing confirmed a `data:` URL imports
+     * correctly here, including one nested inside another (the exact shape `loadFlowUi` produces
+     * when an external is shimmed). Deleting `URL.createObjectURL` for the scope of this test
+     * (restored in the `finally` below) makes `toBlobUrl` take that already-existing branch,
+     * unedited, instead of the one this particular test harness cannot use. This is the same
+     * environment fact `extensionLoader.ts`'s own doc comment anticipated ("jsdom implements
+     * neither blob-URL import() nor createObjectURL") — `createObjectURL` merely turns out to
+     * exist here, for the cross-realm reason above, where that comment expected it not to.
+     */
+    const savedCreateObjectURL = URL.createObjectURL
+    // @ts-expect-error -- deliberately removed for the scope of this test only; see the comment
+    // above. Restored in `finally`.
+    URL.createObjectURL = undefined
+    try {
+      const realExternals = {
+        '@jobik/ui': jobikUi as unknown as Record<string, unknown>,
+        react: React as unknown as Record<string, unknown>,
+        'react-dom': ReactDOM as unknown as Record<string, unknown>,
+        'react-dom/client': ReactDOMClient as unknown as Record<string, unknown>,
+        'react/jsx-runtime': ReactJsxRuntime as unknown as Record<string, unknown>,
+      }
+      const realImportModule = (moduleUrl: string) => import(/* @vite-ignore */ moduleUrl)
+
+      render(
+        <StudioApp
+          client={{
+            ...client,
+            extensionBundleUrl: () => `${server.url}/api/flows/publication/ui.js`,
+          }}
+          externals={realExternals}
+          importModule={realImportModule}
+        />,
+      )
+
+      await waitFor(() => expect(screen.getByTestId('run-input-title')).toBeInTheDocument())
+      await userEvent.type(screen.getByTestId('run-input-title'), publicationSampleInput.title)
+      await userEvent.type(
+        screen.getByTestId('run-input-markdown'),
+        publicationSampleInput.markdown,
+      )
+      await userEvent.click(screen.getByTestId('run-start-button'))
+
+      await waitFor(() => expect(screen.getByTestId('run-outputs-label')).toBeInTheDocument(), {
+        timeout: 30_000,
+      })
+
+      // The proof: the `render` node card's inline output slot holds `RenderedImage`'s own
+      // `<img>`, not `GenericOutput`'s raw-JSON well. `userEvent.type` does not insert the
+      // literal `\n`s inside `publicationSampleInput.markdown` as real newlines (a pre-existing
+      // fact of this suite's typed-textarea inputs, not something this test introduces —
+      // `captionFor`'s heading regex then matches the whole typed string as one line), so the
+      // caption is not byte-identical to `publicationExpectedCaption`; asserting `toContain` on
+      // its first, unambiguous fragment still ties this to the real typed input rather than to a
+      // hard-coded string, while the `src` pattern proves the real `assetUrl()` the server's own
+      // `/api/assets/:id` route answers under, and the two elements below prove the OUTPUT slot
+      // this is inside holds an `<img>`, not `GenericOutput`.
+      const nodeCard = screen.getByTestId('node-card-render')
+      const image = await waitFor(() => within(nodeCard).getByRole('img'))
+      expect(image).toHaveAttribute('alt', expect.stringContaining('Release 0.4'))
+      expect((image as HTMLImageElement).src).toMatch(/\/api\/assets\//)
+      expect(within(nodeCard).queryByTestId('generic-output')).toBeNull()
+    } finally {
+      URL.createObjectURL = savedCreateObjectURL as typeof URL.createObjectURL
+    }
+  })
+
   it('marks the draft dirty on a real canvas edit and saves it to disk', async () => {
     const view = mount()
     await waitFor(() => expect(screen.getByTestId('node-card-render')).toBeInTheDocument())
@@ -323,12 +423,63 @@ describe('the Studio over the publication example', () => {
     expect(source).toMatch(/['"]@jobik\/ui['"]|['"]react\/jsx-runtime['"]/)
   })
 
-  it('never sends a handler, an absolute path, a raw stack or a cause to the browser', async () => {
-    const loaded = await (await fetch(`${server.url}/api/flows/publication`)).text()
+  it('never sends a handler, an absolute path, a raw stack or a cause to the browser', {
+    timeout: 30_000,
+  }, async () => {
+    // Bundled minor (fix round 1): sweeping only `GET /api/flows/:id`'s success path is close to
+    // a tautology — `descriptor.ts` already makes it clean by construction. The place this logic
+    // actually operates is `runWire.ts`'s trimmed-stack and cause handling, on a completed run's
+    // report and on an error payload from a genuinely failing node — swept below too, over two
+    // real runs against the real server.
+    const assertSafe = (raw: string) => {
+      expect(raw).not.toContain('"stack"')
+      expect(raw).not.toContain('"cause"')
+      expect(raw).not.toMatch(/[A-Za-z]:\\\\|\/Users\/|\/home\//)
+      expect(raw).not.toContain('"run"')
+    }
 
-    expect(loaded).not.toContain('"stack"')
-    expect(loaded).not.toContain('"cause"')
-    expect(loaded).not.toMatch(/[A-Za-z]:\\\\|\/Users\/|\/home\//)
-    expect(loaded).not.toContain('"run"')
+    const loaded = await (await fetch(`${server.url}/api/flows/publication`)).text()
+    assertSafe(loaded)
+
+    // A completed run's report payload — the NDJSON stream's raw text, unparsed, so nothing this
+    // test does not explicitly check for could hide in a field `readNdjsonStream` would have
+    // dropped.
+    const okRun = await fetch(`${server.url}/api/flows/publication/run`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ startId: 'start1', input: publicationSampleInput }),
+    })
+    const okRaw = await okRun.text()
+    assertSafe(okRaw)
+    expect(okRaw).toContain('run-settled')
+
+    // An error payload from a genuinely failing node. `render`'s handler RETURNS `ImageRenderError`
+    // (it never throws) for an inlined asset naming a colour profile it does not support — the
+    // "authored" wire shape `runWire.ts`'s own doc comment names, `{ _tag, message, authored: true
+    // }`, which by construction carries neither a `stack` nor a `cause` (only a THROWN failure is
+    // wrapped as `NodeExecutionError` and stack-trimmed instead). This is the one node failure the
+    // publication example can produce without touching the frozen `core`/`server` packages; it
+    // still exercises the same `serialiseRunReport` → `toNodeWireError` path a thrown one would.
+    const failingRun = await fetch(`${server.url}/api/flows/publication/run`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        startId: 'start1',
+        input: {
+          title: publicationSampleInput.title,
+          markdown: [
+            '## Release 0.4',
+            'intro',
+            '',
+            '![cover](assets/cover.png#profile=display-p3)',
+          ].join('\n'),
+        },
+      }),
+    })
+    const failingRaw = await failingRun.text()
+    assertSafe(failingRaw)
+    // The failing run actually reached and failed the node under test — an assertion that could
+    // never fail proves nothing about what it swept.
+    expect(failingRaw).toContain('ImageRenderError')
   })
 })
