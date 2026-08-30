@@ -6,6 +6,7 @@
  */
 
 export * from './asset.js'
+export * from './document/index.js'
 export * from './errors.js'
 export * from './flow.js'
 export * from './node.js'
