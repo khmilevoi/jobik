@@ -3,6 +3,7 @@
  * primitive. Re-exported wholesale from the package barrel.
  */
 
+export * from './atomic-write.js'
 export * from './migrate.js'
 export * from './parse.js'
 export * from './read.js'
