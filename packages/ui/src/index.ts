@@ -1,3 +1,4 @@
+// biome-ignore-all assist/source/organizeImports: plan-provenance blocks are append-only
 /**
  * `@jobik/ui` browser surface. Named imports only — `import { defineFlowUi } from '@jobik/ui'`.
  *
@@ -11,3 +12,8 @@ export * from './shell/index.js'
 export type { StudioProps } from './studio/Studio.js'
 export { Studio } from './studio/Studio.js'
 export * from './tokens.js'
+
+// --- P7 ui-canvas ---
+// Mounting `FlowCanvas` outside the bundled Studio also needs React Flow's base stylesheet:
+// `import '@xyflow/react/dist/style.css'`.
+export * from './canvas/index.js'

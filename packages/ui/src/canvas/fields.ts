@@ -108,3 +108,28 @@ export function resolveHandleTone(
   if (resolveFieldTone(field, isStart) === 'dim') return 'dim'
   return live ? 'accent' : 'idle'
 }
+
+/**
+ * The accent handle ids on each node, keyed by node id — what `NodeCardData.liveFields` carries.
+ */
+export function liveFieldsByNode(
+  edges: readonly FlowCanvasEdge[],
+  startNodeId?: string,
+): ReadonlyMap<string, readonly string[]> {
+  const live = liveEndpointKeys(edges, startNodeId)
+  const byNode = new Map<string, string[]>()
+
+  const add = (nodeId: string, direction: HandleDirection, field: string): void => {
+    if (!live.has(endpointKey(nodeId, direction, field))) return
+    const handleId = fieldHandleId(direction, field)
+    const list = byNode.get(nodeId) ?? []
+    if (!list.includes(handleId)) list.push(handleId)
+    byNode.set(nodeId, list)
+  }
+
+  for (const edge of edges) {
+    add(edge.source, 'source', edge.sourceField)
+    add(edge.target, 'target', edge.targetField)
+  }
+  return byNode
+}
