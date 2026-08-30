@@ -58,4 +58,10 @@ describe('VariantRow', () => {
     expect(screen.queryAllByTestId('output-variant')).toHaveLength(0)
     expect(screen.getAllByTestId('output-variant-empty')).toHaveLength(1)
   })
+
+  it('omits the caption line for a variant that has none', () => {
+    render(<VariantRow variants={[{ label: 'og.png' }]} />)
+    expect(screen.getAllByTestId('output-variant')).toHaveLength(1)
+    expect(screen.queryByTestId('output-variant-caption')).toBeNull()
+  })
 })
