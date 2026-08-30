@@ -102,7 +102,22 @@ describe('OutputViewer', () => {
       />,
     )
     expect(screen.getByTestId('output-logs')).toHaveTextContent('render layout pass complete')
-    expect(screen.getByTestId('output-viewer-meta')).toHaveTextContent('1 lines')
+    expect(screen.getByTestId('output-viewer-meta')).toHaveTextContent('1 line')
+  })
+
+  it('pluralises the log line count once there is more than one', () => {
+    render(
+      <OutputViewer
+        nodeId="render"
+        output={output}
+        defaultTab="logs"
+        logs={[
+          { time: '0.31', message: 'render layout pass complete' },
+          { time: '0.42', message: 'render encode pass complete' },
+        ]}
+      />,
+    )
+    expect(screen.getByTestId('output-viewer-meta')).toHaveTextContent('2 lines')
   })
 
   it('switches tabs on click and reports the change', async () => {

@@ -36,9 +36,10 @@ export function VariantRow(props: VariantRowProps) {
       data-testid="output-variant-row"
       style={{ display: 'flex', gap: px(outputMetrics.variantGap) }}
     >
-      {props.variants.map((variant) => (
+      {props.variants.map((variant, index) => (
         <div
-          key={variant.label}
+          // biome-ignore lint/suspicious/noArrayIndexKey: variants have no stable identity of their own
+          key={`${index}-${variant.label}`}
           data-testid="output-variant"
           style={{ ...column, gap: px(outputMetrics.variantCaptionGap) }}
         >

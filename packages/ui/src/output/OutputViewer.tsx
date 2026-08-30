@@ -73,7 +73,7 @@ export function OutputViewer(props: OutputViewerProps) {
     tab === 'raw'
       ? `json · ${formatBytes(new TextEncoder().encode(JSON.stringify(raw) ?? '').length)}`
       : tab === 'logs'
-        ? `${logs.length} lines`
+        ? `${logs.length} ${logs.length === 1 ? 'line' : 'lines'}`
         : undefined
 
   return (

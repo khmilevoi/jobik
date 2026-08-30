@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { canvasColors } from '../canvas/canvasTokens.js'
 import * as tokens from '../tokens.js'
 import { outputColors, outputMetrics } from './outputTokens.js'
 
@@ -23,6 +24,7 @@ describe('output viewer tokens', () => {
       }
     }
     visit(tokens)
+    visit(canvasColors)
     for (const value of Object.values(outputColors)) {
       expect(owned.has(value.toLowerCase()), `${value} is already a shared token`).toBe(false)
     }
