@@ -257,15 +257,15 @@ describe('validateFlowGraph() — one connection per input field', () => {
   it('reports the type problem first when a second connection is also incompatible', () => {
     const document = flowDocument({
       connections: [
-        { from: { node: 'start1', field: 'markdown' }, to: { node: 'render', field: 'width' } },
-        { from: { node: 'start1', field: 'title' }, to: { node: 'render', field: 'width' } },
+        { from: { node: 'start1', field: 'markdown' }, to: { node: 'render', field: 'markdown' } },
+        { from: { node: 'render', field: 'image' }, to: { node: 'render', field: 'markdown' } },
       ],
     })
     const error = errorOrThrow(
       validateFlowGraph({ flow: publicationFlow, document }),
       ConnectionError,
     )
-    expect(error.reason).toBe("cannot connect string 'start1.markdown' to number 'render.width'")
+    expect(error.reason).toBe("cannot connect asset 'render.image' to string 'render.markdown'")
   })
 })
 
