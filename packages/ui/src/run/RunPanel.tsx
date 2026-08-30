@@ -2,13 +2,13 @@ import { borders, px, radii, surfaces } from '../tokens.js'
 import { RunCompletedView } from './RunCompletedView.js'
 import { RunFailedView } from './RunFailedView.js'
 import { RunIdleView } from './RunIdleView.js'
-import { runPanelColors, runPanelMetrics } from './runPanelTokens.js'
 import { RunRunningView } from './RunRunningView.js'
 import { RunStateHeader } from './RunStateHeader.js'
+import { runPanelColors, runPanelMetrics } from './runPanelTokens.js'
 import type { RunPanelState } from './types.js'
 
-export { RunStateHeader } from './RunStateHeader.js'
 export type { RunStateHeaderProps } from './RunStateHeader.js'
+export { RunStateHeader } from './RunStateHeader.js'
 
 export interface RunPanelProps {
   readonly state: RunPanelState
