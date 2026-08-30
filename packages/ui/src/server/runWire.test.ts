@@ -73,8 +73,21 @@ describe('serialiseNodeOutput', () => {
   it('breaks a cycle rather than blowing the call stack', () => {
     const cyclic: Record<string, unknown> = { name: 'self' }
     cyclic.parent = cyclic
-    const serialised = serialiseNodeOutput({ output: { meta: cyclic }, assets: {} })
+    const item = { id: 'shared' }
+    const serialised = serialiseNodeOutput({
+      output: { meta: cyclic, refs: { primary: item, list: [item] } },
+      assets: {},
+    })
     expect(() => JSON.stringify(serialised)).not.toThrow()
+
+    const meta = serialised?.meta as Record<string, unknown>
+    expect(meta.parent).toBeNull()
+
+    // A shared, non-cyclic reference is not a cycle: it must survive on every branch that reaches
+    // it, the same way `JSON.stringify` would duplicate it rather than null one occurrence out.
+    const refs = serialised?.refs as { primary: unknown; list: unknown[] }
+    expect(refs.list[0]).not.toBeNull()
+    expect(refs.list[0]).toEqual({ id: 'shared' })
   })
 })
 

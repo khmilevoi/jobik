@@ -163,13 +163,21 @@ function jsonSafe(value: unknown, seen: WeakSet<object> = new WeakSet()): unknow
   // of that, so left alone it recurses until the call stack itself gives up — inside `onEvent`,
   // which the engine's `emit` swallows, and the wire stream never gets its terminal line. `null`
   // is the same "unrepresentable" fallback every other unsafe-for-JSON shape here already gets.
+  // `seen` tracks only the current path, not every object visited overall: a shared (non-cyclic)
+  // reference reachable from two branches must serialise on both, the way `JSON.stringify` would
+  // duplicate it. The recursion below is entirely synchronous, so `finally` removing `value` on
+  // the way back out is exact — it is gone from `seen` by the time a sibling branch looks it up.
   if (seen.has(value)) return null
   seen.add(value)
-  if (Array.isArray(value)) return value.map((entry) => jsonSafe(entry, seen))
-  if (value instanceof Map || value instanceof Set) return null
-  const result: Record<string, unknown> = {}
-  for (const [key, entry] of Object.entries(value)) result[key] = jsonSafe(entry, seen)
-  return result
+  try {
+    if (Array.isArray(value)) return value.map((entry) => jsonSafe(entry, seen))
+    if (value instanceof Map || value instanceof Set) return null
+    const result: Record<string, unknown> = {}
+    for (const [key, entry] of Object.entries(value)) result[key] = jsonSafe(entry, seen)
+    return result
+  } finally {
+    seen.delete(value)
+  }
 }
 
 /**

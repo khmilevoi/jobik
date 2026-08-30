@@ -110,9 +110,11 @@ function openEventStream(response: ServerResponse): EventStream {
     let line: string
     try {
       line = JSON.stringify(event)
-    } catch {
+    } catch (cause) {
       // Unrepresentable despite `jsonSafe`'s own defences. Dropping the line, rather than sending
-      // a broken one, is what keeps `end`'s fallback below as the guaranteed terminal line.
+      // a broken one, is what keeps `end`'s fallback below as the guaranteed terminal line. The
+      // browser only ever sees the fallback; this trace is for the operator, server-side only.
+      console.error(`jobik: dropped an unserialisable run event (type '${event.type}')`, cause)
       return
     }
     response.write(`${line}\n`)
