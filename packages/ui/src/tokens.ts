@@ -142,8 +142,8 @@ export const motion = {
   spinner: 'jspin .7s linear infinite',
   edgeDash: 'jdash .8s linear infinite',
   shimmer: 'jshim 1.5s linear infinite',
-  pulseSlow: 'jpulse 1.5s linear infinite',
-  pulseFast: 'jpulse 1s linear infinite',
+  pulseSlow: 'jpulse 1.5s ease-in-out infinite',
+  pulseFast: 'jpulse 1s ease-in-out infinite',
 } as const
 
 export const layout = {
