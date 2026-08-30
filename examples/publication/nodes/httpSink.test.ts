@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { PUBLICATION_CDN_BASE } from '../types.js'
 import { httpSink } from './httpSink.js'
 
-const context = { signal: new AbortController().signal }
+const context = { signal: new AbortController().signal, log: () => {} }
 const image = Buffer.from('a fake png payload')
 
 describe('httpSink', () => {

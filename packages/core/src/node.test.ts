@@ -66,7 +66,7 @@ describe('node()', () => {
         return { n: input.n + 1 }
       },
     })
-    const result = await definition.run({ n: 1 }, { signal: controller.signal })
+    const result = await definition.run({ n: 1 }, { signal: controller.signal, log: () => {} })
     expect(result).toEqual({ n: 2 })
     expect(seen).toEqual([{ n: 1 }, controller.signal])
   })
@@ -78,7 +78,7 @@ describe('node()', () => {
       output: z.object({ n: z.number() }),
       run: () => new Error('upstream service is down'),
     })
-    const result = await definition.run({}, { signal: new AbortController().signal })
+    const result = await definition.run({}, { signal: new AbortController().signal, log: () => {} })
     expect(result).toBeInstanceOf(Error)
   })
 
@@ -91,7 +91,7 @@ describe('node()', () => {
     const definition: AnyNodeDefinition = render
     const result = await definition.run(
       { markdown: 'hello' },
-      { signal: new AbortController().signal },
+      { signal: new AbortController().signal, log: () => {} },
     )
     expect(result).toEqual({ imageUrl: 'https://cdn.test/hello' })
   })

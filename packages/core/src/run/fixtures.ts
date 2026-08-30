@@ -30,6 +30,17 @@ export const upper = node({
   run: ({ text }) => ({ text: text.toUpperCase() }),
 })
 
+/** Writes two log lines, so the progress tests can watch them arrive attributed to their node. */
+export const logging = node({
+  title: 'Logs',
+  ...textIo,
+  run: ({ text }, context) => {
+    context.log('starting')
+    context.log(`done with ${text}`)
+    return { text }
+  },
+})
+
 /** Returns its failure as a value, which the spec says handlers do for expected failures. */
 export const returningError = node({
   title: 'Returns an error value',

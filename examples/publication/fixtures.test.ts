@@ -46,7 +46,7 @@ describe('publicationSampleInput', () => {
   })
 
   it('drives the flow to the values the artboards fix', async () => {
-    const context = { signal: new AbortController().signal }
+    const context = { signal: new AbortController().signal, log: () => {} }
     const rendered = await publication.nodes.render.run(publicationSampleInput, context)
     if (rendered instanceof Error) throw rendered
     expect(rendered.caption).toBe(publicationExpectedCaption)

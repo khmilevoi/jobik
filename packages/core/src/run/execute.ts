@@ -2,7 +2,15 @@ import { NodeExecutionError, UpstreamFailedError } from '../errors.js'
 import type { GraphNode, RunGraph } from '../graph/types.js'
 import type { NodeRunContext } from '../node.js'
 import { collectAssets } from './assets.js'
-import type { NodeReport, NodeStatus, RunEvent, RunOptions, RunReport, RunStatus } from './types.js'
+import type {
+  NodeReport,
+  NodeStatus,
+  RunEvent,
+  RunLogLine,
+  RunOptions,
+  RunReport,
+  RunStatus,
+} from './types.js'
 
 /**
  * The execution engine over one selected start's reachable subgraph.
@@ -26,15 +34,32 @@ export async function executeRunGraph(args: {
   const outputs = new Map<string, Readonly<Record<string, unknown>>>()
   const statuses = new Map<string, NodeStatus>()
   const failureOrigin = new Map<string, string>()
+  const logs: RunLogLine[] = []
 
   const settle = (report: NodeReport) => {
     statuses.set(report.nodeId, report.status)
     nodes.push(report)
     if (report.output !== null) outputs.set(report.nodeId, report.output)
+    emit({
+      type: 'node-status',
+      nodeId: report.nodeId,
+      status: report.status,
+      elapsedMs: report.elapsedMs,
+      error: report.error,
+    })
   }
+
+  emit({
+    type: 'run-started',
+    runNumber,
+    flowName: graph.flowName,
+    startId: graph.startId,
+    nodeCount: graph.order.length,
+  })
 
   for (const nodeId of graph.order) {
     statuses.set(nodeId, 'queued')
+    emit({ type: 'node-status', nodeId, status: 'queued', elapsedMs: 0, error: null })
   }
 
   settle({
@@ -90,8 +115,16 @@ export async function executeRunGraph(args: {
     }
 
     statuses.set(nodeId, 'running')
+    emit({ type: 'node-status', nodeId, status: 'running', elapsedMs: 0, error: null })
     const startedAt = performance.now()
-    const context: NodeRunContext = { signal: new AbortController().signal }
+    const context: NodeRunContext = {
+      signal: new AbortController().signal,
+      log: (message: string) => {
+        const line: RunLogLine = { nodeId, message, at: Date.now() }
+        logs.push(line)
+        emit({ type: 'node-log', line })
+      },
+    }
     // The handler is third-party code, so this is an error boundary: a synchronous throw, a
     // rejection and a thrown non-Error all have to come back as a value. The async IIFE turns a
     // synchronous throw into a rejection while still invoking the handler synchronously, and
@@ -146,7 +179,7 @@ export async function executeRunGraph(args: {
     status: runStatusOf(nodes),
     elapsedMs: performance.now() - runStartedAt,
     nodes,
-    logs: [],
+    logs,
     error: null,
   }
   emit({ type: 'run-settled', report })

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { markdown } from './markdown.js'
 
-const context = { signal: new AbortController().signal }
+const context = { signal: new AbortController().signal, log: () => {} }
 
 const source = ['## Release 0.4', '', '', 'Field-level connections are now   ', 'validated.'].join(
   '\n',
