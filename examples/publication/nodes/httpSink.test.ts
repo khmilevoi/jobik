@@ -39,4 +39,22 @@ describe('httpSink', () => {
     expect(httpSink.input.safeParse({ image, caption: 'x' }).success).toBe(true)
     expect(httpSink.input.safeParse({ image: 'not binary', caption: 'x' }).success).toBe(false)
   })
+
+  it('prevents digest collisions from delimiter injection', async () => {
+    // Collision pair from the review: the old implementation would produce the same digest
+    // for these two cases because it concatenated without length prefixes
+    const image1 = Buffer.from([0x41])
+    const caption1 = '\nB'
+
+    const image2 = Buffer.from([0x41, 0x0a])
+    const caption2 = 'B'
+
+    const result1 = await httpSink.run({ image: image1, caption: caption1 }, context)
+    const result2 = await httpSink.run({ image: image2, caption: caption2 }, context)
+
+    if (result1 instanceof Error || result2 instanceof Error) throw result1
+
+    // With proper length-prefixing, these should produce different URLs
+    expect(result1.url).not.toBe(result2.url)
+  })
 })
