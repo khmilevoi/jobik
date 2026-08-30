@@ -244,3 +244,95 @@ describe('validateFlowGraph() — one connection per input field', () => {
     expect(result).not.toBeInstanceOf(Error)
   })
 })
+
+describe('validateFlowGraph() — literals', () => {
+  it('rejects a required input that is neither connected nor given a literal', () => {
+    const document = flowDocument({
+      connections: [
+        { from: { node: 'start1', field: 'markdown' }, to: { node: 'render', field: 'markdown' } },
+        { from: { node: 'render', field: 'caption' }, to: { node: 'publish', field: 'caption' } },
+      ],
+    })
+    const error = errorOrThrow(
+      validateFlowGraph({ flow: publicationFlow, document }),
+      ConnectionError,
+    )
+    expect(error.reason).toBe(
+      "required input field 'publish.channel' is neither connected nor given a literal",
+    )
+    expect(error.to).toEqual({ node: 'publish', field: 'channel' })
+    expect(error.from).toBeNull()
+  })
+
+  it('lets an optional input stay unconnected with no literal', () => {
+    const graph = okOrThrow(
+      validateFlowGraph({ flow: publicationFlow, document: publicationDocument() }),
+    )
+    expect(graph.nodes.get('render')?.literals).toEqual({})
+  })
+
+  it('treats a missing literals entry as an empty one', () => {
+    const document = publicationDocument()
+    document.literals = { publish: { channel: 'blog' } }
+    expect(validateFlowGraph({ flow: publicationFlow, document })).not.toBeInstanceOf(Error)
+  })
+
+  it('rejects a literal for a field that is already connected', () => {
+    const document = publicationDocument()
+    document.literals = { render: { markdown: 'inline' }, publish: { channel: 'blog' } }
+    const error = errorOrThrow(
+      validateFlowGraph({ flow: publicationFlow, document }),
+      ConnectionError,
+    )
+    expect(error.reason).toBe(
+      "input field 'render.markdown' is connected, so it cannot also take a literal",
+    )
+    expect(error.to).toEqual({ node: 'render', field: 'markdown' })
+  })
+
+  it('rejects a literal for a field the node does not accept', () => {
+    const document = publicationDocument()
+    document.literals = { publish: { channel: 'blog', nope: 1 } }
+    const error = errorOrThrow(
+      validateFlowGraph({ flow: publicationFlow, document }),
+      ConnectionError,
+    )
+    expect(error.reason).toBe(
+      "node 'publish' has no input field 'nope', so it cannot take a literal for it",
+    )
+  })
+
+  it('rejects literals on a start, whose input comes from run()', () => {
+    const document = publicationDocument()
+    document.literals = { start1: { title: 'x' }, publish: { channel: 'blog' } }
+    const error = errorOrThrow(
+      validateFlowGraph({ flow: publicationFlow, document }),
+      ConnectionError,
+    )
+    expect(error.reason).toBe(
+      "node 'start1' is a start: its input comes from run(startId, input), so it takes no literals",
+    )
+    expect(error.to).toBeNull()
+  })
+
+  it('rejects literals for a node that is not in the flow', () => {
+    const document = publicationDocument()
+    document.literals = { ghost: {}, publish: { channel: 'blog' } }
+    const error = errorOrThrow(
+      validateFlowGraph({ flow: publicationFlow, document }),
+      ConnectionError,
+    )
+    expect(error.reason).toBe("literals reference node 'ghost', which does not exist")
+  })
+
+  it('reports a cycle before it reports a missing literal', () => {
+    const document = flowDocument({
+      connections: [
+        { from: { node: 'a', field: 'value' }, to: { node: 'b', field: 'value' } },
+        { from: { node: 'b', field: 'value' }, to: { node: 'a', field: 'value' } },
+      ],
+    })
+    const error = errorOrThrow(validateFlowGraph({ flow: pairFlow, document }), ConnectionError)
+    expect(error.cycle).toEqual(['a', 'b', 'a'])
+  })
+})

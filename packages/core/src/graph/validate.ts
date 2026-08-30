@@ -3,7 +3,7 @@ import type { FlowDocument } from '../document/schema.js'
 import { ConnectionError, type FieldRef } from '../errors.js'
 import type { BoundFlow } from '../flow.js'
 import type { AnyDefinition } from '../node.js'
-import { areFieldTypesCompatible, fieldTypeOf } from './field-type.js'
+import { areFieldTypesCompatible, fieldTypeOf, isRequiredField } from './field-type.js'
 import { topologicalOrder } from './topology.js'
 import type { GraphInputEdge, GraphNode, ValidatedFlowGraph } from './types.js'
 
@@ -85,6 +85,49 @@ export function validateFlowGraph(args: {
       reason: `the graph contains a cycle: ${sorted.cycle.join(' -> ')}`,
       cycle: sorted.cycle,
     })
+  }
+
+  for (const [nodeId, values] of Object.entries(document.literals)) {
+    const definition = definitions.get(nodeId)
+    if (definition === undefined) {
+      return new ConnectionError({
+        reason: `literals reference node '${nodeId}', which does not exist`,
+      })
+    }
+    if (definition.kind === 'start') {
+      return new ConnectionError({
+        reason: `node '${nodeId}' is a start: its input comes from run(startId, input), so it takes no literals`,
+      })
+    }
+    const shape = definition.input.shape
+    for (const field of Object.keys(values)) {
+      if (!Object.hasOwn(shape, field)) {
+        return new ConnectionError({
+          reason: `node '${nodeId}' has no input field '${field}', so it cannot take a literal for it`,
+          to: { node: nodeId, field },
+        })
+      }
+      if (connected.has(fieldKey(nodeId, field))) {
+        return new ConnectionError({
+          reason: `input field '${nodeId}.${field}' is connected, so it cannot also take a literal`,
+          to: { node: nodeId, field },
+        })
+      }
+    }
+  }
+
+  for (const [nodeId, definition] of definitions) {
+    if (definition.kind === 'start') continue
+    const values = Object.hasOwn(document.literals, nodeId) ? document.literals[nodeId] : {}
+    for (const [field, schema] of Object.entries(definition.input.shape)) {
+      if (connected.has(fieldKey(nodeId, field))) continue
+      if (Object.hasOwn(values, field)) continue
+      if (!isRequiredField(schema)) continue
+      return new ConnectionError({
+        reason: `required input field '${nodeId}.${field}' is neither connected nor given a literal`,
+        to: { node: nodeId, field },
+      })
+    }
   }
 
   const nodes = new Map<string, GraphNode>()
