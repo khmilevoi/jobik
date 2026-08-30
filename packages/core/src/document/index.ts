@@ -4,5 +4,6 @@
  */
 
 export * from './migrate.js'
+export * from './parse.js'
 export * from './revision.js'
 export * from './schema.js'
