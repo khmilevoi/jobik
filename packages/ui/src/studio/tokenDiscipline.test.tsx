@@ -2,8 +2,11 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { afterEach, describe, expect, it } from 'vitest'
 import { Button, Chip, InsetWell, TypeAnnotation } from '../primitives/index.js'
+import { runPanelColors } from '../run/index.js'
 import * as tokens from '../tokens.js'
+import { RunningChip, SaveConflictChip } from './RunningChip.js'
 import { Studio } from './Studio.js'
+import { studioColors } from './studioTokens.js'
 
 afterEach(cleanup)
 
@@ -38,6 +41,8 @@ function tokenColours(): Set<string> {
     }
   }
   visit(tokens)
+  visit(runPanelColors)
+  visit(studioColors)
   return found
 }
 
@@ -66,6 +71,8 @@ function Gallery() {
       <InsetWell>control well</InsetWell>
       <InsetWell variant="output">output well</InsetWell>
       <TypeAnnotation>string</TypeAnnotation>
+      <RunningChip startId="start1" elapsed="1.3s" />
+      <SaveConflictChip />
     </div>
   )
 }
