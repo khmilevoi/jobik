@@ -3,4 +3,5 @@
  * primitive. Re-exported wholesale from the package barrel.
  */
 
+export * from './revision.js'
 export * from './schema.js'
