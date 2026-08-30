@@ -29,3 +29,5 @@ export * from './output/index.js'
 
 // --- P14 studio-integration ---
 export * from './client/index.js'
+export type { StudioAppProps } from './studio/StudioApp.js'
+export { StudioApp } from './studio/StudioApp.js'
