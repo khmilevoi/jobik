@@ -6,10 +6,6 @@ import { executeRunGraph } from './execute.js'
 import { createLoggingParkingRunGraph, createParkingRunGraph } from './fixtures.js'
 import type { RunEvent, RunReport } from './types.js'
 
-function wait(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
 function statusesOf(report: RunReport): Record<string, string> {
   return Object.fromEntries(report.nodes.map((node) => [node.nodeId, node.status]))
 }
@@ -82,7 +78,7 @@ describe('executeRunGraph() cancellation', () => {
   })
 
   it('drops a log line an abandoned handler emits after the report has already settled', async () => {
-    const { graph, entered } = createLoggingParkingRunGraph()
+    const { graph, entered, loggedAfterAbort } = createLoggingParkingRunGraph()
     const controller = new AbortController()
     const events: RunEvent[] = []
 
@@ -95,8 +91,9 @@ describe('executeRunGraph() cancellation', () => {
     await entered
     controller.abort()
     const report = await running
-    // Let the abandoned handler's later tick run: this is the log call that must be dropped.
-    await wait(10)
+    // Awaiting this proves the abandoned handler's later log call actually happened, so the
+    // assertion below tests the filtering rather than passing vacuously on a timer that never fired.
+    await loggedAfterAbort
 
     expect(report.logs.map((line) => line.message)).toEqual(['before abort'])
     expect(

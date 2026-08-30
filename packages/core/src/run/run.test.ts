@@ -16,6 +16,7 @@ import {
 } from '../graph/fixtures.js'
 import * as jobik from '../index.js'
 import { start } from '../node.js'
+import { throwingSchema } from './fixtures.js'
 import type { RunEvent, RunReport } from './types.js'
 
 async function boundPublication(document = publicationDocument()) {
@@ -72,6 +73,22 @@ describe('BoundFlow.run()', () => {
     expect(error.issues.map((issue) => issue.path)).toEqual(['markdown'])
   })
 
+  it('returns RunInputError, not a rejection, when the start input schema throws', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'jobik-run-'))
+    const file = path.join(dir, 'flow.jobik.json')
+    await fs.writeFile(file, serializeFlowDocument(flowDocument()), 'utf8')
+    const throwingStart = flow('throwing-start')
+      .start('s', start({ title: 'S', input: throwingSchema }))
+      .bind('path', file)
+
+    const result = await throwingStart.run('s', { text: 'a' })
+
+    const error = errorOrThrow(result, RunInputError)
+    expect(error.startId).toBe('s')
+    expect(error.cause).toBeInstanceOf(RangeError)
+    expect(error.issues).toEqual([])
+  })
+
   it('returns StartNotFoundError for a start the flow does not declare', async () => {
     const publication = await boundPublication()
 
@@ -116,7 +133,10 @@ describe('BoundFlow.run()', () => {
     // @ts-expect-error markdown is required by the start schema
     const shortInput = publication.run('start1', { title: 't' })
 
-    await expect(Promise.all([notAStart, shortInput])).resolves.toHaveLength(2)
+    const [notAStartResult, shortInputResult] = await Promise.all([notAStart, shortInput])
+
+    expect(errorOrThrow(notAStartResult, StartNotFoundError).startId).toBe('render')
+    expect(errorOrThrow(shortInputResult, RunInputError).startId).toBe('start1')
   })
 
   it('exposes the run surface through the package namespace', () => {

@@ -11,9 +11,11 @@ import {
   returningError,
   returningErrorAsync,
   throwing,
+  throwingInput,
   throwingLiteral,
+  throwingOutput,
 } from './fixtures.js'
-import type { NodeReport, RunReport } from './types.js'
+import type { NodeReport, RunEvent, RunReport } from './types.js'
 
 function nodeReport(report: RunReport, nodeId: string): NodeReport {
   const found = report.nodes.find((node) => node.nodeId === nodeId)
@@ -116,5 +118,43 @@ describe('executeRunGraph() node failures', () => {
     expect(counter.status).toBe('failed')
     expect(counter.elapsedMs).toBe(0)
     expect(errorOrThrow(counter.error, NodeExecutionError).nodeId).toBe('counter')
+  })
+
+  it('fails the node, not the run, when its INPUT schema throws instead of failing to parse', async () => {
+    const events: RunEvent[] = []
+
+    const report = await executeRunGraph({
+      graph: failureRunGraph(throwingInput),
+      startOutput: { text: 'a' },
+      runNumber: 3,
+      options: { onEvent: (event) => events.push(event) },
+    })
+    const boom = nodeReport(report, 'boom')
+    const error = errorOrThrow(boom.error, NodeExecutionError)
+
+    expect(boom.status).toBe('failed')
+    expect(error.nodeId).toBe('boom')
+    expect(error.cause).toBeInstanceOf(RangeError)
+    expect(report.status).toBe('failed')
+    expect(events.at(-1)?.type).toBe('run-settled')
+  })
+
+  it('fails the node, not the run, when its OUTPUT schema throws instead of failing to parse', async () => {
+    const events: RunEvent[] = []
+
+    const report = await executeRunGraph({
+      graph: failureRunGraph(throwingOutput),
+      startOutput: { text: 'a' },
+      runNumber: 3,
+      options: { onEvent: (event) => events.push(event) },
+    })
+    const boom = nodeReport(report, 'boom')
+    const error = errorOrThrow(boom.error, NodeExecutionError)
+
+    expect(boom.status).toBe('failed')
+    expect(error.nodeId).toBe('boom')
+    expect(error.cause).toBeInstanceOf(RangeError)
+    expect(report.status).toBe('failed')
+    expect(events.at(-1)?.type).toBe('run-settled')
   })
 })

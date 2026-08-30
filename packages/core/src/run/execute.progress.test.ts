@@ -4,7 +4,26 @@ import { resolveRunGraph } from '../graph/run-graph.js'
 import { validateFlowGraph } from '../graph/validate.js'
 import { executeRunGraph } from './execute.js'
 import { failureRunGraph, logging, throwing } from './fixtures.js'
-import type { RunEvent } from './types.js'
+import type { RunEvent, RunReport } from './types.js'
+
+/**
+ * A projection of a report that strips the non-deterministic `elapsedMs` and `at` fields, so two
+ * reports from separate runs of the same fixture can be compared for equality on everything Design
+ * decision 8 says must be identical whether or not a consumer is listening.
+ */
+function normalisedReport(report: RunReport) {
+  return {
+    status: report.status,
+    nodes: report.nodes.map((node) => ({
+      nodeId: node.nodeId,
+      status: node.status,
+      output: node.output,
+      assets: node.assets,
+      error: node.error,
+    })),
+    logs: report.logs.map((line) => ({ nodeId: line.nodeId, message: line.message })),
+  }
+}
 
 function publicationRunGraph() {
   const graph = okOrThrow(
@@ -82,6 +101,7 @@ describe('executeRunGraph() progress', () => {
 
   it('streams a handler log line attributed to its node and keeps it in the report', async () => {
     const events: RunEvent[] = []
+    const before = Date.now()
 
     const report = await executeRunGraph({
       graph: failureRunGraph(logging),
@@ -89,13 +109,15 @@ describe('executeRunGraph() progress', () => {
       runNumber: 1,
       options: { onEvent: (event) => events.push(event) },
     })
+    const after = Date.now()
 
     const streamed = events.flatMap((event) => (event.type === 'node-log' ? [event.line] : []))
     expect(streamed.map((line) => `${line.nodeId}: ${line.message}`)).toEqual([
       'boom: starting',
       'boom: done with a',
     ])
-    expect(streamed[0].at).toBeGreaterThan(0)
+    expect(streamed[0].at).toBeGreaterThanOrEqual(before)
+    expect(streamed[0].at).toBeLessThanOrEqual(after)
     expect(report.logs).toEqual(streamed)
   })
 
@@ -113,12 +135,7 @@ describe('executeRunGraph() progress', () => {
       runNumber: 1,
     })
 
-    expect(withoutStream.nodes.map((node) => [node.nodeId, node.status])).toEqual(
-      withStream.nodes.map((node) => [node.nodeId, node.status]),
-    )
-    expect(withoutStream.logs.map((line) => line.message)).toEqual(
-      withStream.logs.map((line) => line.message),
-    )
+    expect(normalisedReport(withoutStream)).toEqual(normalisedReport(withStream))
   })
 
   it('still settles with a complete report when onEvent throws on every event', async () => {

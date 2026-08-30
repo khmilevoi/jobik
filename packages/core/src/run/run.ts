@@ -32,8 +32,17 @@ export async function runFlow(args: {
   const runGraph = resolveRunGraph({ graph, startId: args.startId })
   if (runGraph instanceof Error) return runGraph
 
-  // A start has no handler: its validated input IS its output fields.
-  const parsed = runGraph.start.definition.input.safeParse(args.input)
+  // A start has no handler: its validated input IS its output fields. That schema is flow-author
+  // code, exactly as third-party as a handler's, so a throw from inside `.transform()` or
+  // `.refine()` is contained the same way `execute.ts` contains one from a node's schema — Zod v4's
+  // `safeParse` does not catch it. A thrown value carries no `ZodError` to flatten, so only `cause`
+  // is set for that path; an ordinary parse failure keeps its flattened `issues` as before.
+  let parsed: ReturnType<typeof runGraph.start.definition.input.safeParse>
+  try {
+    parsed = runGraph.start.definition.input.safeParse(args.input)
+  } catch (cause) {
+    return new RunInputError({ startId: args.startId, cause })
+  }
   if (!parsed.success) {
     return new RunInputError({
       startId: args.startId,

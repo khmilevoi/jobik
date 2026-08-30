@@ -91,6 +91,34 @@ export const badOutput = node({
 })
 
 /**
+ * Throws synchronously from inside `.transform()`, the everyday `z.string().transform(JSON.parse)`
+ * shape. Zod v4's `safeParse` does NOT catch this: verified against `zod@4.5.4`, `safeParse` itself
+ * throws the `RangeError` rather than returning `{ success: false }`. A node's or a start's schema
+ * is flow-author code, exactly as third-party as a handler, so this fixture stands in for both.
+ */
+export const throwingSchema = z.object({
+  text: z.string().transform((): string => {
+    throw new RangeError('boom in transform')
+  }),
+})
+
+/** Its INPUT schema throws while parsing the assembled input, before `run` is ever invoked. */
+export const throwingInput = node({
+  title: 'Input schema throws',
+  input: throwingSchema,
+  output: textIo.output,
+  run: ({ text }) => ({ text }),
+})
+
+/** Its OUTPUT schema throws while parsing the handler's settled result. */
+export const throwingOutput = node({
+  title: 'Output schema throws',
+  input: textIo.input,
+  output: throwingSchema,
+  run: ({ text }) => ({ text }),
+})
+
+/**
  * `s -> boom -> after`, plus `s -> safe`: one branch that fails and one that must still run.
  * Kahn's algorithm over declaration order settles this as `['s', 'boom', 'safe', 'after']`, so
  * `safe` is walked AFTER the failure and `after` is walked last.
@@ -192,6 +220,13 @@ export function createLoggingParkingRunGraph() {
   const entered = new Promise<void>((resolve) => {
     enter = resolve
   })
+  // Resolves INSIDE the timer callback below, so a test that awaits it proves the zombie log call
+  // actually happened — rather than guessing at a fixed `wait(ms)` that would still pass silently
+  // if the timer never fired at all.
+  let markLoggedAfterAbort: () => void = () => {}
+  const loggedAfterAbort = new Promise<void>((resolve) => {
+    markLoggedAfterAbort = resolve
+  })
 
   const parking = node({
     title: 'Logs, parks, resolves on abort, then logs again on a later tick',
@@ -204,7 +239,10 @@ export function createLoggingParkingRunGraph() {
           'abort',
           () => {
             resolve(input)
-            setTimeout(() => context.log('after abort'), 0)
+            setTimeout(() => {
+              context.log('after abort')
+              markLoggedAfterAbort()
+            }, 0)
           },
           { once: true },
         )
@@ -226,5 +264,5 @@ export function createLoggingParkingRunGraph() {
   })
 
   const graph = okOrThrow(validateFlowGraph({ flow: bound, document }))
-  return { graph: okOrThrow(resolveRunGraph({ graph, startId: 's' })), entered }
+  return { graph: okOrThrow(resolveRunGraph({ graph, startId: 's' })), entered, loggedAfterAbort }
 }

@@ -1,3 +1,4 @@
+import type * as z from 'zod'
 import { NodeExecutionError, RunCancelledError, UpstreamFailedError } from '../errors.js'
 import type { GraphNode, RunGraph } from '../graph/types.js'
 import type { NodeRunContext } from '../node.js'
@@ -29,6 +30,25 @@ function whenAborted(signal: AbortSignal): Promise<typeof cancelledSentinel> {
   return new Promise((resolve) => {
     signal.addEventListener('abort', () => resolve(cancelledSentinel), { once: true })
   })
+}
+
+/**
+ * A node's input and output schemas are flow-author code, exactly as third-party as a handler:
+ * `z.string().transform(JSON.parse)` is an everyday pattern that throws on bad input, and Zod v4's
+ * `safeParse` does NOT catch a throw from inside `.transform()` or `.refine()`. This contains that
+ * throw the same way the handler boundary below does, so a throwing schema settles the node as
+ * `failed` instead of taking the whole run down.
+ */
+function parseOrThrown(
+  schema: z.ZodObject,
+  value: unknown,
+): { ok: true; data: Record<string, unknown> } | { ok: false; cause: unknown } {
+  try {
+    const parsed = schema.safeParse(value)
+    return parsed.success ? { ok: true, data: parsed.data } : { ok: false, cause: parsed.error }
+  } catch (cause) {
+    return { ok: false, cause }
+  }
 }
 
 export async function executeRunGraph(args: {
@@ -86,8 +106,8 @@ export async function executeRunGraph(args: {
     })
   }
 
-  // `emit` above already contains anything `onEvent` throws, so nothing in this block escapes it;
-  // the `finally` still detaches `abortRun` from a signal the engine does not own on every path.
+  // `emit` above already contains anything `onEvent` throws. The `finally` below detaches
+  // `abortRun` from a signal the engine does not own, on every path through this block.
   try {
     emit({
       type: 'run-started',
@@ -153,15 +173,15 @@ export async function executeRunGraph(args: {
         assembled[edge.field] = source[edge.from.field]
       }
 
-      const parsedInput = definition.input.safeParse(assembled)
-      if (!parsedInput.success) {
+      const parsedInput = parseOrThrown(definition.input, assembled)
+      if (!parsedInput.ok) {
         settle({
           nodeId,
           status: 'failed',
           elapsedMs: 0,
           output: null,
           assets: {},
-          error: new NodeExecutionError({ nodeId, runNumber, cause: parsedInput.error }),
+          error: new NodeExecutionError({ nodeId, runNumber, cause: parsedInput.cause }),
         })
         continue
       }
@@ -223,15 +243,15 @@ export async function executeRunGraph(args: {
         continue
       }
 
-      const parsedOutput = definition.output.safeParse(settledValue)
-      if (!parsedOutput.success) {
+      const parsedOutput = parseOrThrown(definition.output, settledValue)
+      if (!parsedOutput.ok) {
         settle({
           nodeId,
           status: 'failed',
           elapsedMs,
           output: null,
           assets: {},
-          error: new NodeExecutionError({ nodeId, runNumber, cause: parsedOutput.error }),
+          error: new NodeExecutionError({ nodeId, runNumber, cause: parsedOutput.cause }),
         })
         continue
       }

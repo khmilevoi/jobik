@@ -72,7 +72,9 @@ describe('executeRunGraph()', () => {
   it('measures elapsed time for the run and for each invoked node', async () => {
     const report = await runPublication()
 
-    expect(report.nodes[1].elapsedMs).toBeGreaterThan(0)
+    // The handler is synchronous, so a low-resolution timer could measure it at exactly 0 — the
+    // plan specifies `toBeGreaterThanOrEqual(0)` here for that reason.
+    expect(report.nodes[1].elapsedMs).toBeGreaterThanOrEqual(0)
     expect(report.elapsedMs).toBeGreaterThanOrEqual(report.nodes[1].elapsedMs)
   })
 })
