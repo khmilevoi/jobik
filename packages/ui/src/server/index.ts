@@ -5,4 +5,5 @@
  * APPEND-ONLY. Each plan appends its own `export` lines and edits no existing line.
  */
 
-export {}
+// --- P10 server-core ---
+export * from './config.js'
