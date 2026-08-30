@@ -38,7 +38,15 @@ export function TopBar(props: TopBarProps) {
   const compact = dockedLeft !== undefined || dockedRight !== undefined || runningChip !== undefined
 
   const dirtyIndicator = props.dirty ? (
-    <div style={{ display: 'flex', alignItems: 'center', gap: px(6) }}>
+    <div
+      data-testid="studio-dirty"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: px(6),
+        ...(compact ? {} : { marginLeft: px(2) }),
+      }}
+    >
       <div
         data-testid="studio-dirty-dot"
         style={{

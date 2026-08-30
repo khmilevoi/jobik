@@ -39,6 +39,7 @@ describe('TopBar', () => {
     expect(dot.style.width).toBe('5px')
     expect(dot.style.background).toBe('rgb(138, 125, 74)')
     expect(dot.style.borderRadius).toBe('50%')
+    expect(screen.getByTestId('studio-dirty').style.marginLeft).toBe('2px')
   })
 
   it('hides the dirty indicator when the flow is clean', () => {
@@ -63,6 +64,7 @@ describe('TopBar', () => {
     expect(screen.queryByText('Unsaved changes')).not.toBeInTheDocument()
     expect(screen.getByTestId('docked-left')).toBeInTheDocument()
     expect(screen.getByTestId('docked-right')).toBeInTheDocument()
+    expect(screen.getByTestId('studio-dirty').style.marginLeft).toBe('')
   })
 
   it('goes compact and renders whatever fills the running chip slot', () => {
