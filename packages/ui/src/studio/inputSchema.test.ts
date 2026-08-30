@@ -124,6 +124,88 @@ describe('toRunInputSchema', () => {
   })
 })
 
+describe('toRunInputSchema — string bounds', () => {
+  const STRING_BOUNDS_DESCRIPTOR: NodeInputDescriptor = {
+    nodeId: 'start1',
+    fields: [
+      {
+        field: 'slug',
+        required: true,
+        annotation: 'string',
+        control: { kind: 'string', minLength: 3, maxLength: 8, pattern: '^[a-z]+$' },
+      },
+    ],
+  }
+
+  it('accepts a string that satisfies minLength, maxLength and pattern', () => {
+    const schema = toRunInputSchema(STRING_BOUNDS_DESCRIPTOR)
+
+    expect(schema.safeParse({ slug: 'abcd' }).success).toBe(true)
+  })
+
+  it('rejects a string shorter than minLength', () => {
+    const schema = toRunInputSchema(STRING_BOUNDS_DESCRIPTOR)
+
+    expect(schema.safeParse({ slug: 'ab' }).success).toBe(false)
+  })
+
+  it('rejects a string longer than maxLength', () => {
+    const schema = toRunInputSchema(STRING_BOUNDS_DESCRIPTOR)
+
+    expect(schema.safeParse({ slug: 'toolongslug' }).success).toBe(false)
+  })
+
+  it('rejects a string that does not match pattern', () => {
+    const schema = toRunInputSchema(STRING_BOUNDS_DESCRIPTOR)
+
+    expect(schema.safeParse({ slug: 'AbCd' }).success).toBe(false)
+  })
+})
+
+describe('toRunInputSchema — numeric enum', () => {
+  const NUMERIC_ENUM_DESCRIPTOR: NodeInputDescriptor = {
+    nodeId: 'start1',
+    fields: [
+      {
+        field: 'priority',
+        required: true,
+        annotation: '1 | 2 | 3',
+        control: { kind: 'enum', options: [1, 2, 3] },
+      },
+    ],
+  }
+
+  it('accepts a declared numeric option', () => {
+    const schema = toRunInputSchema(NUMERIC_ENUM_DESCRIPTOR)
+
+    expect(schema.safeParse({ priority: 2 }).success).toBe(true)
+  })
+
+  it('rejects a numeric value the enum does not declare', () => {
+    const schema = toRunInputSchema(NUMERIC_ENUM_DESCRIPTOR)
+
+    expect(schema.safeParse({ priority: 4 }).success).toBe(false)
+  })
+})
+
+describe('toRunInputSchema — unknown keys', () => {
+  it('strips an unknown key instead of rejecting it, since z.object(shape) is not .strict()', () => {
+    const schema = toRunInputSchema(DESCRIPTOR)
+
+    const result = schema.safeParse({
+      title: 't',
+      markdown: 'm',
+      size: 'sm',
+      kind: 'post',
+      unexpected: 'surprise',
+    })
+
+    expect(result.success).toBe(true)
+    if (!result.success) return
+    expect(result.data).not.toHaveProperty('unexpected')
+  })
+})
+
 describe('initialRunInputDraft', () => {
   it('seeds a boolean control from its declared default', () => {
     expect(initialRunInputDraft(DESCRIPTOR).draft).toBe(true)

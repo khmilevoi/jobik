@@ -19,12 +19,17 @@ import type { RunInputDraft, RunInputPresentation } from '../run/index.js'
 const AREA_LENGTH_THRESHOLD = 120
 
 function enumSchema(options: readonly (string | number)[]): z.ZodType {
+  // Unreachable by construction: `packages/core/src/ui-schema/derive.ts:181` only ever produces an
+  // `enum` control when `options.length > 0`, so this branch can never actually run.
   if (options.length === 0) return z.never()
   if (options.every((option) => typeof option === 'string')) {
     return z.enum(options as readonly string[] as [string, ...string[]])
   }
   const literals = options.map((option) => z.literal(option))
-  if (literals.length === 1) return literals[0] as z.ZodType
+  if (literals.length === 1) return literals[0]
+  // `z.union` needs a `[ZodType, ZodType, ...ZodType[]]` tuple, but `literals` is inferred as
+  // `z.ZodLiteral<...>[]`; a direct cast is rejected as an insufficient overlap, so this goes
+  // through `unknown` first, which is what tsc's own error message asks for.
   return z.union(literals as unknown as [z.ZodType, z.ZodType, ...z.ZodType[]])
 }
 
