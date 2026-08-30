@@ -1,0 +1,183 @@
+import { describe, expect, it } from 'vitest'
+import { ConnectionError } from '../errors.js'
+import {
+  branchDocument,
+  branchFlow,
+  errorOrThrow,
+  flowDocument,
+  okOrThrow,
+  pairFlow,
+  publicationDocument,
+  publicationFlow,
+  render,
+} from './fixtures.js'
+import { validateFlowGraph } from './validate.js'
+
+describe('validateFlowGraph() — the value it builds', () => {
+  it('builds a node per attached definition, in topological order', () => {
+    const graph = okOrThrow(
+      validateFlowGraph({ flow: publicationFlow, document: publicationDocument() }),
+    )
+    expect(graph.flowName).toBe('publication')
+    expect(graph.order).toEqual(['start1', 'render', 'publish'])
+    expect(graph.startIds).toEqual(['start1'])
+    expect([...graph.nodes.keys()]).toEqual(['start1', 'render', 'publish'])
+    expect(graph.nodes.get('render')?.definition).toBe(render)
+  })
+
+  it('records each incoming connection against the field it feeds', () => {
+    const graph = okOrThrow(
+      validateFlowGraph({ flow: publicationFlow, document: publicationDocument() }),
+    )
+    expect(graph.nodes.get('render')?.inputs).toEqual([
+      { field: 'markdown', from: { node: 'start1', field: 'markdown' } },
+    ])
+    expect(graph.nodes.get('start1')?.inputs).toEqual([])
+  })
+
+  it('records dependencies and dependents in both directions', () => {
+    const graph = okOrThrow(validateFlowGraph({ flow: branchFlow, document: branchDocument() }))
+    expect(graph.order).toEqual(['s1', 's2', 'a', 'c', 'b', 'd'])
+    expect(graph.startIds).toEqual(['s1', 's2'])
+    expect(graph.nodes.get('a')?.dependents).toEqual(['b', 'd'])
+    expect(graph.nodes.get('d')?.dependencies).toEqual(['a', 'c'])
+    expect(graph.nodes.get('d')?.inputs).toEqual([
+      { field: 'left', from: { node: 'a', field: 'value' } },
+      { field: 'right', from: { node: 'c', field: 'value' } },
+    ])
+  })
+
+  it('carries each node its own literals and never gives a start any', () => {
+    const graph = okOrThrow(
+      validateFlowGraph({ flow: publicationFlow, document: publicationDocument() }),
+    )
+    expect(graph.nodes.get('publish')?.literals).toEqual({ channel: 'blog' })
+    expect(graph.nodes.get('render')?.literals).toEqual({})
+    expect(graph.nodes.get('start1')?.literals).toEqual({})
+  })
+
+  it('does not alias the document, so a later edit cannot reach into the graph', () => {
+    const document = publicationDocument()
+    const graph = okOrThrow(validateFlowGraph({ flow: publicationFlow, document }))
+    document.literals.publish.channel = 'newsletter'
+    expect(graph.nodes.get('publish')?.literals).toEqual({ channel: 'blog' })
+  })
+
+  it('ignores layout entirely, including a stale entry for a node that is gone', () => {
+    const document = publicationDocument()
+    document.layout.ghost = { x: 0, y: 0 }
+    expect(validateFlowGraph({ flow: publicationFlow, document })).not.toBeInstanceOf(Error)
+  })
+})
+
+describe('validateFlowGraph() — connection endpoints', () => {
+  it('rejects a connection whose source node is not in the flow', () => {
+    const document = flowDocument({
+      connections: [
+        { from: { node: 'ghost', field: 'x' }, to: { node: 'render', field: 'markdown' } },
+      ],
+    })
+    const error = errorOrThrow(
+      validateFlowGraph({ flow: publicationFlow, document }),
+      ConnectionError,
+    )
+    expect(error.reason).toBe("connection source node 'ghost' does not exist")
+    expect(error.message).toBe(
+      "The flow graph is invalid: connection source node 'ghost' does not exist",
+    )
+    expect(error.from).toEqual({ node: 'ghost', field: 'x' })
+    expect(error.to).toEqual({ node: 'render', field: 'markdown' })
+  })
+
+  it('rejects a connection whose target node is not in the flow', () => {
+    const document = flowDocument({
+      connections: [
+        { from: { node: 'start1', field: 'markdown' }, to: { node: 'ghost', field: 'x' } },
+      ],
+    })
+    const error = errorOrThrow(
+      validateFlowGraph({ flow: publicationFlow, document }),
+      ConnectionError,
+    )
+    expect(error.reason).toBe("connection target node 'ghost' does not exist")
+  })
+
+  it('rejects a connection into a start, whose input comes from run()', () => {
+    const document = flowDocument({
+      connections: [
+        { from: { node: 'render', field: 'caption' }, to: { node: 'start1', field: 'title' } },
+      ],
+    })
+    const error = errorOrThrow(
+      validateFlowGraph({ flow: publicationFlow, document }),
+      ConnectionError,
+    )
+    expect(error.reason).toBe(
+      "node 'start1' is a start: its input comes from run(startId, input), not from a connection",
+    )
+  })
+
+  it('rejects a source field the producing node does not output', () => {
+    const document = flowDocument({
+      connections: [
+        { from: { node: 'render', field: 'markdown' }, to: { node: 'publish', field: 'caption' } },
+      ],
+    })
+    const error = errorOrThrow(
+      validateFlowGraph({ flow: publicationFlow, document }),
+      ConnectionError,
+    )
+    expect(error.reason).toBe("node 'render' has no output field 'markdown'")
+  })
+
+  it("reads a start's own input fields as its output fields", () => {
+    const document = flowDocument({
+      connections: [
+        { from: { node: 'start1', field: 'title' }, to: { node: 'publish', field: 'caption' } },
+        { from: { node: 'start1', field: 'markdown' }, to: { node: 'render', field: 'markdown' } },
+      ],
+      literals: { publish: { channel: 'blog' } },
+    })
+    expect(validateFlowGraph({ flow: publicationFlow, document })).not.toBeInstanceOf(Error)
+  })
+
+  it('rejects a target field the consuming node does not accept', () => {
+    const document = flowDocument({
+      connections: [
+        { from: { node: 'start1', field: 'markdown' }, to: { node: 'render', field: 'nope' } },
+      ],
+    })
+    const error = errorOrThrow(
+      validateFlowGraph({ flow: publicationFlow, document }),
+      ConnectionError,
+    )
+    expect(error.reason).toBe("node 'render' has no input field 'nope'")
+  })
+})
+
+describe('validateFlowGraph() — cycles', () => {
+  it('rejects a two-node cycle and reports the closed path', () => {
+    const document = flowDocument({
+      connections: [
+        { from: { node: 'a', field: 'value' }, to: { node: 'b', field: 'value' } },
+        { from: { node: 'b', field: 'value' }, to: { node: 'a', field: 'value' } },
+      ],
+    })
+    const error = errorOrThrow(validateFlowGraph({ flow: pairFlow, document }), ConnectionError)
+    expect(error.reason).toBe('the graph contains a cycle: a -> b -> a')
+    expect(error.cycle).toEqual(['a', 'b', 'a'])
+    expect(error.from).toBeNull()
+    expect(error.to).toBeNull()
+  })
+
+  it('rejects a node connected to itself', () => {
+    const document = flowDocument({
+      connections: [
+        { from: { node: 'a', field: 'value' }, to: { node: 'a', field: 'value' } },
+        { from: { node: 'a', field: 'value' }, to: { node: 'b', field: 'value' } },
+      ],
+    })
+    const error = errorOrThrow(validateFlowGraph({ flow: pairFlow, document }), ConnectionError)
+    expect(error.cycle).toEqual(['a', 'a'])
+  })
+})
