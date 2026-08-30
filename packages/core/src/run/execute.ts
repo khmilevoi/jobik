@@ -1,5 +1,5 @@
-import { NodeExecutionError } from '../errors.js'
-import type { RunGraph } from '../graph/types.js'
+import { NodeExecutionError, UpstreamFailedError } from '../errors.js'
+import type { GraphNode, RunGraph } from '../graph/types.js'
 import type { NodeRunContext } from '../node.js'
 import { collectAssets } from './assets.js'
 import type { NodeReport, NodeStatus, RunEvent, RunOptions, RunReport, RunStatus } from './types.js'
@@ -25,6 +25,7 @@ export async function executeRunGraph(args: {
   const nodes: NodeReport[] = []
   const outputs = new Map<string, Readonly<Record<string, unknown>>>()
   const statuses = new Map<string, NodeStatus>()
+  const failureOrigin = new Map<string, string>()
 
   const settle = (report: NodeReport) => {
     statuses.set(report.nodeId, report.status)
@@ -53,6 +54,20 @@ export async function executeRunGraph(args: {
     // Unreachable: `validateFlowGraph` rejects a connection INTO a start, so no start is ever a
     // dependent of anything and no start but the selected one can be in a run graph.
     if (definition.kind === 'start') continue
+
+    const blocker = blockedBy({ node, graph, statuses, failureOrigin })
+    if (blocker !== undefined) {
+      failureOrigin.set(nodeId, blocker)
+      settle({
+        nodeId,
+        status: 'skipped',
+        elapsedMs: 0,
+        output: null,
+        assets: {},
+        error: new UpstreamFailedError({ nodeId, upstreamNodeId: blocker, runNumber }),
+      })
+      continue
+    }
 
     const assembled: Record<string, unknown> = { ...node.literals }
     for (const edge of node.inputs) {
@@ -145,4 +160,27 @@ export async function executeRunGraph(args: {
 function runStatusOf(nodes: readonly NodeReport[]): RunStatus {
   if (nodes.some((node) => node.status === 'failed')) return 'failed'
   return 'ok'
+}
+
+/**
+ * The node that stops this one from running, or `undefined` when every dependency produced an
+ * output.
+ *
+ * A dependency outside the run graph is fed by a different start and never ran in this run, so it
+ * blocks too and names itself. A dependency that was itself skipped names the node whose failure
+ * started the cascade, so `UpstreamFailedError`'s message stays true however deep the chain runs.
+ */
+function blockedBy(args: {
+  node: GraphNode
+  graph: RunGraph
+  statuses: ReadonlyMap<string, NodeStatus>
+  failureOrigin: ReadonlyMap<string, string>
+}): string | undefined {
+  for (const dependency of args.node.dependencies) {
+    if (!args.graph.nodes.has(dependency)) return dependency
+    const status = args.statuses.get(dependency)
+    if (status === 'failed') return dependency
+    if (status === 'skipped') return args.failureOrigin.get(dependency) ?? dependency
+  }
+  return undefined
 }
