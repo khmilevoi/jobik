@@ -21,9 +21,20 @@ import { encodePng, type Rgb } from './png.js'
 export class ImageRenderError extends errore.createTaggedError({
   name: 'ImageRenderError',
   message: 'Unsupported colour profile $profile in the markdown asset at line $line',
-}) {}
+}) {
+  readonly line: number
 
-/** FNV-1a, 32-bit. Deterministic across runs and platforms. */
+  constructor(args: { profile: string; line: number; cause?: unknown }) {
+    super(args)
+    this.line = args.line
+  }
+}
+
+/**
+ * FNV-1a mixing the low byte of each UTF-16 code unit into a 32-bit value. Deterministic across
+ * runs and platforms; `raster` only consumes 18 of the resulting bits (three 6-bit channels), so
+ * this is a cheap palette seed, not a general-purpose hash.
+ */
 function hashOf(text: string): number {
   let hash = 0x811c9dc5
   for (let index = 0; index < text.length; index += 1) {

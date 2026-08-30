@@ -96,8 +96,10 @@ describe('unsupportedColourProfile()', () => {
     expect(unsupportedColourProfile(source)).toEqual({ profile: 'display-p3', line: 4 })
   })
 
-  it('accepts srgb and assets that declare no profile', () => {
+  it('accepts sRGB case-insensitively and assets that declare no profile', () => {
     expect(unsupportedColourProfile('![a](a.png#profile=srgb)')).toBeUndefined()
+    expect(unsupportedColourProfile('![a](a.png#profile=sRGB)')).toBeUndefined()
+    expect(unsupportedColourProfile('![a](a.png#profile=SRGB)')).toBeUndefined()
     expect(unsupportedColourProfile('![a](a.png)')).toBeUndefined()
     expect(unsupportedColourProfile(designMarkdown)).toBeUndefined()
   })

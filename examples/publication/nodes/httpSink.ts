@@ -11,6 +11,11 @@ import { PUBLICATION_ASSET_NAME, PUBLICATION_CDN_BASE, PUBLICATION_IMAGE_MIME } 
  * — the same shape the Output viewer artboard shows, `https://cdn.jobik.dev/p/<segment>/cover.png`.
  * A real deployment replaces the body of `run` with the upload and keeps the schemas untouched.
  *
+ * The digest segment is computed from `imageOut`'s PNG bytes, which pass through `deflateSync`;
+ * that output is only guaranteed stable for a given zlib build, so the concrete URL is not stable
+ * across Node/zlib versions — only its shape is. Later plans must assert the shape, never an exact
+ * URL.
+ *
  * `kind: 'sink'` is presentation metadata only: it groups and labels the node in the editor and
  * affects neither binding, nor validation, nor execution.
  */

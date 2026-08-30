@@ -76,5 +76,8 @@ describe('imageOut', () => {
     expect(result._tag).toBe('ImageRenderError')
     expect(result.message).toContain('display-p3')
     expect(result.message).toContain('line 4')
+    expect(result.profile).toBe('display-p3')
+    expect(result.line).toBe(4)
+    expect(typeof result.line).toBe('number')
   })
 })

@@ -5,9 +5,10 @@
  * has no network and must not write to disk.
  */
 
+import { PUBLICATION_COLOUR_PROFILE } from '../types.js'
+
 const HEADING = /^\s{0,3}(#{1,6})\s+(.+?)\s*#*\s*$/
 const INLINE_ASSET = /!\[[^\]]*\]\(([^)\s]+)\)/
-const SUPPORTED_COLOUR_PROFILE = 'srgb'
 
 /** The text of the first ATX heading, or `undefined` when the source has none. */
 export function headingOf(source: string): string | undefined {
@@ -65,7 +66,9 @@ export function unsupportedColourProfile(
     const fragment = match[1].split('#')[1]
     if (fragment === undefined || !fragment.startsWith('profile=')) continue
     const profile = fragment.slice('profile='.length)
-    if (profile !== SUPPORTED_COLOUR_PROFILE) return { profile, line: index + 1 }
+    if (profile.toLowerCase() !== PUBLICATION_COLOUR_PROFILE.toLowerCase()) {
+      return { profile, line: index + 1 }
+    }
   }
   return undefined
 }
