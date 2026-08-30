@@ -22,3 +22,7 @@ export * from './canvas/index.js'
 // `RunPanel` fills `RunDock`'s body: it returns a fragment so the dock keeps supplying the
 // `16px 14px` padding and the `16px` gap. `RunPanelCard` is the standalone artboard card.
 export * from './run/index.js'
+
+// --- P12 ui-output-viewer ---
+// `defineFlowUi` ships on this existing entry point; a `flow.ui.tsx` imports it by name.
+export * from './output/index.js'
