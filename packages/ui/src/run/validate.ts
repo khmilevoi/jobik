@@ -51,6 +51,15 @@ export function collectRunInputValues(
       continue
     }
 
+    // The <select> element can only hold strings. Find the original option by round-tripping:
+    // String(option) === String(raw) recovers numeric and string enums alike. If no match,
+    // pass raw through so the schema can reject the invalid value.
+    if (control.kind === 'enum') {
+      const matched = control.options.find((option) => String(option) === String(raw))
+      values[field.field] = matched !== undefined ? matched : raw
+      continue
+    }
+
     if (control.kind === 'json') {
       try {
         values[field.field] = JSON.parse(String(raw))

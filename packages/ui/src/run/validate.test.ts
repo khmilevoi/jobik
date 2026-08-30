@@ -93,6 +93,36 @@ describe('collectRunInputValues', () => {
     expect((result as SyntaxError).message).toContain('meta')
     expect((result as SyntaxError).cause).toBeInstanceOf(Error)
   })
+
+  it('collects a numeric enum by round-tripping the string draft back to the number option', () => {
+    const field: InputFieldDescriptor = {
+      field: 'status',
+      required: true,
+      annotation: 'number',
+      control: { kind: 'enum', options: [1, 2] },
+    }
+    expect(collectRunInputValues([field], { status: '1' })).toEqual({ status: 1 })
+  })
+
+  it('keeps a string enum as a string after round-trip matching', () => {
+    const field: InputFieldDescriptor = {
+      field: 'speed',
+      required: true,
+      annotation: 'string',
+      control: { kind: 'enum', options: ['fast', 'slow'] },
+    }
+    expect(collectRunInputValues([field], { speed: 'fast' })).toEqual({ speed: 'fast' })
+  })
+
+  it('passes through an enum value that matches no option, so the schema can reject it', () => {
+    const field: InputFieldDescriptor = {
+      field: 'speed',
+      required: true,
+      annotation: 'string',
+      control: { kind: 'enum', options: ['fast', 'slow'] },
+    }
+    expect(collectRunInputValues([field], { speed: 'invalid' })).toEqual({ speed: 'invalid' })
+  })
 })
 
 describe('validateRunInputs', () => {
@@ -133,6 +163,61 @@ describe('validateRunInputs', () => {
       draft: { meta: 'nope' },
     })
     expect(result).toBeInstanceOf(SyntaxError)
+  })
+
+  it('collects and validates a numeric enum from a string draft', () => {
+    const numericEnumInput = z.object({ status: z.enum({ A: 1, B: 2 }) })
+    const numericEnumFields: readonly InputFieldDescriptor[] = [
+      {
+        field: 'status',
+        required: true,
+        annotation: 'number',
+        control: { kind: 'enum', options: [1, 2] },
+      },
+    ]
+    const result = validateRunInputs({
+      input: numericEnumInput,
+      fields: numericEnumFields,
+      draft: { status: '1' },
+    })
+    expect(result).toEqual({ status: 1 })
+  })
+
+  it('collects and validates a string enum from a string draft', () => {
+    const stringEnumInput = z.object({ speed: z.enum(['fast', 'slow'] as const) })
+    const stringEnumFields: readonly InputFieldDescriptor[] = [
+      {
+        field: 'speed',
+        required: true,
+        annotation: 'string',
+        control: { kind: 'enum', options: ['fast', 'slow'] },
+      },
+    ]
+    const result = validateRunInputs({
+      input: stringEnumInput,
+      fields: stringEnumFields,
+      draft: { speed: 'fast' },
+    })
+    expect(result).toEqual({ speed: 'fast' })
+  })
+
+  it('returns a ZodError when an enum draft value does not match any option', () => {
+    const stringEnumInput = z.object({ speed: z.enum(['fast', 'slow'] as const) })
+    const stringEnumFields: readonly InputFieldDescriptor[] = [
+      {
+        field: 'speed',
+        required: true,
+        annotation: 'string',
+        control: { kind: 'enum', options: ['fast', 'slow'] },
+      },
+    ]
+    const result = validateRunInputs({
+      input: stringEnumInput,
+      fields: stringEnumFields,
+      draft: { speed: 'invalid' },
+    })
+    expect(result).toBeInstanceOf(Error)
+    expect(toRunInputIssues(result as Error)[0]?.path).toBe('speed')
   })
 })
 
