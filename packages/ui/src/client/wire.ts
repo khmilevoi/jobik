@@ -14,7 +14,12 @@ import type {
  *
  * Declared here rather than imported: `packages/ui/src/server` is a Node entry, and neither the
  * Studio bundle nor the `.` entry's generated declarations may reference it. `wire.test.ts` asserts
- * at type level that every server type is assignable to its mirror here, so drift fails typecheck.
+ * at type level that server types are assignable to their mirrors here, so drift fails typecheck:
+ * `FlowListItem` ← `SafeFlowSummary`, `SafeNodeDescriptorPayload` ← `SafeNodeDescriptor`,
+ * `SafeFlowDescriptorPayload` ← `SafeFlowDescriptor`, `LoadedFlowPayload` ← `LoadedFlow`,
+ * `SavePayload` ← `SavedFlow`, `RevisionConflictPayload` ← wire form of `FlowRevisionConflictError`.
+ * `ValidatePayload` has no named server counterpart; the wire form removes the document field
+ * from `DraftValidation` and serializes the error.
  */
 
 /**

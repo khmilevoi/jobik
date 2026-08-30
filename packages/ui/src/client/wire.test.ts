@@ -1,7 +1,23 @@
 import { describe, expect, expectTypeOf, it } from 'vitest'
+import type {
+  SafeFlowDescriptor,
+  SafeFlowSummary,
+  SafeNodeDescriptor,
+} from '../server/descriptor.js'
+import type { LoadedFlow, SavedFlow } from '../server/flowService.js'
 import type { AuthoredWireError, RunWireEvent, WireRunReport } from '../server/runWire.js'
 import type { UntaggedWireError, WireError } from '../server/wireError.js'
-import type { RunStreamEvent, WireErrorPayload, WireRunReportPayload } from './wire.js'
+import type {
+  FlowListItem,
+  LoadedFlowPayload,
+  RevisionConflictPayload,
+  RunStreamEvent,
+  SafeFlowDescriptorPayload,
+  SafeNodeDescriptorPayload,
+  SavePayload,
+  WireErrorPayload,
+  WireRunReportPayload,
+} from './wire.js'
 import { isRevisionConflictPayload, isRunTerminalEvent, wireErrorFrames } from './wire.js'
 
 describe('the browser mirror of the server wire types', () => {
@@ -14,6 +30,22 @@ describe('the browser mirror of the server wire types', () => {
   it('accepts every event and report the server can stream', () => {
     expectTypeOf<RunWireEvent>().toExtend<RunStreamEvent>()
     expectTypeOf<WireRunReport>().toExtend<WireRunReportPayload>()
+  })
+
+  it('mirrors the flow list and descriptor types from the server', () => {
+    expectTypeOf<SafeFlowSummary>().toExtend<FlowListItem>()
+    expectTypeOf<SafeNodeDescriptor>().toExtend<SafeNodeDescriptorPayload>()
+    expectTypeOf<SafeFlowDescriptor>().toExtend<SafeFlowDescriptorPayload>()
+  })
+
+  it('mirrors the loaded flow and save types from the server', () => {
+    expectTypeOf<LoadedFlow>().toExtend<LoadedFlowPayload>()
+    expectTypeOf<SavedFlow>().toExtend<SavePayload>()
+  })
+
+  it('mirrors the FlowRevisionConflictError from the wire error taxonomy', () => {
+    type FlowRevisionConflictWireError = Extract<WireError, { _tag: 'FlowRevisionConflictError' }>
+    expectTypeOf<FlowRevisionConflictWireError>().toExtend<RevisionConflictPayload>()
   })
 })
 
