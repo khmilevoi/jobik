@@ -49,24 +49,44 @@ export function connectFields(draft: FlowDraft, connection: FieldConnection): Fl
     to: { node: connection.target, field: connection.targetField },
   }
 
-  const existing = draft.document.connections.find(
+  const index = draft.document.connections.findIndex(
     (edge) => edge.to.node === next.to.node && edge.to.field === next.to.field,
   )
+  const existing = index === -1 ? undefined : draft.document.connections[index]
   if (existing?.from.node === next.from.node && existing.from.field === next.from.field) {
     return draft
   }
 
-  const connections = draft.document.connections.filter(
-    (edge) => !(edge.to.node === next.to.node && edge.to.field === next.to.field),
-  )
+  // Replace in place so an edit to one edge does not reorder the rest of the array — the
+  // document schema preserves connection order, and a save should only rewrite what changed.
+  const connections =
+    index === -1
+      ? [...draft.document.connections, next]
+      : draft.document.connections.map((edge, i) => (i === index ? next : edge))
 
   return {
     ...draft,
     dirty: true,
-    document: { ...draft.document, connections: [...connections, next] },
+    document: { ...draft.document, connections },
   }
 }
 
-export function markSaved(draft: FlowDraft, revision: string): FlowDraft {
-  return { document: draft.document, baseRevision: revision, dirty: false }
+/**
+ * `save()` (task 11) captures the document at the moment it is sent to the server, and this is
+ * applied once the response arrives. `savedDocument` is that captured document; comparing it by
+ * identity to the draft's *current* document tells whether an edit landed while the request was
+ * in flight. If nothing changed, the draft becomes clean at the new revision. If an edit landed
+ * mid-flight, the new revision is still adopted (so the next save is against the right base) but
+ * `dirty` stays `true`, so the pending edit is not silently lost.
+ */
+export function markSaved(
+  draft: FlowDraft,
+  savedDocument: FlowDocument,
+  revision: string,
+): FlowDraft {
+  return {
+    document: draft.document,
+    baseRevision: revision,
+    dirty: draft.document !== savedDocument,
+  }
 }

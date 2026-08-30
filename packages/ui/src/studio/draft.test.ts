@@ -98,6 +98,30 @@ describe('connectFields', () => {
     ])
   })
 
+  it('replaces the connection in place, preserving the array order of the connections around it', () => {
+    const threeConnections = {
+      ...DOCUMENT,
+      connections: [
+        { from: { node: 'a', field: 'x' }, to: { node: 'render', field: 'first' } },
+        { from: { node: 'start1', field: 'title' }, to: { node: 'render', field: 'title' } },
+        { from: { node: 'b', field: 'y' }, to: { node: 'render', field: 'last' } },
+      ],
+    } as unknown as FlowDocument
+
+    const draft = connectFields(createDraft(threeConnections, 'rev-1'), {
+      source: 'other',
+      sourceField: 'text',
+      target: 'render',
+      targetField: 'title',
+    })
+
+    expect(draft.document.connections).toEqual([
+      { from: { node: 'a', field: 'x' }, to: { node: 'render', field: 'first' } },
+      { from: { node: 'other', field: 'text' }, to: { node: 'render', field: 'title' } },
+      { from: { node: 'b', field: 'y' }, to: { node: 'render', field: 'last' } },
+    ])
+  })
+
   it('is a no-op when the identical connection already exists', () => {
     const before = createDraft(DOCUMENT, 'rev-1')
     const after = connectFields(before, {
@@ -150,16 +174,35 @@ describe('connectFields', () => {
 })
 
 describe('markSaved', () => {
-  it('clears dirty and adopts the revision the server returned', () => {
+  it('clears dirty and adopts the revision the server returned, when no edit landed during the save', () => {
     const edited = moveNode(createDraft(DOCUMENT, 'rev-1'), {
       nodeId: 'render',
       position: { x: 400, y: 160 },
     })
-    const saved = markSaved(edited, 'rev-2')
+    const saved = markSaved(edited, edited.document, 'rev-2')
 
     expect(saved.dirty).toBe(false)
     expect(saved.baseRevision).toBe('rev-2')
     expect(saved.document).toBe(edited.document)
+  })
+
+  it('stays dirty but adopts the new revision when an edit lands while the save is in flight', () => {
+    // The document captured at the moment save() was called and sent to the server.
+    const sentDraft = moveNode(createDraft(DOCUMENT, 'rev-1'), {
+      nodeId: 'render',
+      position: { x: 400, y: 160 },
+    })
+    const sentDocument = sentDraft.document
+
+    // The user edits again before the server responds; the current draft moves on.
+    const currentDraft = moveNode(sentDraft, { nodeId: 'render', position: { x: 500, y: 200 } })
+
+    const saved = markSaved(currentDraft, sentDocument, 'rev-2')
+
+    expect(saved.dirty).toBe(true)
+    expect(saved.baseRevision).toBe('rev-2')
+    expect(saved.document).toBe(currentDraft.document)
+    expect(saved.document.layout.render).toEqual({ x: 500, y: 200 })
   })
 
   it('preserves the literals object identity across a save', () => {
@@ -167,15 +210,16 @@ describe('markSaved', () => {
       nodeId: 'render',
       position: { x: 400, y: 160 },
     })
-    const saved = markSaved(edited, 'rev-2')
+    const saved = markSaved(edited, edited.document, 'rev-2')
 
     expect(saved.document.literals).toBe(edited.document.literals)
   })
 
-  it('adopts the given revision even when the draft was never edited', () => {
+  it('adopts the given revision and stays clean when saving a draft that was never dirty', () => {
     const clean = createDraft(DOCUMENT, 'rev-1')
-    const saved = markSaved(clean, 'rev-9')
+    const saved = markSaved(clean, clean.document, 'rev-9')
 
+    expect(saved.dirty).toBe(false)
     expect(saved.baseRevision).toBe('rev-9')
     expect(saved.baseRevision).not.toBe(clean.baseRevision)
   })
