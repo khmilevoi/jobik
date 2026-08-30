@@ -3,8 +3,12 @@ import { describe, expect, it } from 'vitest'
 import { RunCancelledError } from '../errors.js'
 import { errorOrThrow } from '../graph/fixtures.js'
 import { executeRunGraph } from './execute.js'
-import { createParkingRunGraph } from './fixtures.js'
+import { createLoggingParkingRunGraph, createParkingRunGraph } from './fixtures.js'
 import type { RunEvent, RunReport } from './types.js'
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
 
 function statusesOf(report: RunReport): Record<string, string> {
   return Object.fromEntries(report.nodes.map((node) => [node.nodeId, node.status]))
@@ -51,7 +55,7 @@ describe('executeRunGraph() cancellation', () => {
     expect(park.nodeId).toBe('park')
     expect(park.error).toBe(report.error)
     expect(park.output).toBeNull()
-    expect(park.elapsedMs).toBeGreaterThanOrEqual(0)
+    expect(park.elapsedMs).toBeGreaterThan(0)
   })
 
   it('streams the skipped transitions and the settled report', async () => {
@@ -75,6 +79,29 @@ describe('executeRunGraph() cancellation', () => {
       ),
     ).toEqual(['park', 'after'])
     expect(events.at(-1)?.type).toBe('run-settled')
+  })
+
+  it('drops a log line an abandoned handler emits after the report has already settled', async () => {
+    const { graph, entered } = createLoggingParkingRunGraph()
+    const controller = new AbortController()
+    const events: RunEvent[] = []
+
+    const running = executeRunGraph({
+      graph,
+      startOutput: { text: 'a' },
+      runNumber: 1,
+      options: { signal: controller.signal, onEvent: (event) => events.push(event) },
+    })
+    await entered
+    controller.abort()
+    const report = await running
+    // Let the abandoned handler's later tick run: this is the log call that must be dropped.
+    await wait(10)
+
+    expect(report.logs.map((line) => line.message)).toEqual(['before abort'])
+    expect(
+      events.flatMap((event) => (event.type === 'node-log' ? [event.line.message] : [])),
+    ).toEqual(['before abort'])
   })
 
   it('cancels a run whose signal was already aborted before it started', async () => {

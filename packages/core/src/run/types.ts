@@ -95,7 +95,9 @@ export type RunEvent =
 export type RunOptions = {
   /** Cancels the run. Aborting settles it with `RunCancelledError` and keeps settled results. */
   readonly signal?: AbortSignal
-  /** Called synchronously as the run progresses. It must not throw: the engine does not guard it. */
+  /**
+   * Called synchronously as the run progresses. It must not throw: the engine does not guard it.
+   */
   readonly onEvent?: (event: RunEvent) => void
 }
 

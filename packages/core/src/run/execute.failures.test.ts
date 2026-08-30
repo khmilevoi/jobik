@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { NodeExecutionError } from '../errors.js'
+import { NodeExecutionError, UpstreamFailedError } from '../errors.js'
 import { errorOrThrow } from '../graph/fixtures.js'
 import { executeRunGraph } from './execute.js'
 import {
@@ -9,6 +9,7 @@ import {
   literalRunGraph,
   rejecting,
   returningError,
+  returningErrorAsync,
   throwing,
   throwingLiteral,
 } from './fixtures.js'
@@ -31,6 +32,19 @@ function runFailure(failing: Parameters<typeof failureRunGraph>[0], runNumber = 
 describe('executeRunGraph() node failures', () => {
   it('keeps a handler-returned error as the node error, untouched', async () => {
     const report = await runFailure(returningError)
+    const boom = nodeReport(report, 'boom')
+    const after = nodeReport(report, 'after')
+
+    expect(boom.status).toBe('failed')
+    expect(boom.error).toBeInstanceOf(FixtureNodeError)
+    expect(boom.output).toBeNull()
+    expect(report.status).toBe('failed')
+    expect(after.status).toBe('skipped')
+    expect(errorOrThrow(after.error, UpstreamFailedError).upstreamNodeId).toBe('boom')
+  })
+
+  it('keeps an async handler-returned error as the node error, untouched', async () => {
+    const report = await runFailure(returningErrorAsync)
     const boom = nodeReport(report, 'boom')
 
     expect(boom.status).toBe('failed')

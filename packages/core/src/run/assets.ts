@@ -8,8 +8,8 @@ import { type AssetDescriptor, assetMetaOf } from '../asset.js'
  * A binary output field keeps its real `Buffer` in the run report, so `run()` in application code
  * loses nothing. What this module adds is the identity the browser needs: every asset value a run
  * produced is registered here under an opaque id, and the node report carries the matching
- * `AssetDescriptor`. Swapping the `Buffer` for that descriptor as the report crosses to the browser,
- * and serving the bytes under the id, is the server's step — it reads them back through
+ * `AssetDescriptor`. Swapping the `Buffer` for that descriptor as the report crosses to the
+ * browser, and serving the bytes under the id, is the server's step — it reads them back through
  * `readAsset()`.
  *
  * Process-lifetime by design: v1 keeps every registered asset until the process exits. There is no
@@ -36,9 +36,9 @@ export function readAsset(id: string): AssetEntry | null {
 
 /**
  * Register every asset-declared output field that produced bytes, and return the descriptors keyed
- * by field name. A field the schema does not register as an asset is left alone, and so is an asset
- * field carrying no binary value — output validation has already accepted the object, so this walk
- * never rejects anything.
+ * by field name. A field the schema does not register as an asset is left alone, and so is an
+ * asset field carrying no binary value — output validation has already accepted the object, so
+ * this walk never rejects anything.
  */
 export function collectAssets(args: {
   schema: z.ZodObject

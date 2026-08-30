@@ -16,7 +16,7 @@ import {
 } from '../graph/fixtures.js'
 import * as jobik from '../index.js'
 import { start } from '../node.js'
-import type { RunReport } from './types.js'
+import type { RunEvent, RunReport } from './types.js'
 
 async function boundPublication(document = publicationDocument()) {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'jobik-run-'))
@@ -123,6 +123,22 @@ describe('BoundFlow.run()', () => {
     expect(jobik.nodeStatuses).toHaveLength(6)
     expect(typeof jobik.readAsset).toBe('function')
     expect(typeof jobik.registerAsset).toBe('function')
+  })
+
+  it('wires an onEvent collector through to executeRunGraph and streams the whole run', async () => {
+    const publication = await boundPublication()
+    const events: RunEvent[] = []
+
+    reportOrThrow(
+      await publication.run(
+        'start1',
+        { title: 'A title', markdown: 'hello' },
+        { onEvent: (event) => events.push(event) },
+      ),
+    )
+
+    expect(events[0]?.type).toBe('run-started')
+    expect(events.at(-1)?.type).toBe('run-settled')
   })
 
   it('leaves a flow with no reachable node with just its start', async () => {

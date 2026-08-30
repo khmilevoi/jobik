@@ -48,6 +48,13 @@ export const returningError = node({
   run: () => new FixtureNodeError({}),
 })
 
+/** The async form of the same case, which is what real handlers usually look like. */
+export const returningErrorAsync = node({
+  title: 'Returns an error value asynchronously',
+  ...textIo,
+  run: async () => new FixtureNodeError({}),
+})
+
 /** Throws synchronously, which third-party handler code does. */
 export const throwing = node({
   title: 'Throws',
@@ -158,6 +165,54 @@ export function createParkingRunGraph() {
   })
 
   const bound = flow('parking')
+    .start('s', start({ title: 'S', input: z.object({ text: z.string() }) }))
+    .node('park', parking)
+    .node('after', upper)
+    .bind('path', flowPath)
+
+  const document = flowDocument({
+    connections: [
+      { from: { node: 's', field: 'text' }, to: { node: 'park', field: 'text' } },
+      { from: { node: 'park', field: 'text' }, to: { node: 'after', field: 'text' } },
+    ],
+  })
+
+  const graph = okOrThrow(validateFlowGraph({ flow: bound, document }))
+  return { graph: okOrThrow(resolveRunGraph({ graph, startId: 's' })), entered }
+}
+
+/**
+ * `s -> park -> after`, where `park` logs, then parks, then — like a real handler that ignores
+ * `signal` and keeps running past cancellation — resolves on abort and logs AGAIN on a later tick.
+ * That later log call is the zombie case F-1 fixes: it must never reach the settled report or the
+ * event stream.
+ */
+export function createLoggingParkingRunGraph() {
+  let enter: () => void = () => {}
+  const entered = new Promise<void>((resolve) => {
+    enter = resolve
+  })
+
+  const parking = node({
+    title: 'Logs, parks, resolves on abort, then logs again on a later tick',
+    ...textIo,
+    run: (input, context) => {
+      context.log('before abort')
+      enter()
+      return new Promise<{ text: string }>((resolve) => {
+        context.signal.addEventListener(
+          'abort',
+          () => {
+            resolve(input)
+            setTimeout(() => context.log('after abort'), 0)
+          },
+          { once: true },
+        )
+      })
+    },
+  })
+
+  const bound = flow('logging-parking')
     .start('s', start({ title: 'S', input: z.object({ text: z.string() }) }))
     .node('park', parking)
     .node('after', upper)

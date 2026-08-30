@@ -72,7 +72,7 @@ describe('executeRunGraph()', () => {
   it('measures elapsed time for the run and for each invoked node', async () => {
     const report = await runPublication()
 
-    expect(report.nodes[1].elapsedMs).toBeGreaterThanOrEqual(0)
+    expect(report.nodes[1].elapsedMs).toBeGreaterThan(0)
     expect(report.elapsedMs).toBeGreaterThanOrEqual(report.nodes[1].elapsedMs)
   })
 })

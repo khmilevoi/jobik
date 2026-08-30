@@ -113,7 +113,9 @@ describe('executeRunGraph() progress', () => {
       runNumber: 1,
     })
 
-    expect(Object.keys(withoutStream).sort()).toEqual(Object.keys(withStream).sort())
+    expect(withoutStream.nodes.map((node) => [node.nodeId, node.status])).toEqual(
+      withStream.nodes.map((node) => [node.nodeId, node.status]),
+    )
     expect(withoutStream.nodes.map((node) => node.status)).toEqual(
       withStream.nodes.map((node) => node.status),
     )

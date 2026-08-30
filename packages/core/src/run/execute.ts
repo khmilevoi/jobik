@@ -41,9 +41,9 @@ export async function executeRunGraph(args: {
   const emit = (event: RunEvent) => options?.onEvent?.(event)
   const runStartedAt = performance.now()
 
-  // The engine owns the signal handlers receive, so a caller's signal is linked into it rather than
-  // handed over: aborting always carries a `RunCancelledError`, which `errore.isAbortError` can then
-  // find anywhere in a cause chain.
+  // The engine owns the signal handlers receive, so a caller's signal is linked into it rather
+  // than handed over: aborting always carries a `RunCancelledError`, which `errore.isAbortError`
+  // can then find anywhere in a cause chain.
   const outerSignal = options?.signal
   const controller = new AbortController()
   const abortRun = () => {
@@ -78,158 +78,169 @@ export async function executeRunGraph(args: {
     })
   }
 
-  emit({
-    type: 'run-started',
-    runNumber,
-    flowName: graph.flowName,
-    startId: graph.startId,
-    nodeCount: graph.order.length,
-  })
+  // `onEvent` must not throw, but is deliberately unguarded (see `RunOptions`): if it throws
+  // anyway, the `finally` still detaches `abortRun` from a signal the engine does not own, while
+  // letting the throw propagate exactly as it would without this wrapping.
+  try {
+    emit({
+      type: 'run-started',
+      runNumber,
+      flowName: graph.flowName,
+      startId: graph.startId,
+      nodeCount: graph.order.length,
+    })
 
-  for (const nodeId of graph.order) {
-    statuses.set(nodeId, 'queued')
-    emit({ type: 'node-status', nodeId, status: 'queued', elapsedMs: 0, error: null })
-  }
-
-  settle({
-    nodeId: graph.startId,
-    status: 'ok',
-    elapsedMs: 0,
-    output: startOutput,
-    assets: {},
-    error: null,
-  })
-
-  for (const nodeId of graph.order) {
-    if (nodeId === graph.startId) continue
-    const node = graph.nodes.get(nodeId)
-    if (node === undefined) continue
-    const definition = node.definition
-    // Unreachable: `validateFlowGraph` rejects a connection INTO a start, so no start is ever a
-    // dependent of anything and no start but the selected one can be in a run graph.
-    if (definition.kind === 'start') continue
-
-    if (controller.signal.aborted) {
-      settle({
-        nodeId,
-        status: 'skipped',
-        elapsedMs: 0,
-        output: null,
-        assets: {},
-        error: cancellation(),
-      })
-      continue
-    }
-
-    const blocker = blockedBy({ node, graph, statuses, failureOrigin })
-    if (blocker !== undefined) {
-      failureOrigin.set(nodeId, blocker)
-      settle({
-        nodeId,
-        status: 'skipped',
-        elapsedMs: 0,
-        output: null,
-        assets: {},
-        error: new UpstreamFailedError({ nodeId, upstreamNodeId: blocker, runNumber }),
-      })
-      continue
-    }
-
-    const assembled: Record<string, unknown> = { ...node.literals }
-    for (const edge of node.inputs) {
-      const source = outputs.get(edge.from.node)
-      if (source === undefined) continue
-      assembled[edge.field] = source[edge.from.field]
-    }
-
-    const parsedInput = definition.input.safeParse(assembled)
-    if (!parsedInput.success) {
-      settle({
-        nodeId,
-        status: 'failed',
-        elapsedMs: 0,
-        output: null,
-        assets: {},
-        error: new NodeExecutionError({ nodeId, runNumber, cause: parsedInput.error }),
-      })
-      continue
-    }
-
-    statuses.set(nodeId, 'running')
-    emit({ type: 'node-status', nodeId, status: 'running', elapsedMs: 0, error: null })
-    const startedAt = performance.now()
-    const context: NodeRunContext = {
-      signal: controller.signal,
-      log: (message: string) => {
-        const line: RunLogLine = { nodeId, message, at: Date.now() }
-        logs.push(line)
-        emit({ type: 'node-log', line })
-      },
-    }
-    // The handler is third-party code, so this is an error boundary: a synchronous throw, a
-    // rejection and a thrown non-Error all have to come back as a value. The async IIFE turns a
-    // synchronous throw into a rejection while still invoking the handler synchronously, and
-    // `.catch` accepts any thrown value. `errore.try` is deliberately NOT used here: it rethrows
-    // anything that is not an `Error` instance, which would punch a hole straight through the
-    // boundary the spec requires.
-    const invoked = (async () => definition.run(parsedInput.data, context))().catch(
-      (cause: unknown) => new NodeExecutionError({ nodeId, runNumber, cause }),
-    )
-    // `invoked` already has its rejection handled, so abandoning it here can never surface as an
-    // unhandled rejection.
-    const settledValue: unknown = await Promise.race([invoked, aborted])
-    const elapsedMs = performance.now() - startedAt
-
-    if (controller.signal.aborted) {
-      // A handler still running is not a settled result, so it is skipped like the nodes behind it
-      // — but it keeps the time it really spent running.
-      settle({
-        nodeId,
-        status: 'skipped',
-        elapsedMs,
-        output: null,
-        assets: {},
-        error: cancellation(),
-      })
-      continue
-    }
-
-    if (settledValue instanceof Error) {
-      settle({
-        nodeId,
-        status: 'failed',
-        elapsedMs,
-        output: null,
-        assets: {},
-        error: settledValue,
-      })
-      continue
-    }
-
-    const parsedOutput = definition.output.safeParse(settledValue)
-    if (!parsedOutput.success) {
-      settle({
-        nodeId,
-        status: 'failed',
-        elapsedMs,
-        output: null,
-        assets: {},
-        error: new NodeExecutionError({ nodeId, runNumber, cause: parsedOutput.error }),
-      })
-      continue
+    for (const nodeId of graph.order) {
+      statuses.set(nodeId, 'queued')
+      emit({ type: 'node-status', nodeId, status: 'queued', elapsedMs: 0, error: null })
     }
 
     settle({
-      nodeId,
+      nodeId: graph.startId,
       status: 'ok',
-      elapsedMs,
-      output: parsedOutput.data,
-      assets: collectAssets({ schema: definition.output, output: parsedOutput.data }),
+      elapsedMs: 0,
+      output: startOutput,
+      assets: {},
       error: null,
     })
-  }
 
-  outerSignal?.removeEventListener('abort', abortRun)
+    for (const nodeId of graph.order) {
+      if (nodeId === graph.startId) continue
+      const node = graph.nodes.get(nodeId)
+      if (node === undefined) continue
+      const definition = node.definition
+      // Unreachable: `validateFlowGraph` rejects a connection INTO a start, so no start is ever a
+      // dependent of anything and no start but the selected one can be in a run graph.
+      if (definition.kind === 'start') continue
+
+      if (controller.signal.aborted) {
+        settle({
+          nodeId,
+          status: 'skipped',
+          elapsedMs: 0,
+          output: null,
+          assets: {},
+          error: cancellation(),
+        })
+        continue
+      }
+
+      const blocker = blockedBy({ node, graph, statuses, failureOrigin })
+      if (blocker !== undefined) {
+        failureOrigin.set(nodeId, blocker)
+        settle({
+          nodeId,
+          status: 'skipped',
+          elapsedMs: 0,
+          output: null,
+          assets: {},
+          error: new UpstreamFailedError({ nodeId, upstreamNodeId: blocker, runNumber }),
+        })
+        continue
+      }
+
+      const assembled: Record<string, unknown> = { ...node.literals }
+      for (const edge of node.inputs) {
+        const source = outputs.get(edge.from.node)
+        if (source === undefined) continue
+        assembled[edge.field] = source[edge.from.field]
+      }
+
+      const parsedInput = definition.input.safeParse(assembled)
+      if (!parsedInput.success) {
+        settle({
+          nodeId,
+          status: 'failed',
+          elapsedMs: 0,
+          output: null,
+          assets: {},
+          error: new NodeExecutionError({ nodeId, runNumber, cause: parsedInput.error }),
+        })
+        continue
+      }
+
+      statuses.set(nodeId, 'running')
+      emit({ type: 'node-status', nodeId, status: 'running', elapsedMs: 0, error: null })
+      const startedAt = performance.now()
+      // Closed the moment this node settles (below), so a handler that outlives cancellation and
+      // keeps calling `log` after its report has already been pushed and emitted cannot mutate
+      // `report.logs` or stream a `node-log` event for a node the caller already sees as settled.
+      let live = true
+      const context: NodeRunContext = {
+        signal: controller.signal,
+        log: (message: string) => {
+          if (!live) return
+          const line: RunLogLine = { nodeId, message, at: Date.now() }
+          logs.push(line)
+          emit({ type: 'node-log', line })
+        },
+      }
+      // The handler is third-party code, so this is an error boundary: a synchronous throw, a
+      // rejection and a thrown non-Error all have to come back as a value. The async IIFE turns a
+      // synchronous throw into a rejection while still invoking the handler synchronously, and
+      // `.catch` accepts any thrown value. `errore.try` is deliberately NOT used here: it rethrows
+      // anything that is not an `Error` instance, which would punch a hole straight through the
+      // boundary the spec requires.
+      const invoked = (async () => definition.run(parsedInput.data, context))().catch(
+        (cause: unknown) => new NodeExecutionError({ nodeId, runNumber, cause }),
+      )
+      // `invoked` already has its rejection handled, so abandoning it here can never surface as an
+      // unhandled rejection.
+      const settledValue: unknown = await Promise.race([invoked, aborted])
+      const elapsedMs = performance.now() - startedAt
+      live = false
+
+      if (settledValue === cancelledSentinel) {
+        // A handler still running is not a settled result, so it is skipped like the nodes behind
+        // it — but it keeps the time it really spent running.
+        settle({
+          nodeId,
+          status: 'skipped',
+          elapsedMs,
+          output: null,
+          assets: {},
+          error: cancellation(),
+        })
+        continue
+      }
+
+      if (settledValue instanceof Error) {
+        settle({
+          nodeId,
+          status: 'failed',
+          elapsedMs,
+          output: null,
+          assets: {},
+          error: settledValue,
+        })
+        continue
+      }
+
+      const parsedOutput = definition.output.safeParse(settledValue)
+      if (!parsedOutput.success) {
+        settle({
+          nodeId,
+          status: 'failed',
+          elapsedMs,
+          output: null,
+          assets: {},
+          error: new NodeExecutionError({ nodeId, runNumber, cause: parsedOutput.error }),
+        })
+        continue
+      }
+
+      settle({
+        nodeId,
+        status: 'ok',
+        elapsedMs,
+        output: parsedOutput.data,
+        assets: collectAssets({ schema: definition.output, output: parsedOutput.data }),
+        error: null,
+      })
+    }
+  } finally {
+    outerSignal?.removeEventListener('abort', abortRun)
+  }
 
   const report: RunReport = {
     flowName: graph.flowName,
@@ -261,6 +272,12 @@ function runStatusOf(nodes: readonly NodeReport[]): RunStatus {
  * A dependency outside the run graph is fed by a different start and never ran in this run, so it
  * blocks too and names itself. A dependency that was itself skipped names the node whose failure
  * started the cascade, so `UpstreamFailedError`'s message stays true however deep the chain runs.
+ *
+ * The `?? dependency` fallback below is unreachable today: it would only fire for a `skipped`
+ * dependency with no `failureOrigin` entry, and the only such dependency is one skipped by
+ * cancellation — which the loop's cancellation guard catches before `blockedBy` is ever called,
+ * because that guard sits above this check. Moving that guard below `blockedBy` would silently
+ * revive the fallback and start naming the immediate dependency instead of the cascade's origin.
  */
 function blockedBy(args: {
   node: GraphNode
