@@ -95,7 +95,7 @@ describe('toCanvasNodes', () => {
     })
   })
 
-  it('produces the whole start node exactly: position, start flag, and every field with its tone', () => {
+  it('produces the whole start node exactly: position, start flag, and every field', () => {
     const nodes = toCanvasNodes({ descriptor: DESCRIPTOR, document: DOCUMENT })
 
     expect(nodes[0]).toEqual({
@@ -107,18 +107,18 @@ describe('toCanvasNodes', () => {
         isStart: true,
         selected: false,
         inputs: [
-          { name: 'title', annotation: 'string', tone: 'normal' },
-          { name: 'markdown', annotation: 'string', tone: 'normal' },
+          { name: 'title', annotation: 'string' },
+          { name: 'markdown', annotation: 'string' },
         ],
         outputs: [
-          { name: 'title', annotation: 'string', tone: 'normal' },
-          { name: 'markdown', annotation: 'string', tone: 'normal' },
+          { name: 'title', annotation: 'string' },
+          { name: 'markdown', annotation: 'string' },
         ],
       },
     })
   })
 
-  it('produces the whole render node exactly: a connected field, a literal-bearing field, and a dangling one', () => {
+  it('produces the whole render node exactly: a connected field, a literal-bearing field, and a dangling one render identically — none carries a tone', () => {
     const nodes = toCanvasNodes({ descriptor: DESCRIPTOR, document: DOCUMENT })
 
     expect(nodes[1]).toEqual({
@@ -130,13 +130,13 @@ describe('toCanvasNodes', () => {
         isStart: false,
         selected: false,
         inputs: [
-          { name: 'title', annotation: 'string', tone: 'active' },
-          { name: 'markdown', annotation: 'string', tone: 'normal' },
-          { name: 'quality', annotation: 'number', tone: 'active' },
+          { name: 'title', annotation: 'string' },
+          { name: 'markdown', annotation: 'string' },
+          { name: 'quality', annotation: 'number' },
         ],
         outputs: [
-          { name: 'image', annotation: 'Buffer', tone: 'normal' },
-          { name: 'caption', annotation: 'string', tone: 'normal' },
+          { name: 'image', annotation: 'Buffer' },
+          { name: 'caption', annotation: 'string' },
         ],
       },
     })
@@ -160,20 +160,19 @@ describe('toCanvasNodes', () => {
     expect(nodes[1]?.data.outputs?.map((field) => field.name)).toEqual(['image', 'caption'])
   })
 
-  it('treats a connected input field and a literal-bearing one as satisfied, and leaves an unconnected field dangling', () => {
-    const inputs =
-      toCanvasNodes({ descriptor: DESCRIPTOR, document: DOCUMENT })[1]?.data.inputs ?? []
+  it('never sets a tone on any field — a connected field, a literal-bearing field and a dangling one are indistinguishable at rest', () => {
+    // The `Studio — default` artboard renders `render`'s connected `title` input with the same
+    // plain label colour (`#aab1b7`) as its unconnected `markdown` input, and `start1`'s outputs
+    // (never "satisfied") with the active colour (`#c3c9ce`) instead — tone tracks `isStart`, not
+    // connection or literal satisfaction. `canvas/fields.ts`'s `resolveFieldTone` already supplies
+    // that default whenever `field.tone` is left unset, so this mapper must never set it.
+    const node = toCanvasNodes({ descriptor: DESCRIPTOR, document: DOCUMENT })[1]
+    const fields = [...(node?.data.inputs ?? []), ...(node?.data.outputs ?? [])]
 
-    expect(inputs.find((field) => field.name === 'title')?.tone).toBe('active')
-    expect(inputs.find((field) => field.name === 'quality')?.tone).toBe('active')
-    expect(inputs.find((field) => field.name === 'markdown')?.tone).toBe('normal')
-  })
-
-  it('leaves output fields at normal tone at rest', () => {
-    const outputs =
-      toCanvasNodes({ descriptor: DESCRIPTOR, document: DOCUMENT })[1]?.data.outputs ?? []
-
-    expect(outputs.every((field) => field.tone === 'normal')).toBe(true)
+    expect(fields.length).toBeGreaterThan(0)
+    for (const field of fields) {
+      expect(Object.hasOwn(field, 'tone')).toBe(false)
+    }
   })
 
   it('applies a run overlay to the card state, annotations, detail and output slot', () => {
@@ -232,7 +231,7 @@ describe('toCanvasNodes', () => {
     expect(nodes[1]?.data.selected).toBe(true)
   })
 
-  it('falls every node back into a column, and dangles every field, against an empty document', () => {
+  it('falls every node back into a column against an empty document, still without a tone on any field', () => {
     const nodes = toCanvasNodes({ descriptor: DESCRIPTOR, document: EMPTY_DOCUMENT })
 
     expect(nodes.map((node) => node.position)).toEqual([
@@ -240,7 +239,9 @@ describe('toCanvasNodes', () => {
       { x: 320, y: 0 },
     ])
     expect(
-      nodes.flatMap((node) => node.data.inputs ?? []).every((field) => field.tone === 'normal'),
+      nodes
+        .flatMap((node) => node.data.inputs ?? [])
+        .every((field) => !Object.hasOwn(field, 'tone')),
     ).toBe(true)
   })
 })

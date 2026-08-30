@@ -36,15 +36,6 @@ export type NodeOverlay = {
 /** A fallback column for a node the document has never placed. Not a layout algorithm. */
 const FALLBACK_COLUMN_GAP = 320
 
-function satisfiedInputs(document: FlowDocument, nodeId: string): ReadonlySet<string> {
-  const satisfied = new Set<string>()
-  for (const connection of document.connections) {
-    if (connection.to.node === nodeId) satisfied.add(connection.to.field)
-  }
-  for (const field of Object.keys(document.literals[nodeId] ?? {})) satisfied.add(field)
-  return satisfied
-}
-
 export function toCanvasNodes(args: {
   descriptor: SafeFlowDescriptorPayload
   document: FlowDocument
@@ -55,18 +46,21 @@ export function toCanvasNodes(args: {
 
   return args.descriptor.nodes.map((node, index) => {
     const overlay = args.overlays?.get(node.id)
-    const satisfied = satisfiedInputs(args.document, node.id)
 
+    // Tone is left unset here: `resolveFieldTone` (`canvas/fields.ts`) already derives it from
+    // `isStart`, which is what the `Studio — default` artboard actually renders — a start node's
+    // output labels read active (`#c3c9ce`) and a downstream node's input labels read plain
+    // (`#aab1b7`) even where the artboard draws an accent connection straight into them. Setting
+    // `tone` here from connection/literal satisfaction would both contradict the design and shadow
+    // that default.
     const inputs: readonly NodeFieldSpec[] = node.input.fields.map((field) => ({
       name: field.field,
       annotation: overlay?.inputAnnotation ?? field.annotation,
-      tone: satisfied.has(field.field) ? 'active' : 'normal',
     }))
 
     const outputs: readonly NodeFieldSpec[] = node.output.fields.map((field) => ({
       name: field.field,
       annotation: overlay?.outputAnnotation ?? field.annotation,
-      tone: 'normal',
     }))
 
     const data: NodeCardData = {
