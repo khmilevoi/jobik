@@ -80,10 +80,10 @@ describe('NodeCardHeader', () => {
     expect(tag).toHaveTextContent('start')
     expect(tag).toHaveStyle({
       fontSize: '9.5px',
-      letterSpacing: '.08em',
       textTransform: 'uppercase',
       color: accent.cssVar,
     })
+    expect(tag.style.letterSpacing).toBe('0.08em')
     expect(screen.queryByTestId('node-status')).toBeNull()
   })
 
@@ -94,8 +94,12 @@ describe('NodeCardHeader', () => {
       width: '11px',
       height: '11px',
       borderRadius: '50%',
-      border: `1.5px solid ${canvasColors.spinnerTrack}`,
+      borderTopWidth: '1.5px',
+      borderTopStyle: 'solid',
       borderTopColor: accent.cssVar,
+      borderRightColor: canvasColors.spinnerTrack,
+      borderBottomColor: canvasColors.spinnerTrack,
+      borderLeftColor: canvasColors.spinnerTrack,
       animation: motion.spinner,
     })
     expect(screen.queryByTestId('node-kind-dot')).toBeNull()

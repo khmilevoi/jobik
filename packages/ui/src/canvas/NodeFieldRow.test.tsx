@@ -84,11 +84,11 @@ describe('NodeFieldRow', () => {
       height: '8px',
       borderRadius: '50%',
       background: canvasColors.handleFill,
-      border: `1.5px solid ${accent.cssVar}`,
       right: '-4px',
       top: '50%',
       transform: 'translateY(-50%)',
     })
+    expect(handle.style.border).toBe(`1.5px solid ${accent.cssVar}`)
   })
 
   it('renders a target handle on the left edge, idle when the field is not live', async () => {
