@@ -61,11 +61,11 @@ export function RunWell(props: RunWellProps) {
     <div
       data-testid={props['data-testid']}
       style={{
+        ...props.style,
         border: `1px solid ${tone.border}`,
         borderRadius: px(radii.control),
         background: tone.background,
         padding: props.padding ?? tone.padding,
-        ...props.style,
       }}
     >
       {props.children}

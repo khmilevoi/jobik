@@ -56,7 +56,7 @@ export function RunInputControl(props: RunInputControlProps) {
       return (
         <textarea
           data-testid={id}
-          aria-label={field.field}
+          id={id}
           value={text}
           onChange={(event) => emit(event.target.value)}
           style={areaShell}
@@ -67,23 +67,14 @@ export function RunInputControl(props: RunInputControlProps) {
     if (control.kind === 'literal' || control.kind === 'asset') {
       const fixed =
         control.kind === 'literal' ? String(control.value ?? 'null') : (field.title ?? 'Buffer')
-      return (
-        <input
-          data-testid={id}
-          aria-label={field.field}
-          disabled
-          readOnly
-          value={fixed}
-          style={lineShell}
-        />
-      )
+      return <input data-testid={id} id={id} disabled readOnly value={fixed} style={lineShell} />
     }
 
     if (control.kind === 'boolean') {
       return (
         <input
           data-testid={id}
-          aria-label={field.field}
+          id={id}
           type="checkbox"
           checked={props.value === true}
           onChange={(event) => emit(event.target.checked)}
@@ -96,7 +87,7 @@ export function RunInputControl(props: RunInputControlProps) {
       return (
         <select
           data-testid={id}
-          aria-label={field.field}
+          id={id}
           value={text}
           onChange={(event) => emit(event.target.value)}
           style={lineShell}
@@ -114,7 +105,7 @@ export function RunInputControl(props: RunInputControlProps) {
       return (
         <input
           data-testid={id}
-          aria-label={field.field}
+          id={id}
           type="number"
           step={control.integer ? 1 : 'any'}
           value={text}
@@ -128,7 +119,7 @@ export function RunInputControl(props: RunInputControlProps) {
       return (
         <textarea
           data-testid={id}
-          aria-label={field.field}
+          id={id}
           value={text}
           onChange={(event) => emit(event.target.value)}
           style={areaShell}
@@ -139,7 +130,7 @@ export function RunInputControl(props: RunInputControlProps) {
     return (
       <input
         data-testid={id}
-        aria-label={field.field}
+        id={id}
         type="text"
         value={text}
         onChange={(event) => emit(event.target.value)}
@@ -151,7 +142,8 @@ export function RunInputControl(props: RunInputControlProps) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: px(7) }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-        <div
+        <label
+          htmlFor={id}
           data-testid={`run-input-label-${field.field}`}
           style={{
             fontFamily: fontFamilies.mono,
@@ -160,7 +152,7 @@ export function RunInputControl(props: RunInputControlProps) {
           }}
         >
           {field.field}
-        </div>
+        </label>
         <TypeAnnotation data-testid={`run-input-annotation-${field.field}`}>
           {field.annotation}
         </TypeAnnotation>

@@ -41,7 +41,7 @@ export function formatHiddenFrames(hiddenFrames: number): string | undefined {
  * the dimensions are not in the descriptor, so a caller that has them passes `meta` instead.
  */
 export function formatAssetMeta(asset: AssetDescriptor): string {
-  const subtype = asset.mime.split('/').at(-1) ?? asset.mime
+  const subtype = asset.mime.split('/').at(-1)
   const size = asset.bytes < 1024 ? `${asset.bytes} b` : `${Math.round(asset.bytes / 1024)} kb`
   return `${subtype} · ${size}`
 }

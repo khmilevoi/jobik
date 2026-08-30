@@ -123,6 +123,16 @@ describe('collectRunInputValues', () => {
     }
     expect(collectRunInputValues([field], { speed: 'invalid' })).toEqual({ speed: 'invalid' })
   })
+
+  it('collects a boolean as false when the draft has no entry for it at all', () => {
+    const field: InputFieldDescriptor = {
+      field: 'draft',
+      required: true,
+      annotation: 'boolean',
+      control: { kind: 'boolean' },
+    }
+    expect(collectRunInputValues([field], {})).toEqual({ draft: false })
+  })
 })
 
 describe('validateRunInputs', () => {
@@ -218,6 +228,20 @@ describe('validateRunInputs', () => {
     })
     expect(result).toBeInstanceOf(Error)
     expect(toRunInputIssues(result as Error)[0]?.path).toBe('speed')
+  })
+
+  it('collects a required boolean as false and passes safeParse when the draft has no entry', () => {
+    const booleanInput = z.object({ draft: z.boolean() })
+    const booleanFields: readonly InputFieldDescriptor[] = [
+      {
+        field: 'draft',
+        required: true,
+        annotation: 'boolean',
+        control: { kind: 'boolean' },
+      },
+    ]
+    const result = validateRunInputs({ input: booleanInput, fields: booleanFields, draft: {} })
+    expect(result).toEqual({ draft: false })
   })
 })
 

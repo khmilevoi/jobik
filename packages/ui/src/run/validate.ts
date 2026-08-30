@@ -17,10 +17,12 @@ import type { RunInputDraft, RunInputIssue } from './types.js'
  * Turn the control drafts into the value object the schema expects.
  *
  * A `literal` uses its fixed value and ignores the draft. An `asset` is omitted entirely: an
- * unconnected asset input is a graph validation error, not a form control. A field with no draft
- * entry, and an optional field left empty, are both omitted so the schema's own default or
- * `optional` applies; a REQUIRED field left empty is passed through empty, so the schema reports it
- * rather than this function guessing.
+ * unconnected asset input is a graph validation error, not a form control. A `boolean` is always
+ * collected, never omitted: an unchecked box is a real `false`, not an absent value, so a required
+ * `z.boolean()` must not fail with "required" just because the user never touched the control. A
+ * field with no draft entry, and an optional field left empty, are both omitted so the schema's own
+ * default or `optional` applies; a REQUIRED field left empty is passed through empty, so the schema
+ * reports it rather than this function guessing.
  */
 export function collectRunInputValues(
   fields: readonly InputFieldDescriptor[],
@@ -37,14 +39,14 @@ export function collectRunInputValues(
       continue
     }
 
+    if (control.kind === 'boolean') {
+      values[field.field] = draft[field.field] === true
+      continue
+    }
+
     const raw = draft[field.field]
     if (raw === undefined) continue
     if (raw === '' && !field.required) continue
-
-    if (control.kind === 'boolean') {
-      values[field.field] = raw === true
-      continue
-    }
 
     if (control.kind === 'number') {
       values[field.field] = raw === '' ? Number.NaN : Number(raw)

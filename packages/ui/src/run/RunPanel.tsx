@@ -7,9 +7,6 @@ import { RunStateHeader } from './RunStateHeader.js'
 import { runPanelColors, runPanelMetrics } from './runPanelTokens.js'
 import type { RunPanelState } from './types.js'
 
-export type { RunStateHeaderProps } from './RunStateHeader.js'
-export { RunStateHeader } from './RunStateHeader.js'
-
 export interface RunPanelProps {
   readonly state: RunPanelState
 }
@@ -38,6 +35,11 @@ export interface RunPanelCardProps {
 /**
  * The isolated 320×430 card of the `Run panel — states` artboard (lines 771–866): the frame, the
  * state header, and a body carrying the card's own `16px 14px` padding and `14px` gap.
+ *
+ * That is exact for `idle`, `failed` and `completed`. For `running` the body instead shows the
+ * docked union `RunRunningView` renders — plan line 2494, "the running state is the union of two
+ * artboards" — not the card artboard's own compact mono 10.5px timings list (design lines
+ * 779–793), which is why the 430px body scrolls in that state.
  *
  * Use this outside the dock. Inside it, pass `RunPanel` to `RunDock` instead — the dock supplies
  * both the header and the body.

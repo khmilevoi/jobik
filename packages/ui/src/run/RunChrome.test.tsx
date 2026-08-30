@@ -40,6 +40,15 @@ describe('RunWell', () => {
     render(<RunWell data-testid="w" padding="8px 10px" />)
     expect(screen.getByTestId('w').style.padding).toBe('8px 10px')
   })
+
+  it('does not let a caller-supplied style overwrite the tone', () => {
+    render(<RunWell data-testid="w" style={{ background: 'red', gap: '4px' }} />)
+    const well = screen.getByTestId('w')
+    expect(well.style.background).toBe('rgb(12, 14, 16)')
+    expect(well.style.border).toBe('1px solid rgb(28, 31, 34)')
+    expect(well.style.padding).toBe('10px')
+    expect(well.style.gap).toBe('4px')
+  })
 })
 
 describe('RunAction', () => {

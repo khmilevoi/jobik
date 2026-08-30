@@ -3,7 +3,8 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import * as z from 'zod'
 import { RunDock } from '../shell/index.js'
-import { RunPanel, RunPanelCard, RunStateHeader } from './RunPanel.js'
+import { RunPanel, RunPanelCard } from './RunPanel.js'
+import { RunStateHeader } from './RunStateHeader.js'
 import type { RunPanelState } from './types.js'
 
 afterEach(cleanup)

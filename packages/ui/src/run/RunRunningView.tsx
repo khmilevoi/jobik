@@ -108,7 +108,8 @@ export function RunRunningView(props: RunRunningViewProps) {
               }}
             >
               {log.lines.map((line, index) => (
-                <div key={`${line.time}-${line.text}`} data-testid={`run-log-line-${index}`}>
+                // biome-ignore lint/suspicious/noArrayIndexKey: the log is append-only, so the index is a stable key.
+                <div key={index} data-testid={`run-log-line-${index}`}>
                   <span
                     data-testid={`run-log-time-${index}`}
                     style={{ color: textColors.faintest }}

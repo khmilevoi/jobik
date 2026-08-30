@@ -41,8 +41,9 @@ export interface RunNodeRowsProps {
 
 /**
  * The 30px node rows of `Studio — run in progress` (lines 607–620). Only the running row carries a
- * border; `STUDIO_GLOBAL_CSS` sets `box-sizing: border-box` under `[data-jobik-studio]`, so every
- * row stays 30px tall either way.
+ * border, so the row sets its own `box-sizing: border-box` rather than relying on `STUDIO_GLOBAL_CSS`
+ * (which scopes that rule to `[data-jobik-studio]`) — `RunPanelCard` is designed to be used
+ * standalone, outside `StudioFrame`, where that attribute is never set.
  */
 export function RunNodeRows(props: RunNodeRowsProps) {
   return (
@@ -67,6 +68,7 @@ export function RunNodeRows(props: RunNodeRowsProps) {
               gap: px(9),
               height: px(runPanelMetrics.nodeRowHeight),
               padding: `0 ${px(runPanelMetrics.nodeRowPaddingX)}`,
+              boxSizing: 'border-box',
               borderRadius: px(radii.control),
               ...(active
                 ? {

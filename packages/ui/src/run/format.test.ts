@@ -78,7 +78,7 @@ describe('formatAssetMeta', () => {
     )
   })
 
-  it('falls back to the whole mime when it has no subtype', () => {
+  it('is the whole mime when it has no slash to split on', () => {
     expect(formatAssetMeta({ type: 'Buffer', mime: 'application', bytes: 2048, id: 'a3' })).toBe(
       'application · 2 kb',
     )
