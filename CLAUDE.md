@@ -8,8 +8,9 @@ and `@jobik/ui` (React Studio editor plus `@jobik/ui/server`).
 v1 is implemented and both packages are at `0.1.0`. `@jobik/core` covers authoring, the
 `flow.jobik.json` document, graph validation, the Zod-to-control UI schema and the execution engine.
 `@jobik/ui` covers the Studio — shell, React Flow canvas, run panel, output viewer, streaming client
-— and `@jobik/ui/server` serves the whole API. `examples/publication` is the flow every artboard in
-the design shows, and `jobik.config.ts` at the root points the Studio at it. What is *not* finished
+— and `@jobik/ui/server` serves the whole API. `examples/showcase` is the `@jobik/examples` package
+and holds the Studio config; its `publication` flow is the one every artboard in the design shows.
+What is *not* finished
 is listed in `.superpowers/waves/2026-08-29-jobik-v1/closeout/DEFERRED.md` (local-only; see *Docs*);
 read it before believing any feature works end to end. That list is much shorter than it was: most
 of it was worked through on 2026-08-31, and each entry now says so. What remains is either an
@@ -33,26 +34,34 @@ packages/ui/src/
   globalStyles.tsx globalStyles.css   the reset and the four keyframes
   cx.ts css.d.ts  the class-name joiner; the ambient `*.module.css` declaration
   cssModuleSource.ts + cssModuleUsage/cssModuleValues.test.ts   the styling gates
-  primitives/     Badge, Button, Chip, InsetWell, SectionLabel, TypeAnnotation
-  shell/          StudioFrame, TopBar, FlowsSidebar, RunDock, PanelHeader, DockedControls
+  primitives/     the `3A` button system — Button, IconButton, InlineAction, ValueRow, Spinner,
+                  ProgressTrack, Checkbox, Toggle, SegmentedControl, icons/, actionState.ts —
+                  plus Badge, Chip, InsetWell, SectionLabel, TypeAnnotation
+  shell/          StudioFrame, TopBar, FlowsSidebar (flows, nodes, inventory, run history),
+                  RunDock, PanelHeader, DockedControls
   canvas/         React Flow canvas: FlowCanvas, NodeCard*, FieldEdge/FieldHandle, edge paths
-  run/            run panel views, typed input controls, input validation
-  output/         output viewer, `defineFlowUi`, value formatting
+  run/            run panel views, typed input controls, input validation, RunLogSection
+  output/         output viewer, the `2A` OutputDock, `defineFlowUi`, value formatting
+  modals/         artboard `3C`: ModalShell plus Validation, Download, StackTrace, CancelRun
   client/         JobikClient, NDJSON stream decoding, wire types
   studio/         StudioApp/Studio, session hooks, run presenter, extension loader,
                   plus `main.tsx` + `index.html` — the Vite entry for the bundled Studio
   server/         `@jobik/ui/server`: config, discovery, flowService, httpServer, routes,
                   runRoutes, runRegistry, extensionBundle, wire projection and safety
 
-examples/publication/
-  index.ts        the binding: `start1` -> `render` -> `publish`, bound to an absolute path
-  nodes/          publicationInput, imageOut, httpSink, markdown, and the sidebar inventory
-  flow.jobik.json the versioned document
-  flow.ui.tsx     flow-local output UI via `defineFlowUi`; `components/` holds RenderedImage
-  fixtures.ts types.ts
-
-jobik.config.ts   this repository's own Studio config — the example flow, 127.0.0.1:4318
+examples/showcase/    `@jobik/examples` — one package, one flow per subdirectory
+  jobik.config.ts     the Studio config: publication, pokedex, forecast, on 127.0.0.1:4318
+  publication/        the flow every artboard shows
+    index.ts          the binding: `start1` -> `render` -> `publish`, bound to an absolute path
+    nodes/            publicationInput, imageOut, httpSink, markdown, and the sidebar inventory
+    flow.jobik.json   the versioned document
+    flow.ui.tsx       flow-local output UI via `defineFlowUi`; `components/` holds RenderedImage
+    fixtures.ts types.ts
+  pokedex/ forecast/  the same five files each
 ```
+
+`package.json`, `tsconfig.json` and `jest-dom.d.ts` stay at `examples/showcase/` root; everything
+that belongs to one flow lives under that flow's directory.
 
 Tests sit next to their subject as `*.test.ts(x)`; there is no separate test tree.
 
@@ -77,7 +86,7 @@ Root: `lint` is `biome check .`, `typecheck` is `tsc --noEmit`, `check` is
 
 Per package: `build` is `tsdown` (`@jobik/ui` adds `vite build` for the Studio bundle), `typecheck`
 is `tsc --noEmit`, `test` is `vitest run --config ../../vitest.config.ts <package dir>/`.
-`examples/publication` has `typecheck` and `test` only — it is private and never built.
+`examples/showcase` has `typecheck` and `test` only — it is private and never built.
 
 The gate is `pnpm turbo run lint typecheck test build`. Turbo also runs the root-level `//#lint` and
 `//#typecheck` tasks, so the gate covers files outside any package.
@@ -85,9 +94,10 @@ The gate is `pnpm turbo run lint typecheck test build`. Turbo also runs the root
 ## Running the Studio
 
 **`pnpm dev`.** It builds the Studio bundle, then serves that bundle and the API from one origin at
-http://127.0.0.1:4318, against the root `jobik.config.ts` — the `examples/publication` flow. This
-closes deferred findings 8-D and 11; instructions elsewhere that say the app cannot be started are
-stale.
+http://127.0.0.1:4318. The config is `examples/showcase/jobik.config.ts`, and the root `dev` and
+`dev:server` scripts pass it with `--config` — the CLI resolves a config against `process.cwd()`
+only and never searches up the tree, so that flag is not optional. This closes deferred findings
+8-D and 11; instructions elsewhere that say the app cannot be started are stale.
 
 | Script | What it does |
 |---|---|
@@ -116,7 +126,7 @@ The pieces, for when you need to drive it yourself:
 One trap that costs a session if you meet it cold: **workspace sources cannot be loaded by plain
 Node.** The barrels import `./config.js` while the in-workspace `exports` maps point at `src/*.ts`,
 and Node's type stripping does not rewrite `.js` to `.ts`, so `import()` of a `src/**/*.ts` entry
-dies with `ERR_MODULE_NOT_FOUND` — the root `jobik.config.ts` included, since it imports
+dies with `ERR_MODULE_NOT_FOUND` — `examples/showcase/jobik.config.ts` included, since it imports
 `@jobik/ui/server`. `packages/ui/scripts/dev.mjs` is the answer: a `registerHooks` resolver that
 retries a failed `.js` specifier as `.ts`. It is development-only and does not ship — an installed
 package has no such problem, because its `exports` point at `dist`. Vitest and a bundler resolve
@@ -138,9 +148,31 @@ Read it with the `DesignSync` tool: `get_file` with that `projectId` and path `J
 It needs design-system authorization — run `/design-login` first if the tool reports it is not
 authorized. The `claude-design` MCP server, when configured, needs the same login.
 
-Six artboards: `Studio — default` (1640×980), `Studio — panels collapsed`, `Studio — run in
-progress`, `Node states`, `Run panel — states`, `Output viewer`. Canvas props: `accent`,
-`showDotGrid`, `edgeShape` (`curved` | `stepped`).
+**Ten artboards**, in document order. The first four carry a prefix and are the newer additions;
+where one of them disagrees with an older artboard, the newer wins:
+
+| Artboard | What it fixes |
+|---|---|
+| `3A` Buttons | copy and download as state matrices — default / working / copied / failed and default / preparing / transferring / saved — across seven shapes, plus the in-button loader |
+| `3B` | one rule: a button loads only when nothing around it reports progress; otherwise it drops to `opacity:.45` and changes nothing else |
+| `3C` Modals | Validation, Download output, Stack trace, Cancel run |
+| `2A` Studio — full page, output open | 1640×1080; the bottom output dock, run history in the sidebar, the run pill in the top bar, the `Log` section in the run panel |
+| Studio — default | 1640×980, the idle shell |
+| Studio — panels collapsed | both sidebars docked into the top bar |
+| Studio — run in progress | the canvas while the run streams |
+| Node states | `queued · running · ok · failed · cached` |
+| Run panel — states | the 320px dock: running / failed / completed |
+| Output viewer | images and typed values from run `#221` |
+
+Canvas props: `accent`, `showDotGrid`, `edgeShape` (`curved` | `stepped`), `--dot: #191c1f`.
+
+**Motion, because it is easy to get wrong in both directions.** The design has exactly four
+keyframes — `jspin .7s`, `jdash .8s`, `jshim 1.5s`, `jpulse 1.5s`/`1s` — and **zero CSS
+transitions**, no `cubic-bezier` and no `prefers-reduced-motion` block. The rule behind that: a
+thing moves because work is in progress, never because a state changed. Do not add a hover or
+state-change transition; do make sure the four loops actually run where the design puts them, read
+from the `--jbk-motion-*` tokens. The one deliberate departure is a `prefers-reduced-motion` block
+in `globalStyles.css`, which the design does not have and accessibility requires.
 
 **The design file is the source of truth for layout, tokens, and states.** Do not invent colours,
 spacing, or new UI states — read the artboard first. If code and design disagree, the design wins —
@@ -150,10 +182,17 @@ but check `DEFERRED.md` first: several disagreements are already known and delib
 
 `@jobik/ui` styles itself with **CSS Modules**. `tokens.ts` is still the TypeScript-side source of
 the design values; `tokens.css` restates every one as a `--jbk-*` custom property, and that is what
-stylesheets read. `canvas/`, `run/`, `output/` and `studio/` each add their own `<name>Tokens.ts` +
-`<name>Tokens.css` pair, imported once from the directory barrel. A value two directories read
-belongs in `tokens.ts`, not in one of theirs — a custom property exists only while its own
-stylesheet is on the page.
+stylesheets read. `primitives/`, `shell/`, `canvas/`, `run/`, `output/`, `modals/` and `studio/` each
+add their own `<name>Tokens.ts` + `<name>Tokens.css` pair, imported once from the directory barrel.
+A value two directories read belongs in `tokens.ts`, not in one of theirs — a custom property exists
+only while its own stylesheet is on the page.
+
+Two things live in `globalStyles.css` rather than in any module, because they must reach every
+scroll container and every animated element without one: the **scrollbar** (the `scrollbar` token
+group, standard `scrollbar-width`/`scrollbar-color` with a `::-webkit-*` fallback inside
+`@supports not (scrollbar-color: auto)`) and the **`prefers-reduced-motion`** block. Do not restyle
+a scrollbar locally; make the region scrollable and let it inherit. That file is mirrored into
+`STUDIO_GLOBAL_CSS` and a test fails when the two drift, so edit both.
 
 The invariants, all of them enforced by a test rather than by the compiler:
 

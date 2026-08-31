@@ -70,8 +70,8 @@ export default jobik
 ```text
 packages/core/         @jobik/core
 packages/ui/           @jobik/ui and @jobik/ui/server
-examples/publication/  the example flow the Studio design was drawn from
-jobik.config.ts        this repository's own Studio configuration
+examples/showcase/     @jobik/examples — the showcase flows and their Studio configuration
+                       (`publication` is the flow the Studio design was drawn from)
 ```
 
 pnpm workspaces over `packages/*` and `examples/*`, orchestrated by Turborepo. tsdown builds both
