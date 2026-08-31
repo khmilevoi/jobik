@@ -115,3 +115,61 @@ describe("bind('path', …)", () => {
     expect(flow('publication').bind('path', jsonFile)).not.toBeInstanceOf(Error)
   })
 })
+
+describe('.meta()', () => {
+  const sourceFile = path.resolve('flow.ts')
+
+  it('is absent on a flow that never declared any', () => {
+    expect(flow('publication').bind('path', jsonFile).meta).toBeUndefined()
+  })
+
+  it('carries what the author declared onto the bound flow', () => {
+    const bound = flow('publication')
+      .meta({ source: sourceFile })
+      .node('render', render)
+      .bind('path', jsonFile)
+
+    expect(bound.meta).toEqual({ source: sourceFile })
+  })
+
+  it('reads the same wherever in the chain it is called', () => {
+    const bound = flow('publication')
+      .node('render', render)
+      .meta({ source: sourceFile })
+      .bind('path', jsonFile)
+
+    expect(bound.meta).toEqual({ source: sourceFile })
+  })
+
+  it('merges a second call over the first rather than replacing it', () => {
+    const other = path.resolve('other.ts')
+    const bound = flow('publication')
+      .meta({ source: other })
+      .meta({ source: sourceFile })
+      .bind('path', jsonFile)
+
+    expect(bound.meta).toEqual({ source: sourceFile })
+  })
+
+  it('does not mutate the builder it was called on', () => {
+    const base = flow('publication')
+    base.meta({ source: sourceFile })
+    expect(base.bind('path', jsonFile).meta).toBeUndefined()
+  })
+
+  it('rejects a relative source', () => {
+    expect(() => flow('publication').meta({ source: './flow.ts' })).toThrow(
+      new TypeError(
+        "jobik.flow('publication'): meta({ source }) requires an absolute path, received './flow.ts'",
+      ),
+    )
+  })
+
+  it('rejects a bare filename as a source', () => {
+    expect(() => flow('publication').meta({ source: 'flow.ts' })).toThrow(TypeError)
+  })
+
+  it('accepts a declaration that names no source at all', () => {
+    expect(flow('publication').meta({}).bind('path', jsonFile).meta).toEqual({})
+  })
+})
