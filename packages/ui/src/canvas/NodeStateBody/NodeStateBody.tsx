@@ -2,7 +2,7 @@ import { canvasMetrics } from '#canvas/canvasTokens.js'
 import { StripePlaceholder } from '#canvas/StripePlaceholder/StripePlaceholder.js'
 import type { NodeCardDetail } from '#canvas/types.js'
 import { cx, type StyleWithVars } from '#cx.js'
-import { px, radii } from '#tokens.js'
+import { type FontSize, px, radii } from '#tokens.js'
 import s from './NodeStateBody.module.css'
 
 export interface NodeStateBodyProps {
@@ -14,7 +14,7 @@ export interface NodeStateBodyProps {
 export interface MetadataRowProps {
   readonly parts: readonly string[]
   /** `Node states` ok (design 714) is `10px`; the in-canvas slot's caption row (204) is `9.5px`. */
-  readonly fontSize?: number
+  readonly fontSize?: FontSize
   /** `8px` between the cells on the `Node states` card (714), `10px` in the slot caption (204). */
   readonly gap?: number
 }

@@ -51,6 +51,16 @@ longer accept `style`; pass `className` instead. `RunWell.style` in particular h
 contract under CSS Modules — it began winning over the tone rules rather than losing to them — so
 it is removed rather than deprecated further.
 
+**6. `MetadataRow.fontSize` is narrowed to the type scale.** It was `number` and is now
+`FontSize`, the union `tokens.ts` already exports. No value changes — the only call sites pass
+`9.5`, which is on the scale — but a size outside it is now a compile error.
+
+This one is a repair, not a tightening for its own sake. The colour-discipline tests used to scan
+the rendered DOM, so they caught an off-scale size arriving through this prop at runtime. Their
+replacement reads stylesheets and sources statically and cannot see a value computed at render
+time, so the guarantee would otherwise have been quietly dropped by the migration that replaced
+them.
+
 Every primitive, and `OutputViewer`, gained `className?: string`, merged last, which is the
 replacement for all of the above. `SectionLabel.color`, `RunWell.padding` and `RunStatusDot.color`
 still take a value and still work; they are custom properties now.
