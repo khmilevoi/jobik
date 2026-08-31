@@ -36,7 +36,9 @@
   --jbk-canvas-title-cached: #b3b9be;
   --jbk-canvas-field-label-dim: #6d757c;
   --jbk-canvas-annotation-dim: #4a5157;
-  --jbk-canvas-section-label-selected-start: #535a60;
+  --jbk-canvas-field-label-problem: #e2d3d0;
+  --jbk-canvas-blocked-border: rgba(201, 106, 92, 0.4);
+  --jbk-canvas-section-label-selected: #535a60;
   --jbk-canvas-failed-border: rgba(201, 106, 92, 0.45);
   --jbk-canvas-failed-halo: 0 0 0 3px rgba(201, 106, 92, 0.05);
   --jbk-canvas-failed-header-wash: rgba(201, 106, 92, 0.06);
@@ -55,12 +57,13 @@
   --jbk-canvas-handle-offset: -4px;
   --jbk-canvas-edge-stroke-width: 1.3px;
   --jbk-canvas-edge-active-stroke-width: 1.4px;
+  --jbk-canvas-edge-error-stroke-width: 1.4px;
   --jbk-canvas-edge-active-dash: 5 7;
   --jbk-canvas-edge-waiting-dash: 3 5;
+  --jbk-canvas-stepped-elbow-stagger: 16px;
   --jbk-canvas-card-padding-x: 12px;
   --jbk-canvas-header-radius: 6px;
   --jbk-canvas-progress-bar-height: 2px;
-  --jbk-canvas-spinner-size: 11px;
   --jbk-canvas-kind-dot-size: 6px;
   --jbk-canvas-status-dot-size: 5px;
   --jbk-canvas-cached-opacity: 0.55;

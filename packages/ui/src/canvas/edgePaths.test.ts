@@ -39,10 +39,10 @@ describe('fieldEdgePath', () => {
   })
 })
 
-const TONES: readonly FieldEdgeTone[] = ['accent', 'idle', 'active', 'waiting']
+const TONES: readonly FieldEdgeTone[] = ['accent', 'idle', 'active', 'waiting', 'error']
 
 describe('fieldEdgeClass', () => {
-  it('gives each of the four tones its own stroke', () => {
+  it('gives each of the five tones its own stroke', () => {
     expect(new Set(TONES.map(fieldEdgeClass)).size).toBe(TONES.length)
   })
 

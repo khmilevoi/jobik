@@ -22,11 +22,18 @@ import s from './FlowCanvas.module.css'
 const nodeTypes = { jobikNode: JobikNode }
 const edgeTypes = { fieldEdge: FieldEdge }
 
-/** `### Layout and metrics`: a 22×22px dot grid, `#191c1f` 1px dots, offset `-1`. */
+/**
+ * `### Layout and metrics`: a 22×22px dot grid in `#191c1f`, offset `-1`.
+ *
+ * The design draws it as `radial-gradient(var(--dot) 1px, transparent 1px)`, whose hard stop is at
+ * a 1px RADIUS — so each dot is 2px across. React Flow's `size` is the dot's DIAMETER: `Background`
+ * renders `<circle r={size / 2}>`. Passing `dotRadius` straight through drew the grid at half the
+ * design's weight, which is why the doubling is spelled out here rather than in the token.
+ */
 export const dotGrid = {
   variant: BackgroundVariant.Dots,
   gap: canvasMetrics.dotGridGap,
-  size: canvasMetrics.dotRadius,
+  size: canvasMetrics.dotRadius * 2,
   offset: canvasMetrics.dotGridOffset,
   color: canvasColors.dotGrid,
 } as const
@@ -49,24 +56,37 @@ export function toReactFlowNodes(
   }))
 }
 
+/**
+ * `### Edges` → stepped: the elbow x is staggered per edge so two parallel runs between the same
+ * pair of nodes never overlap their vertical segments — the artboard turns at `336` then `352`,
+ * and at `744` then `760`, a 16px step each time. Nothing upstream knows which edges are parallel,
+ * so the stagger is derived here from the order the edges arrive in. An edge that states its own
+ * `elbowOffset` keeps it.
+ */
 export function toReactFlowEdges(
   edges: readonly FlowCanvasEdge[],
   startNodeId: string | undefined,
   shape: EdgeShape,
 ): FieldEdgeType[] {
-  return edges.map((edge) => ({
-    id: edge.id,
-    type: 'fieldEdge' as const,
-    source: edge.source,
-    target: edge.target,
-    sourceHandle: fieldHandleId('source', edge.sourceField),
-    targetHandle: fieldHandleId('target', edge.targetField),
-    data: {
-      tone: resolveEdgeTone(edge, startNodeId),
-      shape,
-      elbowOffset: edge.elbowOffset,
-    },
-  }))
+  const parallel = new Map<string, number>()
+  return edges.map((edge) => {
+    const pair = `${edge.source}->${edge.target}`
+    const index = parallel.get(pair) ?? 0
+    parallel.set(pair, index + 1)
+    return {
+      id: edge.id,
+      type: 'fieldEdge' as const,
+      source: edge.source,
+      target: edge.target,
+      sourceHandle: fieldHandleId('source', edge.sourceField),
+      targetHandle: fieldHandleId('target', edge.targetField),
+      data: {
+        tone: resolveEdgeTone(edge, startNodeId),
+        shape,
+        elbowOffset: edge.elbowOffset ?? index * canvasMetrics.steppedElbowStagger,
+      },
+    }
+  })
 }
 
 /**

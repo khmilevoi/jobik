@@ -42,8 +42,13 @@ describe('NodeCardHeader', () => {
     expect(screen.getByTestId('node-status')).toHaveTextContent('1.3s')
   })
 
-  it('renders no status at all when the card carries neither', () => {
-    renderHeader({ id: 'render', state: 'idle' })
+  it('prints the design vocabulary word `idle` on an un-run card, as Studio — default does', () => {
+    renderHeader({ id: 'publish', state: 'idle' })
+    expect(screen.getByTestId('node-status')).toHaveTextContent('idle')
+  })
+
+  it('never invents a status word for a state a run has not reported', () => {
+    renderHeader({ id: 'render', state: 'cached' })
     expect(screen.queryByTestId('node-status')).toBeNull()
   })
 
@@ -58,10 +63,16 @@ describe('NodeCardHeader', () => {
     expect(screen.queryByTestId('node-status-dot')).toBeNull()
   })
 
-  it('replaces the status with the START tag on a start node', () => {
-    renderHeader({ id: 'start1', state: 'idle', isStart: true, selected: true, status: 'idle' })
+  it('shows the START tag on an un-run start node, as Studio — default does', () => {
+    renderHeader({ id: 'start1', state: 'idle', isStart: true, selected: true })
     expect(screen.getByTestId('node-start-tag')).toHaveTextContent('start')
     expect(screen.queryByTestId('node-status')).toBeNull()
+  })
+
+  it('gives a settled start node its run status instead of the tag, as 2A does', () => {
+    renderHeader({ id: 'start1', state: 'ok', isStart: true, status: 'done', elapsed: '0.0s' })
+    expect(screen.getByTestId('node-status')).toHaveTextContent('done · 0.0s')
+    expect(screen.queryByTestId('node-start-tag')).toBeNull()
   })
 
   it('swaps the kind dot for the spinner while running', () => {

@@ -3,6 +3,7 @@ import s from './fields.module.css'
 import type {
   FieldEdgeTone,
   FieldHandleTone,
+  FieldProblem,
   FieldTone,
   FlowCanvasEdge,
   HandleDirection,
@@ -35,11 +36,38 @@ const annotationTones = {
   dim: s.annotationDim,
 } satisfies Record<FieldTone, string>
 
-export function fieldLabelClass(tone: FieldTone): string {
+/**
+ * `3D` — only the receiving port of a mismatch brightens its label. The other two marks keep the
+ * ordinary one: `publish.caption` (no source) and `start1.markdown` (the sending end) are both
+ * `#aab1b7`/`#c3c9ce` on the artboard, marked by their annotation and their handle alone.
+ */
+const labelProblems = {
+  mismatch: s.labelProblem,
+  linked: '',
+  unsourced: '',
+} satisfies Record<FieldProblem, string>
+
+/** All three recolour the annotation — `string ≠ Buffer`, `Buffer` and `no source` are one hue. */
+const annotationProblems = {
+  mismatch: s.annotationProblem,
+  linked: s.annotationProblem,
+  unsourced: s.annotationProblem,
+} satisfies Record<FieldProblem, string>
+
+/** The one place the marks split: a port with no source draws a dashed ring, not a solid one. */
+const handleProblems = {
+  mismatch: s.handleProblem,
+  linked: s.handleProblem,
+  unsourced: s.handleUnsourced,
+} satisfies Record<FieldProblem, string>
+
+export function fieldLabelClass(tone: FieldTone, problem?: FieldProblem): string {
+  if (problem !== undefined) return cx(labelTones[tone], labelProblems[problem])
   return labelTones[tone]
 }
 
-export function fieldAnnotationClass(tone: FieldTone): string {
+export function fieldAnnotationClass(tone: FieldTone, problem?: FieldProblem): string {
+  if (problem !== undefined) return annotationProblems[problem]
   return annotationTones[tone]
 }
 
@@ -72,8 +100,17 @@ const handleEdges = {
 } satisfies Record<HandleDirection, string>
 
 /** The 8px circle, 1.5px border, offset `-4px` and vertically centred on its row. */
-export function fieldHandleClass(tone: FieldHandleTone, direction: HandleDirection): string {
-  return cx(s.handle, handleTones[tone], handleEdges[direction])
+export function fieldHandleClass(
+  tone: FieldHandleTone,
+  direction: HandleDirection,
+  problem?: FieldProblem,
+): string {
+  return cx(
+    s.handle,
+    handleTones[tone],
+    handleEdges[direction],
+    problem !== undefined && handleProblems[problem],
+  )
 }
 
 export function endpointKey(nodeId: string, direction: HandleDirection, field: string): string {

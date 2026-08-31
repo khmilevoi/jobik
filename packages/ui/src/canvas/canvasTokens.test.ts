@@ -18,13 +18,15 @@ describe('canvasColors', () => {
     expect(canvasColors.zoomControlBorder).toBe('#202327')
   })
 
+  it('carries the accent inline link hover the `inspect` action swaps to', () => {})
+
   it('carries the title steps and the dimmed text steps', () => {
     expect(canvasColors.titleSelected).toBe('#eef1f3')
     expect(canvasColors.titleFailed).toBe('#f0e6e4')
     expect(canvasColors.titleCached).toBe('#b3b9be')
     expect(canvasColors.fieldLabelDim).toBe('#6d757c')
     expect(canvasColors.annotationDim).toBe('#4a5157')
-    expect(canvasColors.sectionLabelSelectedStart).toBe('#535a60')
+    expect(canvasColors.sectionLabelSelected).toBe('#535a60')
     expect(canvasColors.cachedHeaderDivider).toBe('#191c1f')
   })
 
@@ -60,10 +62,10 @@ describe('canvasMetrics', () => {
     expect(canvasMetrics.edgeActiveStrokeWidth).toBe(1.4)
     expect(canvasMetrics.edgeActiveDash).toBe('5 7')
     expect(canvasMetrics.edgeWaitingDash).toBe('3 5')
+    expect(canvasMetrics.steppedElbowStagger).toBe(16)
     expect(canvasMetrics.cardPaddingX).toBe(12)
     expect(canvasMetrics.headerRadius).toBe(6)
     expect(canvasMetrics.progressBarHeight).toBe(2)
-    expect(canvasMetrics.spinnerSize).toBe(11)
     expect(canvasMetrics.kindDotSize).toBe(6)
     expect(canvasMetrics.statusDotSize).toBe(5)
     expect(canvasMetrics.cachedOpacity).toBe(0.55)

@@ -320,3 +320,70 @@ describe('JobikNode — the React Flow adapter', () => {
     ).toBe(unselected)
   })
 })
+
+/**
+ * `3D`'s invalid board, as behaviour: the marked card prints its finding count where a run would
+ * print its status, the blocked card prints nothing there, and a marked port draws its handle with
+ * a mark of its own. Which colours those resolve to is `cardChrome`'s and `fields`'s to decide and
+ * `canvasTokens.css.test.ts`'s to keep honest.
+ */
+describe('NodeCard — the 3D validation marks', () => {
+  it('prints the finding count in the header, in place of the idle word', () => {
+    renderInNodeContext(
+      <NodeCard
+        data={{
+          id: 'render',
+          state: 'idle',
+          problem: 'error',
+          problemCount: '1 error',
+          inputs: [{ name: 'markdown', annotation: 'string', problem: 'mismatch' }],
+        }}
+      />,
+    )
+
+    expect(screen.getByTestId('node-status')).toHaveTextContent('1 error')
+    expect(screen.queryByText('idle')).toBeNull()
+  })
+
+  it('lets the count outrank the START tag on a marked entry point', () => {
+    renderInNodeContext(
+      <NodeCard data={{ id: 'start1', state: 'idle', isStart: true, problemCount: '1 error' }} />,
+    )
+
+    expect(screen.queryByTestId('node-start-tag')).toBeNull()
+    expect(screen.getByTestId('node-status')).toHaveTextContent('1 error')
+  })
+
+  it('marks the unsourced port and leaves the header count off the blocked card', () => {
+    renderInNodeContext(
+      <NodeCard
+        data={{
+          id: 'publish',
+          state: 'idle',
+          problem: 'blocked',
+          inputs: [{ name: 'caption', annotation: 'no source', problem: 'unsourced' }],
+        }}
+      />,
+    )
+
+    // The blocked card's trailing cell is empty on the artboard: it carries no count of its own.
+    expect(screen.getByTestId('node-status')).toHaveTextContent('idle')
+    expect(screen.getByTestId('field-annotation-problem')).toHaveTextContent('no source')
+
+    const marked = screen.getByTestId('field-handle-target-caption').className
+    const plain = (() => {
+      cleanup()
+      renderInNodeContext(
+        <NodeCard
+          data={{
+            id: 'publish',
+            state: 'idle',
+            inputs: [{ name: 'caption', annotation: 'string' }],
+          }}
+        />,
+      )
+      return screen.getByTestId('field-handle-target-caption').className
+    })()
+    expect(marked).not.toBe(plain)
+  })
+})

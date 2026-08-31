@@ -1,5 +1,5 @@
 /*
- * The four edge tones. `.edge` carries what every tone shares; the tone classes are written after
+ * The five edge tones. `.edge` carries what every tone shares; the tone classes are written after
  * it so `active`'s heavier stroke wins on source order, in one file, deterministically.
  */
 
@@ -25,4 +25,13 @@
 .waiting {
   stroke: var(--jbk-canvas-edge-waiting);
   stroke-dasharray: var(--jbk-canvas-edge-waiting-dash);
+}
+
+/*
+ * `3D` — the failing connection. The one stroke weight the artboard changes: an accent edge is
+ * 1.3, this is 1.4. It is solid, not dashed — nothing is moving along it.
+ */
+.error {
+  stroke: var(--jbk-status-failed);
+  stroke-width: var(--jbk-canvas-edge-error-stroke-width);
 }

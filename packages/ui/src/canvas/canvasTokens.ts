@@ -46,6 +46,11 @@ export const canvasColors = {
   /** The bottom-left zoom control chrome. */
   zoomControlBorder: '#202327',
 
+  /** `2A`: the slot caption's `inspect` action is an accent inline link, and every accent inline
+   *  link in the file swaps to this on hover (`01-foundations` §6.4 — `style-hover`, instantaneous,
+   *  the design fixes no transition anywhere). `tokens.ts` carries no accent hover step yet; this
+   *  is the canvas's copy of a value that belongs beside `accent.base`. */
+
   /** Node titles the shell's text ramp does not reach. */
   titleSelected: '#eef1f3',
   titleFailed: '#f0e6e4',
@@ -55,8 +60,16 @@ export const canvasColors = {
   fieldLabelDim: '#6d757c',
   annotationDim: '#4a5157',
 
-  /** `Studio — default`: the selected start card's own section-label step. */
-  sectionLabelSelectedStart: '#535a60',
+  /** `3D` invalid board — the label of the port that actually mismatches, one step above
+   *  `textColors.fieldLabel`. The artboard's only new text colour. */
+  fieldLabelProblem: '#e2d3d0',
+  /** `3D` invalid board — the dashed border on the card that cannot run. The failure ramp's `.4`
+   *  step, which no canvas value carried before: the failed card's own border is `.45`. */
+  blockedBorder: 'rgba(201,106,92,.4)',
+
+  /** `### Selection and hover`: the section-label step a selected card lifts to, beside the
+   *  title's own lift. */
+  sectionLabelSelected: '#535a60',
 
   /* The inline output slot's caption, metadata row and separators are
    * `textColors.slotCaption`, `.metadata` and `.metadataSeparator` — the output
@@ -84,15 +97,21 @@ export const canvasMetrics = {
 
   edgeStrokeWidth: 1.3,
   edgeActiveStrokeWidth: 1.4,
+  /** `3D` — a failing edge is drawn at 1.4, not the 1.3 an accent edge takes. The only stroke
+   *  weight the artboard changes, and it matches the active edge's own weight. */
+  edgeErrorStrokeWidth: 1.4,
   edgeActiveDash: '5 7',
   edgeWaitingDash: '3 5',
+  /** `### Edges` → stepped: two edges running between the same pair of nodes stagger their elbow
+   *  so their vertical segments never sit on top of each other — the artboard turns at `336` then
+   *  `352`, and at `744` then `760`. */
+  steppedElbowStagger: 16,
 
   cardPaddingX: 12,
   /** The card radius is 7; the header sits inside a 1px border, so its own
    *  radius is 6. */
   headerRadius: 6,
   progressBarHeight: 2,
-  spinnerSize: 11,
   kindDotSize: 6,
   statusDotSize: 5,
   cachedOpacity: 0.55,

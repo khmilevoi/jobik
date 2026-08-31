@@ -1,7 +1,7 @@
 import { cx } from '#cx.js'
 import { canvasMetrics } from './canvasTokens.js'
 import s from './cardChrome.module.css'
-import type { NodeCardData, NodeKindDot, NodeRunState } from './types.js'
+import type { NodeCardData, NodeKindDot, NodeProblem, NodeRunState } from './types.js'
 
 /**
  * The class names a card's state, selection and start-ness decide. Each one is applied to a
@@ -24,6 +24,8 @@ export interface CardChromeOptions {
   readonly selected?: boolean
   readonly isStart?: boolean
   readonly kindDot?: NodeKindDot
+  /** `3D` — the last validation's verdict. Outranks both the run state and selection. */
+  readonly problem?: NodeProblem
 }
 
 /** Spelled out in full, never indexed by a computed key — see `cssModuleUsage.test.ts`. */
@@ -36,6 +38,11 @@ const byState = {
   cached: s.cached,
 } satisfies Record<NodeRunState, string>
 
+const byProblem = {
+  error: s.problemError,
+  blocked: s.problemBlocked,
+} satisfies Record<NodeProblem, string>
+
 const byKindDot = {
   start: s.kindDotStart,
   neutral: s.kindDotNeutral,
@@ -44,15 +51,23 @@ const byKindDot = {
   status: s.kindDotStatus,
 } satisfies Record<NodeKindDot, string>
 
-type SectionLabelStep = 'default' | 'faintest' | 'selectedStart'
+type SectionLabelStep = 'default' | 'faintest' | 'selected'
 
 const bySectionLabel = {
   default: s.sectionLabel,
   faintest: s.sectionLabelFaintest,
-  selectedStart: s.sectionLabelSelectedStart,
+  selected: s.sectionLabelSelected,
 } satisfies Record<SectionLabelStep, string>
 
-function defaultKindDot(state: NodeRunState, isStart: boolean): NodeKindDot {
+function defaultKindDot(
+  state: NodeRunState,
+  isStart: boolean,
+  problem: NodeProblem | undefined,
+): NodeKindDot {
+  // `3D` invalid board: the marked card's dot is the failure hue, the blocked card's is the queued
+  // grey — in both cases the card's own status colour, which is what `status` means.
+  if (problem === 'error') return 'status'
+  if (problem === 'blocked') return 'queued'
   if (isStart) return 'start'
   if (state === 'queued') return 'queued'
   if (state === 'cached') return 'cached'
@@ -67,21 +82,32 @@ function defaultKindDot(state: NodeRunState, isStart: boolean): NodeKindDot {
  * or not it is selected — per `### Node states`.
  */
 export function resolveCardChrome(options: CardChromeOptions): CardChrome {
-  const { state } = options
+  const { state, problem } = options
   const isStart = options.isStart ?? false
   const failed = state === 'failed'
-  const highlighted = !failed && (options.selected === true || state === 'running')
-  const dot = options.kindDot ?? defaultKindDot(state, isStart)
+  // `3D`: a validation mark outranks selection for the same reason `failed` does — the accent
+  // border would paint over the very thing the mark exists to point at.
+  const highlighted =
+    !failed && problem === undefined && (options.selected === true || state === 'running')
+  const dot = options.kindDot ?? defaultKindDot(state, isStart, problem)
 
+  // `### Selection and hover`: the section label lifts from `#4e555b` to `#535a60` on a selected
+  // card, exactly as the title lifts — so it follows `highlighted`, not `isStart`. Queued still
+  // outranks it: that card's whole ramp is one step darker.
   const sectionLabel = (): string => {
     if (state === 'queued') return bySectionLabel.faintest
-    if (isStart && options.selected === true) return bySectionLabel.selectedStart
-    return bySectionLabel.default
+    return highlighted ? bySectionLabel.selected : bySectionLabel.default
   }
 
   return {
-    card: cx(byState[state], highlighted && s.highlighted),
-    header: failed || highlighted ? s.headerWash : '',
+    // The problem class is written last so it wins the ties source order settles inside
+    // `cardChrome.module.css`, exactly as `.highlighted` does over the six state rules.
+    card: cx(
+      byState[state],
+      highlighted && s.highlighted,
+      problem !== undefined && byProblem[problem],
+    ),
+    header: failed || highlighted || problem === 'error' ? s.headerWash : '',
     kindDot: byKindDot[dot],
     sectionLabel: sectionLabel(),
   }

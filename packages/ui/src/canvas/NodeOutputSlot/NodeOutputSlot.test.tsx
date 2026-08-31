@@ -1,5 +1,6 @@
 import { cleanup, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { userEvent } from '@testing-library/user-event'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { textColors } from '#tokens.js'
 import { NodeOutputSlot } from './NodeOutputSlot.js'
 
@@ -69,5 +70,37 @@ describe('NodeOutputSlot', () => {
   it('omits the caption row entirely when there is nothing to say', () => {
     render(<NodeOutputSlot slot={{}} captionColor={textColors.metadata} />)
     expect(screen.queryByTestId('node-output-caption')).toBeNull()
+  })
+
+  it('puts 2A`s inspect action in the caption row and calls back when it is pressed', async () => {
+    const onInspect = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <NodeOutputSlot
+        slot={{ caption: 'png · 412 kb', onInspect }}
+        captionColor={textColors.metadata}
+      />,
+    )
+    const inspect = screen.getByTestId('node-output-inspect')
+    expect(inspect).toHaveTextContent('inspect')
+    expect(screen.getByTestId('node-output-caption')).toContainElement(inspect)
+    await user.click(inspect)
+    expect(onInspect).toHaveBeenCalledTimes(1)
+  })
+
+  it('lets inspect take the trailing cell from the source, as 2A does', () => {
+    render(
+      <NodeOutputSlot
+        slot={{ source: 'imageOut', onInspect: () => {} }}
+        captionColor={textColors.metadata}
+      />,
+    )
+    expect(screen.getByTestId('node-output-inspect')).toBeInTheDocument()
+    expect(screen.queryByTestId('node-output-source')).toBeNull()
+  })
+
+  it('opens a caption row for the inspect action alone', () => {
+    render(<NodeOutputSlot slot={{ onInspect: () => {} }} captionColor={textColors.metadata} />)
+    expect(screen.getByTestId('node-output-caption')).toBeInTheDocument()
   })
 })

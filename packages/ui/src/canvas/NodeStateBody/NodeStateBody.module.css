@@ -94,6 +94,15 @@
   color: var(--jbk-canvas-failed-solid-label);
 }
 
+/*
+ * `3B` column 2 — while the retry runs, both footer buttons drop to 45% and nothing else about
+ * them changes. The node header's spinner and its 2 px bar are the loader; these two only dim.
+ * The dim is static: `3A` §4.3 notes the design fixes no transition on `opacity`.
+ */
+.dimmed {
+  opacity: 0.45;
+}
+
 /* media */
 
 .mediaBlock {

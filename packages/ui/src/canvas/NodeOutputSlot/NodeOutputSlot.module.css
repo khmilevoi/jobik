@@ -58,3 +58,16 @@
 .source {
   color: var(--jbk-text-section-label);
 }
+
+/*
+ * `2A`, verbatim: `<span onClick style="color:var(--accent,#1fd6bd);cursor:pointer"
+ * style-hover="color:#4ce3ce">inspect</span>`.
+ *
+ * The accent, the instant hover swap and the reset chrome are all `primitives/InlineAction` now.
+ * One thing is not, and it is the reason this rule survives at all: `3A`'s inline link is mono
+ * 10px in a node footer, while `2A` gives `inspect` no font declaration, so it takes the caption
+ * row's own 9.5px. Two sizes for one idiom is what the design draws, so the size stays local.
+ */
+.inspect {
+  font-size: inherit;
+}

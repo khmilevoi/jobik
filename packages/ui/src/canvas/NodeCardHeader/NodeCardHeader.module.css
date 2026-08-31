@@ -14,15 +14,6 @@
   border-bottom: 1px solid var(--jbk-card-header-divider);
 }
 
-.spinner {
-  width: var(--jbk-canvas-spinner-size);
-  height: var(--jbk-canvas-spinner-size);
-  border: var(--jbk-canvas-handle-border-width) solid var(--jbk-accent-spinner-track);
-  border-top-color: var(--jbk-accent);
-  border-radius: var(--jbk-radius-round);
-  animation: var(--jbk-motion-spinner);
-}
-
 .kindDot {
   width: var(--jbk-canvas-kind-dot-size);
   height: var(--jbk-canvas-kind-dot-size);
@@ -65,4 +56,13 @@
   font-family: var(--jbk-font-mono);
   font-size: var(--jbk-size-9-5);
   color: var(--jbk-card-status);
+}
+
+/*
+ * The two-part form on `Studio — default`'s `render` card: a round 5px dot in the state's own
+ * colour, then the label in neutral `#79828a` rather than in that colour. Written after `.status`
+ * so it wins on source order in one file, exactly as the state classes do in `cardChrome`.
+ */
+.statusMuted {
+  color: var(--jbk-text-muted);
 }

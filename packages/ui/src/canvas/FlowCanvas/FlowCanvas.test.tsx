@@ -109,14 +109,26 @@ describe('toReactFlowEdges', () => {
     const mapped = toReactFlowEdges([{ ...edges[0], tone: 'active' }], 'start1', 'curved')
     expect(mapped[0].data?.tone).toBe('active')
   })
+
+  it('staggers the elbow of parallel edges by 16px, as the stepped artboard does', () => {
+    const mapped = toReactFlowEdges(edges, 'start1', 'stepped')
+    // `start1 -> render` twice, then `render -> publish` once: 0, 16, then 0 again.
+    expect(mapped.map((edge) => edge.data?.elbowOffset)).toEqual([0, 16, 0])
+  })
+
+  it('keeps an elbow offset the caller stated', () => {
+    const mapped = toReactFlowEdges([{ ...edges[0], elbowOffset: 40 }], 'start1', 'stepped')
+    expect(mapped[0].data?.elbowOffset).toBe(40)
+  })
 })
 
 describe('dotGrid', () => {
-  it('is the artboard grid: 22px, 1px dots, offset -1', () => {
+  it('is the artboard grid: 22px apart, 2px across, offset -1', () => {
+    // React Flow's `size` is the dot's diameter; the artboard's gradient stop is a 1px radius.
     expect(dotGrid).toEqual({
       variant: 'dots',
       gap: 22,
-      size: 1,
+      size: 2,
       offset: -1,
       color: canvasColors.dotGrid,
     })

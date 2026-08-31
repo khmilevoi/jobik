@@ -39,7 +39,7 @@ const TONES: readonly FieldTone[] = ['active', 'normal', 'dim']
 
 describe('field tone classes', () => {
   it('puts each of the three tones on its own label step', () => {
-    expect(new Set(TONES.map(fieldLabelClass)).size).toBe(TONES.length)
+    expect(new Set(TONES.map((tone) => fieldLabelClass(tone))).size).toBe(TONES.length)
   })
 
   it('moves the annotation off the type step only when the row is dimmed', () => {
@@ -149,5 +149,45 @@ describe('liveEndpointKeys and resolveHandleTone', () => {
     expect(
       resolveHandleTone({ name: 'x', annotation: 'pending', handleTone: 'accent' }, false, false),
     ).toBe('accent')
+  })
+})
+
+/**
+ * `3D`'s two port marks. `fields.ts` is a pure resolver, so what is asserted is the branching —
+ * which parts of the chrome a mark replaces and which it leaves alone. The colours live in
+ * `fields.module.css` and `canvasTokens.css.test.ts` keeps them honest.
+ */
+describe('the 3D field marks', () => {
+  it('brightens only the receiving label, and leaves the other two marks on their own tone', () => {
+    const plain = fieldLabelClass('normal')
+    expect(fieldLabelClass('normal', 'mismatch')).not.toBe(plain)
+    expect(fieldLabelClass('normal', 'linked')).toBe(plain)
+    expect(fieldLabelClass('normal', 'unsourced')).toBe(plain)
+  })
+
+  it('recolours the annotation for every mark, whatever tone the row was on', () => {
+    const marked = fieldAnnotationClass('normal', 'mismatch')
+    expect(marked).not.toBe(fieldAnnotationClass('normal'))
+    expect(fieldAnnotationClass('normal', 'linked')).toBe(marked)
+    expect(fieldAnnotationClass('normal', 'unsourced')).toBe(marked)
+    // A dim row that is also marked reads as marked, not as dim.
+    expect(fieldAnnotationClass('dim', 'unsourced')).toBe(marked)
+  })
+
+  it('gives the unsourced port a handle of its own, distinct from the mismatching one', () => {
+    const plain = fieldHandleClass('idle', 'target')
+    const mismatch = fieldHandleClass('idle', 'target', 'mismatch')
+    const unsourced = fieldHandleClass('idle', 'target', 'unsourced')
+
+    expect(mismatch).not.toBe(plain)
+    expect(unsourced).not.toBe(plain)
+    expect(unsourced).not.toBe(mismatch)
+    // The sending end takes the same solid ring the receiving end does.
+    expect(fieldHandleClass('idle', 'source', 'linked')).toBe(
+      fieldHandleClass('idle', 'source', 'mismatch'),
+    )
+    // Both stay the same 8px circle on the same edge; only the border changes.
+    expect(mismatch.startsWith(plain)).toBe(true)
+    expect(unsourced.startsWith(plain)).toBe(true)
   })
 })

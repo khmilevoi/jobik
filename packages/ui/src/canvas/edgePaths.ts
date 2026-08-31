@@ -46,6 +46,7 @@ const tones = {
   idle: s.idle,
   active: s.active,
   waiting: s.waiting,
+  error: s.error,
 } satisfies Record<FieldEdgeTone, string>
 
 export function fieldEdgeClass(tone: FieldEdgeTone): string {

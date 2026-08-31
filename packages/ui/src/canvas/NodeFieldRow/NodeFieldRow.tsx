@@ -26,26 +26,34 @@ export interface NodeFieldRowProps {
 export function NodeFieldRow(props: NodeFieldRowProps) {
   const { field, direction, isStart, live } = props
   const tone = resolveFieldTone(field, isStart)
+  const problem = field.problem
+
+  // `3D`: a marked port draws its annotation in the failure hue whatever its tone was, so the
+  // wrapping span is what both the dim tone and a validation mark need — never both at once.
+  const annotation =
+    problem === undefined && tone !== 'dim' ? (
+      field.annotation
+    ) : (
+      <span
+        data-testid={problem === undefined ? 'field-annotation-dim' : 'field-annotation-problem'}
+        className={fieldAnnotationClass(tone, problem)}
+      >
+        {field.annotation}
+      </span>
+    )
 
   return (
     <div data-testid={`field-row-${direction}-${field.name}`} className={s.row}>
-      <div data-testid="field-name" className={cx(s.fieldName, fieldLabelClass(tone))}>
+      <div data-testid="field-name" className={cx(s.fieldName, fieldLabelClass(tone, problem))}>
         {field.name}
       </div>
-      <TypeAnnotation data-testid="field-annotation">
-        {tone === 'dim' ? (
-          <span data-testid="field-annotation-dim" className={fieldAnnotationClass(tone)}>
-            {field.annotation}
-          </span>
-        ) : (
-          field.annotation
-        )}
-      </TypeAnnotation>
+      <TypeAnnotation data-testid="field-annotation">{annotation}</TypeAnnotation>
       <FieldHandle
         direction={direction}
         name={field.name}
         tone={resolveHandleTone(field, isStart, live)}
         connectable={field.connectable}
+        {...(problem === undefined ? {} : { problem })}
       />
     </div>
   )

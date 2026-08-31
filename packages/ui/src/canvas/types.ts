@@ -13,6 +13,33 @@ export type FieldTone = 'active' | 'normal' | 'dim'
 export type FieldHandleTone = 'accent' | 'idle' | 'dim'
 export type HandleDirection = 'source' | 'target'
 
+/**
+ * `3D` — what the last validation said about a node. Deliberately its own axis rather than a
+ * seventh `NodeRunState`: a flow is checked before it is run, so a card is normally `idle` while
+ * it carries one, and the two never describe the same thing.
+ *
+ * `error` is the node the finding names, whose port does have a source — the solid failure border
+ * and the 3 px ring, the same chrome a failed run draws. `blocked` is the node that cannot run
+ * because a required input has no source at all: the queued surface under a **dashed** failure
+ * border, with no header divider. The artboard draws both on its invalid board, on different
+ * cards.
+ */
+export type NodeProblem = 'error' | 'blocked'
+
+/**
+ * `3D` — the three port marks the invalid board draws. All three recolour the type annotation;
+ * what separates them is the label and the handle.
+ *
+ * - `mismatch` — the receiving port the finding is about (`render.markdown`). Its label brightens
+ *   to `#e2d3d0` and its handle goes solid failure. It is the only field label the artboard lifts.
+ * - `linked` — the sending port at the other end of that connection (`start1.markdown`). Solid
+ *   failure handle and the same annotation hue, but the label is untouched: the type it declares
+ *   is fine, it is the pairing that is not.
+ * - `unsourced` — a required port with no source at all (`publish.caption`). Its handle is
+ *   **dashed**, and the label stays ordinary.
+ */
+export type FieldProblem = 'mismatch' | 'linked' | 'unsourced'
+
 /** The three run-time annotations `### Node cards` names. */
 export const RUN_ANNOTATIONS = {
   received: 'received',
@@ -34,6 +61,8 @@ export type NodeFieldSpec = {
   /** Default `true`. A `false` field still renders its handle; it just refuses
    *  connections. */
   readonly connectable?: boolean
+  /** `3D` — the last validation marked this port. Independent of `tone` and `handleTone`. */
+  readonly problem?: FieldProblem
 }
 
 export type NodeOutputSlotSpec = {
@@ -50,6 +79,12 @@ export type NodeOutputSlotSpec = {
   readonly caption?: ReactNode
   /** Right of the caption row, e.g. `imageOut`. */
   readonly source?: ReactNode
+  /**
+   * `2A`: the accent `inspect` action that opens the output dock, in the caption row's trailing
+   * cell. When supplied it takes that cell — `Studio — default` prints the producing node's name
+   * there instead, and the two artboards never show both.
+   */
+  readonly onInspect?: () => void
 }
 
 /**
@@ -88,6 +123,14 @@ export type NodeCardDetail =
       readonly message: ReactNode
       readonly onViewTrace?: () => void
       readonly onRetry?: () => void
+      /**
+       * `3B` column 2 — the retry is under way. Both footer buttons drop to `opacity:.45` and stop
+       * responding: "Retry node dims the moment it is pressed. The node header swaps its dot for
+       * the spinner and the 2 px header bar takes over as the progress read-out." Only the dim
+       * half is implemented here; the header spinner and the 2 px bar are `NodeCardHeader`'s and
+       * nothing produces this flag yet.
+       */
+      readonly retrying?: boolean
     }
 
 export type NodeCardData = {
@@ -121,10 +164,21 @@ export type NodeCardData = {
   readonly detail?: NodeCardDetail
   /** Overrides the width derived from `isStart` and `outputSlot`. */
   readonly width?: number
+  /**
+   * `3D` — the last validation's verdict on this node. It outranks selection, exactly as `failed`
+   * does: a marked card keeps its own border, halo and title while it is selected.
+   */
+  readonly problem?: NodeProblem
+  /**
+   * `3D` — the mono count in the header's trailing cell on a marked card, e.g. `1 error`. Only the
+   * `error` card carries one; the artboard's `blocked` card has an empty trailing cell.
+   */
+  readonly problemCount?: string
 }
 
 export type EdgeShape = 'curved' | 'stepped'
-export type FieldEdgeTone = 'accent' | 'idle' | 'active' | 'waiting'
+/** `error` is `3D`'s failing connection: the failure hue at the heavier 1.4 px weight. */
+export type FieldEdgeTone = 'accent' | 'idle' | 'active' | 'waiting' | 'error'
 
 export type FieldEdgeData = {
   readonly tone: FieldEdgeTone

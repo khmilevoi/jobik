@@ -85,9 +85,16 @@ describe('resolveCardChrome — the section label', () => {
     )
   })
 
-  it('gives the selected start card its own step', () => {
-    const selectedStart = resolveCardChrome({ state: 'idle', selected: true, isStart: true })
-    expect(selectedStart.sectionLabel).not.toBe(resolveCardChrome({ state: 'idle' }).sectionLabel)
+  it('lifts the label on a selected card, whether or not it is the start node', () => {
+    const step = resolveCardChrome({ state: 'idle', selected: true, isStart: true }).sectionLabel
+    expect(step).not.toBe(resolveCardChrome({ state: 'idle' }).sectionLabel)
+    expect(resolveCardChrome({ state: 'ok', selected: true }).sectionLabel).toBe(step)
+  })
+
+  it('lifts it on a running card too, which wears the selection treatment whole', () => {
+    expect(resolveCardChrome({ state: 'running' }).sectionLabel).toBe(
+      resolveCardChrome({ state: 'idle', selected: true }).sectionLabel,
+    )
   })
 
   it('keeps the ordinary label on an unselected start', () => {
@@ -96,7 +103,7 @@ describe('resolveCardChrome — the section label', () => {
     )
   })
 
-  it('lets queued outrank the selected start, as the resolver has always ordered them', () => {
+  it('lets queued outrank selection, as the resolver has always ordered them', () => {
     expect(resolveCardChrome({ state: 'queued', selected: true, isStart: true }).sectionLabel).toBe(
       resolveCardChrome({ state: 'queued' }).sectionLabel,
     )
@@ -112,5 +119,42 @@ describe('resolveCardWidth', () => {
 
   it('lets a card override the width, as the Node states artboard does at 288', () => {
     expect(resolveCardWidth({ id: 'render', state: 'ok', width: 288 })).toBe(288)
+  })
+})
+
+/**
+ * `3D` — the validation axis. It is orthogonal to the run state, and it outranks selection for the
+ * same reason `failed` does: the accent border would paint over the mark.
+ */
+describe('resolveCardChrome — the 3D validation mark', () => {
+  it('gives the two marks two different treatments, on top of the state', () => {
+    const idle = resolveCardChrome({ state: 'idle' })
+    const error = resolveCardChrome({ state: 'idle', problem: 'error' })
+    const blocked = resolveCardChrome({ state: 'idle', problem: 'blocked' })
+
+    expect(error.card).not.toBe(idle.card)
+    expect(blocked.card).not.toBe(idle.card)
+    expect(error.card).not.toBe(blocked.card)
+    expect(error.card.startsWith(idle.card)).toBe(true)
+  })
+
+  it('washes the header on the marked card and not on the blocked one', () => {
+    expect(resolveCardChrome({ state: 'idle', problem: 'error' }).header).not.toBe('')
+    expect(resolveCardChrome({ state: 'idle', problem: 'blocked' }).header).toBe('')
+  })
+
+  it('keeps the mark when the marked card is also selected', () => {
+    expect(resolveCardChrome({ state: 'idle', problem: 'error', selected: true })).toEqual(
+      resolveCardChrome({ state: 'idle', problem: 'error' }),
+    )
+  })
+
+  it('paints the dot in the card own status colour, and the blocked one queued grey', () => {
+    const marked = resolveCardChrome({ state: 'idle', isStart: true, problem: 'error' })
+    const blocked = resolveCardChrome({ state: 'idle', isStart: true, problem: 'blocked' })
+    const start = resolveCardChrome({ state: 'idle', isStart: true })
+
+    expect(marked.kindDot).not.toBe(start.kindDot)
+    expect(blocked.kindDot).toBe(resolveCardChrome({ state: 'queued' }).kindDot)
   })
 })

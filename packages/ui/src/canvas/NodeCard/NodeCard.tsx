@@ -62,6 +62,7 @@ export function NodeCard(props: NodeCardProps) {
     selected: data.selected,
     isStart,
     kindDot: data.kindDot,
+    ...(data.problem === undefined ? {} : { problem: data.problem }),
   })
   const inputs = data.inputs ?? []
   const outputs = data.outputs ?? []

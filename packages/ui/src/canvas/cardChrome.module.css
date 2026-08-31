@@ -74,6 +74,38 @@
   --jbk-card-title: var(--jbk-canvas-title-selected);
 }
 
+/*
+ * `3D` — the two validation marks, after `.highlighted` so a marked card keeps its own treatment
+ * while it is selected. `resolveCardChrome` withholds the highlight from a marked card as well,
+ * so this is belt and braces rather than the only guard.
+ *
+ * `.problemError` is the failed card's palette exactly: the artboard's invalid `render` card reads
+ * `#100e0e` on `rgba(201,106,92,.45)` with the same 3 px ring, `#241b1a` divider, `.06` header
+ * wash and `#f0e6e4` title that `Node states` failed already fixes. Nothing new is minted for it.
+ */
+.problemError {
+  --jbk-card-surface: var(--jbk-surface-failed-node-card);
+  --jbk-card-border: 1px solid var(--jbk-canvas-failed-border);
+  --jbk-card-halo: var(--jbk-canvas-failed-halo);
+  --jbk-card-header-divider: var(--jbk-canvas-failed-header-divider);
+  --jbk-card-header-wash: var(--jbk-canvas-failed-header-wash);
+  --jbk-card-title: var(--jbk-canvas-title-failed);
+  --jbk-card-status: var(--jbk-status-failed);
+}
+
+/*
+ * The card that cannot run: the queued surface and the queued title under a **dashed** failure
+ * border, and — the one thing no other card does — a header with no divider under it at all.
+ */
+.problemBlocked {
+  --jbk-card-surface: var(--jbk-surface-queued-node);
+  --jbk-card-border: 1px dashed var(--jbk-canvas-blocked-border);
+  --jbk-card-halo: none;
+  --jbk-card-header-divider: transparent;
+  --jbk-card-title: var(--jbk-text-inactive-list-item);
+  --jbk-card-status: var(--jbk-text-section-label);
+}
+
 /* The header wash, and the top corners it rounds inside the card's 1px border. */
 .headerWash {
   border-radius: var(--jbk-canvas-header-radius) var(--jbk-canvas-header-radius) 0 0;
@@ -110,6 +142,6 @@
   --jbk-section-label-color: var(--jbk-text-faintest);
 }
 
-.sectionLabelSelectedStart {
-  --jbk-section-label-color: var(--jbk-canvas-section-label-selected-start);
+.sectionLabelSelected {
+  --jbk-section-label-color: var(--jbk-canvas-section-label-selected);
 }

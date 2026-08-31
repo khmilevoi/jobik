@@ -123,6 +123,39 @@ describe('NodeStateBody — failed', () => {
     expect(onViewTrace).toHaveBeenCalledTimes(1)
     expect(onRetry).toHaveBeenCalledTimes(1)
   })
+
+  /**
+   * `3B` column 2: "Retry node dims the moment it is pressed." The dim is not decoration — the
+   * decision table puts these two in the column that gets no loader precisely because the node
+   * header reports the retry, and a button that still responded would let a second retry through.
+   */
+  it('stops both footer actions responding while the retry is under way', async () => {
+    const onViewTrace = vi.fn()
+    const onRetry = vi.fn()
+    render(
+      <NodeStateBody
+        detail={{
+          kind: 'failed',
+          errorName: 'E',
+          message: 'm',
+          onViewTrace,
+          onRetry,
+          retrying: true,
+        }}
+        captionColor={textColors.typeAnnotation}
+      />,
+    )
+
+    const viewTrace = screen.getByRole('button', { name: 'View trace' })
+    const retry = screen.getByRole('button', { name: 'Retry node' })
+    expect(viewTrace).toBeDisabled()
+    expect(retry).toBeDisabled()
+
+    await userEvent.click(viewTrace)
+    await userEvent.click(retry)
+    expect(onViewTrace).not.toHaveBeenCalled()
+    expect(onRetry).not.toHaveBeenCalled()
+  })
 })
 
 /**

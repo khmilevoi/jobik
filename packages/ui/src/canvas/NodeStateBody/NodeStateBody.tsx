@@ -91,7 +91,8 @@ export function NodeStateBody(props: NodeStateBodyProps) {
             type="button"
             data-testid="node-view-trace"
             onClick={detail.onViewTrace}
-            className={cx(s.action, s.viewTrace)}
+            disabled={detail.retrying === true}
+            className={cx(s.action, s.viewTrace, detail.retrying === true && s.dimmed)}
           >
             View trace
           </button>
@@ -99,7 +100,8 @@ export function NodeStateBody(props: NodeStateBodyProps) {
             type="button"
             data-testid="node-retry"
             onClick={detail.onRetry}
-            className={cx(s.action, s.retry)}
+            disabled={detail.retrying === true}
+            className={cx(s.action, s.retry, detail.retrying === true && s.dimmed)}
           >
             Retry node
           </button>

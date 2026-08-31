@@ -25,6 +25,20 @@
   color: var(--jbk-canvas-annotation-dim);
 }
 
+/*
+ * `3D`'s two port marks. `.labelProblem` is the mismatching port's own brighter label; both marks
+ * share one annotation colour, and the two handle rules differ only in border style — which is the
+ * whole distinction the artboard draws between a port with a bad source and a port with none.
+ * Written after `.handle` so the dashed style wins on source order in this one file.
+ */
+.labelProblem {
+  color: var(--jbk-canvas-field-label-problem);
+}
+
+.annotationProblem {
+  color: var(--jbk-status-error-tag);
+}
+
 /* The 8px circle, 1.5px border, hanging 4px off the card edge and centred on its row. */
 .handle {
   position: absolute;
@@ -58,4 +72,13 @@
 
 .handleDim {
   border-color: var(--jbk-canvas-handle-dim);
+}
+
+.handleProblem {
+  border-color: var(--jbk-status-failed);
+}
+
+.handleUnsourced {
+  border-style: dashed;
+  border-color: var(--jbk-status-failed);
 }
