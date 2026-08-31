@@ -1,3 +1,4 @@
+import type { NodeInputDescriptor } from '@jobik/core'
 import { cleanup, render, screen } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -125,5 +126,103 @@ describe('RunCompletedView', () => {
     render(<RunCompletedView state={state({ outputs: [] })} />)
     expect(screen.queryByTestId('run-panel-divider')).toBeNull()
     expect(screen.queryByTestId('run-outputs-label')).toBeNull()
+  })
+
+  it('omits the section when no outputs are supplied at all', () => {
+    render(<RunCompletedView state={state({ outputs: undefined })} />)
+    expect(screen.queryByTestId('run-outputs-label')).toBeNull()
+  })
+})
+
+/**
+ * `2A` — the newest artboard, and the one that shows the completed panel inside a live shell.
+ * Timings, the inputs still editable, `Re-run start1 ⌘↵`, a divider, then `Log` / `tail`.
+ */
+describe('RunCompletedView, in 2A’s shape', () => {
+  const descriptor: NodeInputDescriptor = {
+    nodeId: 'start1',
+    fields: [
+      { field: 'title', required: true, annotation: 'string', control: { kind: 'string' } },
+      { field: 'markdown', required: true, annotation: 'string', control: { kind: 'string' } },
+    ],
+  }
+
+  const shape: Partial<RunCompletedState> = {
+    outputs: [],
+    entryNodeId: 'start1',
+    inputs: {
+      descriptor,
+      draft: { title: 'Typed flows, quietly', markdown: '## Release 0.4' },
+      presentation: { markdown: 'area' },
+    },
+    log: {
+      followLabel: 'tail',
+      lines: [
+        { time: '0.00', text: 'start1 → emit title, markdown' },
+        { time: '2.41', text: 'publish → url' },
+      ],
+    },
+  }
+
+  it('re-shows the inputs above the primary', () => {
+    render(<RunCompletedView state={state(shape)} />)
+    expect(screen.getByTestId('run-input-title')).toHaveValue('Typed flows, quietly')
+    expect(screen.getByTestId('run-input-markdown')).toHaveValue('## Release 0.4')
+    expect(screen.getByTestId('run-input-annotation-title').textContent).toBe('string')
+  })
+
+  it('keeps the re-shown inputs editable, reporting each edit to the caller', async () => {
+    const onDraftChange = vi.fn()
+    render(
+      <RunCompletedView
+        state={state({
+          ...shape,
+          inputs: { descriptor, draft: { title: 'a', markdown: '' }, onDraftChange },
+        })}
+      />,
+    )
+    await userEvent.type(screen.getByTestId('run-input-title'), 'b')
+    expect(onDraftChange).toHaveBeenCalledWith('title', 'ab')
+  })
+
+  it('labels the primary Re-run <start> and reports its click', async () => {
+    const onRerun = vi.fn()
+    render(<RunCompletedView state={state({ ...shape, onRerun })} />)
+    const button = screen.getByTestId('run-rerun-button')
+    expect(button.textContent).toContain('Re-run start1')
+    expect(screen.getByText('⌘↵')).toBeInTheDocument()
+    await userEvent.click(button)
+    expect(onRerun).toHaveBeenCalledTimes(1)
+  })
+
+  it('closes with the Log block behind its own divider', () => {
+    render(<RunCompletedView state={state(shape)} />)
+    expect(screen.getByTestId('run-log-divider')).toBeInTheDocument()
+    expect(screen.getByTestId('run-log-label').textContent).toBe('Log')
+    expect(screen.getByTestId('run-log-follow').textContent).toBe('tail')
+    expect(screen.getByTestId('run-log-line-1').textContent).toContain('publish → url')
+  })
+
+  it('draws none of it when the caller supplies none of it, so the unwired panel is unchanged', () => {
+    render(<RunCompletedView state={state()} />)
+    expect(screen.queryByTestId('run-input-title')).toBeNull()
+    expect(screen.queryByTestId('run-rerun-button')).toBeNull()
+    expect(screen.queryByTestId('run-log-label')).toBeNull()
+    expect(screen.queryByTestId('run-log-divider')).toBeNull()
+    expect(screen.getByTestId('run-outputs-label').textContent).toBe('Outputs')
+  })
+
+  /**
+   * `2A` puts the outputs in the bottom dock; the states card keeps them here. Both must work, and
+   * `07-copy.md` §8 states the one order a panel carrying both takes: outputs, then the primary.
+   */
+  it('keeps an Outputs section between the inputs and the primary when outputs are supplied', () => {
+    render(<RunCompletedView state={state({ ...shape, outputs: state().outputs })} />)
+    const label = screen.getByTestId('run-outputs-label')
+    const rerun = screen.getByTestId('run-rerun-button')
+    expect(screen.getByTestId('run-output-name-caption')).toBeInTheDocument()
+    expect(screen.getByTestId('run-log-label')).toBeInTheDocument()
+    // DOCUMENT_POSITION_FOLLOWING: the primary comes after the Outputs section, not before it.
+    expect(label.compareDocumentPosition(rerun) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 })

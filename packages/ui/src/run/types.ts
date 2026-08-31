@@ -106,7 +106,24 @@ export type RunInputIssue = { readonly path: string; readonly message: string }
 
 export type RunIdleState = {
   readonly kind: 'idle'
+  /** The start the panel is pointed at — one of `startIds` when there is more than one. */
   readonly entryNodeId: string
+  /**
+   * Every start the flow declares.
+   *
+   * **No artboard draws a start selector**: all eleven show `publication`, which declares one. So
+   * the panel draws a chooser only when this holds more than one id, and a single-start flow is
+   * pixel-identical to what the design fixes. Absent is the same as one.
+   */
+  readonly startIds?: readonly string[]
+  /** Fired with the chosen start. Only reachable while the chooser is drawn. */
+  readonly onSelectStart?: (startId: string) => void
+  /**
+   * `3D`'s invalid-board caption, stated in prose and drawn nowhere: *"Run is disabled while any
+   * error stands."* `3B`'s treatment — the button drops to 45 % and changes nothing else, and
+   * stops responding. The caller owns the predicate; this panel never counts findings of its own.
+   */
+  readonly blocked?: boolean
   /** The explanatory line. The artboard reads `Inputs are typed from the flow declaration. Only
    *  downstream nodes of the selected entry point run.` */
   readonly note: string
@@ -156,13 +173,46 @@ export type RunFailedState = {
   readonly onRerun?: () => void
 }
 
+/**
+ * The typed input form, as `2A`'s completed dock re-shows it: the same controls the idle state
+ * draws, above `Re-run <start>`. Declared separately from `RunIdleState`'s own fields because the
+ * completed dock needs no `z.ZodObject` — it never validates, it hands the draft back to the caller
+ * whose `Re-run` re-enters the idle path.
+ */
+export type RunInputForm = {
+  readonly descriptor: NodeInputDescriptor
+  readonly draft: RunInputDraft
+  readonly presentation?: Readonly<Record<string, RunInputPresentation>>
+  readonly onDraftChange?: (field: string, value: RunInputDraftValue) => void
+}
+
 export type RunCompletedState = {
   readonly kind: 'completed'
   readonly runNumber: number
   /** e.g. `2.4s`. */
   readonly elapsed: string
   readonly nodes: readonly RunNodeTiming[]
-  readonly outputs: readonly RunOutputField[]
+  /**
+   * `Run panel — states`' completed card puts the run's outputs in the panel; `2A`, which is newer,
+   * puts them in the bottom output dock and shows the inputs here instead. Optional so a Studio
+   * that has not mounted that dock yet does not strand them: supplied, the `Outputs` section is
+   * drawn after the log exactly as the states card draws it.
+   */
+  readonly outputs?: readonly RunOutputField[]
+  /** `2A`: the primary reads `Re-run start1`. Omitted draws no primary at all. */
+  readonly entryNodeId?: string
+  /** `2A`: `title` and `markdown`, still shown and still editable, above the primary. */
+  readonly inputs?: RunInputForm
+  /** `2A`: the `Log` / `tail` block that closes the panel. */
+  readonly log?: RunLog
+  readonly onRerun?: () => void
 }
+
+/**
+ * Which of the two running artboards the panel is drawn as. `dock` is `Studio — run in progress`
+ * (the 320px right column of a live shell); `card` is the free-standing 320×430 `Run panel —
+ * states` card. Only the running state differs between them.
+ */
+export type RunPanelVariant = 'dock' | 'card'
 
 export type RunPanelState = RunIdleState | RunRunningState | RunFailedState | RunCompletedState

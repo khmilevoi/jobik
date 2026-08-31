@@ -127,3 +127,61 @@ describe('RunIdleView', () => {
     expect(screen.queryByTestId('run-last-run-label')).toBeNull()
   })
 })
+
+/**
+ * No artboard draws a start selector — all eleven show `publication`, which declares one start. So
+ * the chooser's whole contract is that a single-start flow is unchanged, and the multi-start case
+ * borrows `3C`'s segmented control rather than inventing a shape.
+ */
+describe('RunIdleView — the start chooser', () => {
+  it('draws nothing at all for a flow with one start', () => {
+    render(<RunIdleView state={state({ startIds: ['start1'] })} />)
+    expect(screen.queryByTestId('run-start-chooser')).toBeNull()
+    expect(screen.queryByText('Start')).toBeNull()
+  })
+
+  it('draws nothing when the caller names no starts', () => {
+    render(<RunIdleView state={state()} />)
+    expect(screen.queryByTestId('run-start-chooser')).toBeNull()
+  })
+
+  it('offers every start once there is more than one, marking the selected one', () => {
+    render(
+      <RunIdleView state={state({ entryNodeId: 'byNumber', startIds: ['byName', 'byNumber'] })} />,
+    )
+    expect(screen.getByTestId('run-start-chooser')).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'byName' })).not.toBeChecked()
+    expect(screen.getByRole('radio', { name: 'byNumber' })).toBeChecked()
+  })
+
+  it('reports the chosen start', async () => {
+    const onSelectStart = vi.fn()
+    render(
+      <RunIdleView
+        state={state({ entryNodeId: 'byName', startIds: ['byName', 'byNumber'], onSelectStart })}
+      />,
+    )
+    await userEvent.click(screen.getByRole('radio', { name: 'byNumber' }))
+    expect(onSelectStart).toHaveBeenCalledWith('byNumber')
+  })
+})
+
+/**
+ * `3D`: *"Run is disabled while any error stands."* `3B` fixes the treatment — 45 % and nothing
+ * else — and the docked control and the top-bar pill already did it. This one did not.
+ */
+describe('RunIdleView — blocked', () => {
+  it('leaves the run button live by default', () => {
+    render(<RunIdleView state={state()} />)
+    expect(screen.getByTestId('run-start-button')).toBeEnabled()
+  })
+
+  it('dims the run button and refuses to start when an error stands', async () => {
+    const onRun = vi.fn()
+    render(<RunIdleView state={state({ blocked: true, onRun })} />)
+    const button = screen.getByTestId('run-start-button')
+    expect(button).toBeDisabled()
+    await userEvent.click(button)
+    expect(onRun).not.toHaveBeenCalled()
+  })
+})

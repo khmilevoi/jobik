@@ -70,8 +70,8 @@ describe('RunRunningView', () => {
 
   it('draws the live log with its timestamps and a caret on the pending line', () => {
     render(<RunRunningView state={state()} />)
-    expect(screen.getByTestId('run-live-log-label').textContent).toBe('Live log')
-    expect(screen.getByTestId('run-live-log-follow').textContent).toBe('follow')
+    expect(screen.getByTestId('run-log-label').textContent).toBe('Live log')
+    expect(screen.getByTestId('run-log-follow').textContent).toBe('follow')
     expect(screen.getByTestId('run-log-time-0').textContent).toBe('0.00 ')
     expect(screen.getByTestId('run-log-line-3').textContent).toContain(
       'render rasterising frame 2/3',
@@ -82,7 +82,7 @@ describe('RunRunningView', () => {
 
   it('omits the log block and its divider when no log is supplied', () => {
     render(<RunRunningView state={state({ log: undefined })} />)
-    expect(screen.queryByTestId('run-live-log-label')).toBeNull()
+    expect(screen.queryByTestId('run-log-label')).toBeNull()
     expect(screen.queryByTestId('run-panel-divider')).toBeNull()
   })
 
@@ -100,6 +100,18 @@ describe('RunRunningView', () => {
     render(<RunRunningView state={state()} />)
     expect(screen.queryByTestId('run-panel-note')).toBeNull()
     expect(screen.queryByTestId('run-partial-output-label')).toBeNull()
+  })
+
+  /**
+   * `Run panel — states`' running card, design 779–793: the bar stands alone and the nodes are the
+   * compact mono list, where `Studio — run in progress` heads the bar and draws 30px rows.
+   */
+  it('drops the head row and draws the compact timings in the card variant', () => {
+    render(<RunRunningView state={state()} variant="card" />)
+    expect(screen.queryByTestId('run-progress-summary')).toBeNull()
+    expect(screen.queryByTestId('run-node-rows')).toBeNull()
+    expect(screen.getByTestId('run-progress-bar')).toBeInTheDocument()
+    expect(screen.getByTestId('run-timing-value-publish').textContent).toBe('queued')
   })
 
   it('closes with Cancel run, its esc hint, and its click', async () => {

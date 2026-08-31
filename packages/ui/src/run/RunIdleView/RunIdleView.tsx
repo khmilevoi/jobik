@@ -1,4 +1,4 @@
-import { Button, SectionLabel } from '#primitives/index.js'
+import { Button, SectionLabel, SegmentedControl } from '#primitives/index.js'
 import { formatLastRunMeta } from '#run/format.js'
 import { RunDivider, type RunDotTone, RunStatusDot } from '#run/RunChrome/RunChrome.js'
 import { RunInputControl } from '#run/RunInputControl/RunInputControl.js'
@@ -22,10 +22,18 @@ const lastRunDotTone = {
  *
  * Returns a fragment: `RunDock`'s body supplies the `16px 14px` padding and the `16px` gap between
  * these blocks, and P4's contract forbids restating either.
+ *
+ * **The start chooser is the one thing here the design does not draw.** Every artboard shows
+ * `publication`, which declares a single start, so the panel is only ever drawn as the design
+ * fixes it; a flow with two starts gets `3C`'s own `SegmentedControl` — the design's only
+ * segmented control, and no new shape — above the inputs it re-seeds. With one start nothing is
+ * rendered at all, so a single-start flow's panel is unchanged down to the DOM.
  */
 export function RunIdleView(props: RunIdleViewProps) {
   const { state } = props
   const lastRun = state.lastRun
+  const startIds = state.startIds ?? []
+  const onSelectStart = state.onSelectStart
 
   const run = () => {
     const values = validateRunInputs({
@@ -46,6 +54,19 @@ export function RunIdleView(props: RunIdleViewProps) {
         {state.note}
       </div>
 
+      {startIds.length > 1 ? (
+        <div className={s.startChooser}>
+          <div className={s.startLabel}>Start</div>
+          <SegmentedControl
+            data-testid="run-start-chooser"
+            label="Start"
+            options={startIds.map((id) => ({ value: id, label: id }))}
+            value={state.entryNodeId}
+            {...(onSelectStart === undefined ? {} : { onChange: onSelectStart })}
+          />
+        </div>
+      ) : null}
+
       {state.descriptor.fields.map((field) => (
         <RunInputControl
           key={field.field}
@@ -56,7 +77,20 @@ export function RunIdleView(props: RunIdleViewProps) {
         />
       ))}
 
-      <Button variant="accent" size="lg" hint="⌘↵" onClick={run} data-testid="run-start-button">
+      {/*
+        `3B`, via `Button`'s own `dimmed`: an error stands, so the primary drops to 45 % and stops
+        responding, and changes nothing else. The docked control and the top bar's run pill say the
+        same thing off the same caller-supplied predicate; this one was simply never wired, because
+        its chrome lives here rather than in `shell/`.
+      */}
+      <Button
+        variant="accent"
+        size="lg"
+        hint="⌘↵"
+        onClick={run}
+        dimmed={state.blocked}
+        data-testid="run-start-button"
+      >
         {`Run ${state.entryNodeId}`}
       </Button>
 

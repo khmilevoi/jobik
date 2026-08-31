@@ -1,0 +1,60 @@
+/*
+ * The panel's log block, drawn twice by the design with the same anatomy and two labels:
+ * `Live log` / `follow` while a run streams (`Studio — run in progress`, 634–641) and
+ * `Log` / `tail` once it has settled (`2A`'s completed dock).
+ *
+ * `99-measured.md` (`2A` — run panel) pins the lines: column, gap 5, mono 10px, line-height 1.5,
+ * `#79828a`, with the leading timestamp in `#41474c`. The right-hand label is mono 9.5px `#41474c`
+ * in a space-between header row.
+ */
+.log {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.follow {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-9-5);
+  color: var(--jbk-text-faintest);
+}
+
+.lines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--jbk-run-log-line-gap);
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-10);
+  line-height: 1.5;
+  color: var(--jbk-text-muted);
+}
+
+.time {
+  color: var(--jbk-text-faintest);
+}
+
+.pending {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--jbk-text-type-annotation);
+}
+
+/*
+ * The design's only 1s animation (`01-foundations.md` §6.2, `05-run-panel.md` §9.1): a 3 × 9 accent
+ * bar breathing at a different rate from the 1.5s skeleton it waits beside. Read from the token so
+ * the duration and easing are stated once.
+ */
+.caret {
+  width: var(--jbk-run-caret-width);
+  height: var(--jbk-run-caret-height);
+  flex: none;
+  background: var(--jbk-accent);
+  animation: var(--jbk-motion-pulse-fast);
+}

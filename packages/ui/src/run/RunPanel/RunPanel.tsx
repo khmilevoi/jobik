@@ -4,11 +4,17 @@ import { RunFailedView } from '#run/RunFailedView/RunFailedView.js'
 import { RunIdleView } from '#run/RunIdleView/RunIdleView.js'
 import { RunRunningView } from '#run/RunRunningView/RunRunningView.js'
 import { RunStateHeader } from '#run/RunStateHeader/RunStateHeader.js'
-import type { RunPanelState } from '#run/types.js'
+import type { RunPanelState, RunPanelVariant } from '#run/types.js'
 import s from './RunPanel.module.css'
 
 export interface RunPanelProps {
   readonly state: RunPanelState
+  /**
+   * Which running artboard the running state is drawn as — `dock` (the default) is `Studio — run in
+   * progress`, `card` the `Run panel — states` card. Only that state reads it; the other three are
+   * drawn the same way in both places.
+   */
+  readonly variant?: RunPanelVariant
 }
 
 /**
@@ -22,7 +28,7 @@ export interface RunPanelProps {
 export function RunPanel(props: RunPanelProps) {
   const { state } = props
   if (state.kind === 'idle') return <RunIdleView state={state} />
-  if (state.kind === 'running') return <RunRunningView state={state} />
+  if (state.kind === 'running') return <RunRunningView state={state} variant={props.variant} />
   if (state.kind === 'failed') return <RunFailedView state={state} />
   return <RunCompletedView state={state} />
 }
@@ -49,10 +55,9 @@ const cardByKind = {
  * The isolated 320×430 card of the `Run panel — states` artboard (lines 771–866): the frame, the
  * state header, and a body carrying the card's own `16px 14px` padding and `14px` gap.
  *
- * That is exact for `idle`, `failed` and `completed`. For `running` the body instead shows the
- * docked union `RunRunningView` renders — plan line 2494, "the running state is the union of two
- * artboards" — not the card artboard's own compact mono 10.5px timings list (design lines
- * 779–793), which is why the 430px body scrolls in that state.
+ * It passes `variant="card"`, so the running state is the card's own — the 3px bar alone above the
+ * compact mono 10.5px timings (design lines 779–793) — rather than the docked head row and 30px
+ * rows `Studio — run in progress` draws.
  *
  * Use this outside the dock. Inside it, pass `RunPanel` to `RunDock` instead — the dock supplies
  * both the header and the body.
@@ -65,7 +70,7 @@ export function RunPanelCard(props: RunPanelCardProps) {
     >
       <RunStateHeader state={props.state} entryNodeId={props.entryNodeId} />
       <div data-testid="run-panel-card-body" className={s.cardBody}>
-        <RunPanel state={props.state} />
+        <RunPanel state={props.state} variant="card" />
       </div>
     </div>
   )

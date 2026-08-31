@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { cx, type StyleWithVars } from '#cx.js'
+import { Spinner } from '#primitives/Spinner/Spinner.js'
 import s from './RunChrome.module.css'
 
 export interface RunDividerProps {
@@ -148,7 +149,15 @@ export interface RunSpinnerProps {
   readonly 'data-testid'?: string
 }
 
-/** The 9px `.7s` ring the run panel uses in a state header and on the active node row. */
+/**
+ * The 9px `.7s` ring the run panel uses in a state header and on the active node row.
+ *
+ * `primitives/Spinner` is the ring itself now; this stays as the run panel's name for it, and as
+ * the one place that knows the panel takes the wider `.25` track at 9px — foundations
+ * §6-appendix's single exception to track-follows-size.
+ */
 export function RunSpinner(props: RunSpinnerProps) {
-  return <div data-testid={props['data-testid']} className={cx(s.spinner, props.className)} />
+  return (
+    <Spinner size={9} track="wide" data-testid={props['data-testid']} className={props.className} />
+  )
 }

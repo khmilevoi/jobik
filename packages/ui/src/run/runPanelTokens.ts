@@ -59,8 +59,6 @@ export const runPanelMetrics = {
   cardBodyGap: 14,
 
   progressBarHeight: 3,
-  spinnerSize: 9,
-  spinnerBorderWidth: 1.5,
   /** The 5px round status dot; and the 6px square dot in a state header. */
   statusDotSize: 5,
   squareDotSize: 6,

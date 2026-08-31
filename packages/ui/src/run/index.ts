@@ -53,3 +53,10 @@ export { collectRunInputValues, toRunInputIssues, validateRunInputs } from './va
 
 // --- closeout finding 1: the ok node card's mono metadata row ---
 export { assetMetaParts } from './format.js'
+
+// --- design sync: `2A`'s completed dock ---
+// The `Log` / `tail` block, shared with the running state's `Live log`. `RunCompletedState` gains
+// `entryNodeId`, `inputs`, `log` and `onRerun`, and `outputs` is now optional — all through
+// `export * from './types.js'` above.
+export type { RunLogSectionProps } from './RunLogSection/RunLogSection.js'
+export { RunLogSection } from './RunLogSection/RunLogSection.js'

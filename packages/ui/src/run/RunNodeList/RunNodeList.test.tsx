@@ -94,6 +94,18 @@ describe('RunNodeTimings', () => {
     expect(screen.getByTestId('run-timings')).toBeInTheDocument()
   })
 
+  /**
+   * §4.2's colour grammar: a settled node is green while the run is still going and grey once it
+   * has finished, so the `running` card shares its ok value cell with `failed`, not with
+   * `completed`.
+   */
+  it('keeps a settled ok node green while the run is still going', () => {
+    expect(resolveRunNodeTone('ok', 'running').value).toBe(resolveRunNodeTone('ok', 'failed').value)
+    expect(resolveRunNodeTone('ok', 'running').value).not.toBe(
+      resolveRunNodeTone('ok', 'completed').value,
+    )
+  })
+
   it('sizes the last-run list apart from the two card lists', () => {
     render(<RunNodeTimings nodes={COMPLETED} variant="completed" />)
     const completed = screen.getByTestId('run-timings').className

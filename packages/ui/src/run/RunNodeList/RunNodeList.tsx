@@ -5,11 +5,13 @@ import type { RunNodeStatus, RunNodeTiming } from '#run/types.js'
 import s from './RunNodeList.module.css'
 
 /**
- * `failed` and `completed` are the `Run panel — states` cards (lines 809–813, 837–841); `lastRun` is
- * the idle `Last run` block (lines 308–312). They differ only in the type step and in the two cells
- * a settled `ok` node paints.
+ * `running`, `failed` and `completed` are the `Run panel — states` cards (lines 782, 809–813,
+ * 837–841); `lastRun` is the idle `Last run` block (lines 308–312). They differ only in the type
+ * step and in the two cells a settled `ok` node paints — §4.2's colour grammar makes a settled node
+ * green while the run is still going and grey once it has finished, which is why `running` and
+ * `failed` share a value cell that `completed` and `lastRun` do not.
  */
-export type RunTimingsVariant = 'failed' | 'completed' | 'lastRun'
+export type RunTimingsVariant = 'running' | 'failed' | 'completed' | 'lastRun'
 
 /** The four lists a node row can appear in. `rows` is the 30px list of the running state. */
 export type RunNodeListVariant = 'rows' | RunTimingsVariant
@@ -47,6 +49,7 @@ const fixedTones = {
 /** The settled name cell — the one the list variant fixes. `ok` and `cached` share it. */
 const settledNames = {
   rows: s.nameSettled,
+  running: s.nameSettled,
   failed: s.nameSettled,
   completed: s.nameSettled,
   lastRun: s.nameLastRun,
@@ -55,6 +58,7 @@ const settledNames = {
 /** `ok`'s value cell is the other one that moves between artboards: green on the failed card only. */
 const okValues = {
   rows: s.valueSettled,
+  running: s.valueOk,
   failed: s.valueOk,
   completed: s.valueSettled,
   lastRun: s.valueSettled,
@@ -141,6 +145,7 @@ export function RunNodeRows(props: RunNodeRowsProps) {
 
 /** The three compact lists, spelled out; `satisfies` makes a fourth variant a type error. */
 const timingsSizes = {
+  running: s.timingsCompact,
   failed: s.timingsCompact,
   completed: s.timingsCompact,
   lastRun: s.timingsLastRun,

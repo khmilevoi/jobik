@@ -47,8 +47,6 @@ describe('runPanelMetrics', () => {
     expect(runPanelMetrics.cardBodyPadding).toBe('16px 14px')
     expect(runPanelMetrics.cardBodyGap).toBe(14)
     expect(runPanelMetrics.progressBarHeight).toBe(3)
-    expect(runPanelMetrics.spinnerSize).toBe(9)
-    expect(runPanelMetrics.spinnerBorderWidth).toBe(1.5)
     expect(runPanelMetrics.statusDotSize).toBe(5)
     expect(runPanelMetrics.squareDotSize).toBe(6)
     expect(runPanelMetrics.nodeRowHeight).toBe(30)

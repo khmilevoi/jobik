@@ -2,12 +2,20 @@ import type { StyleWithVars } from '#cx.js'
 import { SectionLabel } from '#primitives/index.js'
 import { formatNodesComplete } from '#run/format.js'
 import { RunAction, RunDivider, RunWell } from '#run/RunChrome/RunChrome.js'
-import { RunNodeRows } from '#run/RunNodeList/RunNodeList.js'
-import type { RunRunningState } from '#run/types.js'
+import { RunLogSection } from '#run/RunLogSection/RunLogSection.js'
+import { RunNodeRows, RunNodeTimings } from '#run/RunNodeList/RunNodeList.js'
+import type { RunPanelVariant, RunRunningState } from '#run/types.js'
 import s from './RunRunningView.module.css'
 
 export interface RunRunningViewProps {
   readonly state: RunRunningState
+  /**
+   * `dock` (the default) is `Studio — run in progress`: the `1 of 3 nodes complete` / `1.3s` head
+   * row above the bar, then the 30px node rows. `card` is the `Run panel — states` running card,
+   * which shows the bar alone and the compact mono timings instead. Both artboards are the design;
+   * they differ because one is 320px of a live shell and the other a 430px state card.
+   */
+  readonly variant?: RunPanelVariant
 }
 
 /**
@@ -23,26 +31,30 @@ export function progressWidth(progress: number): string {
 }
 
 /**
- * The union of `Studio — run in progress` lines 595–648 and `Run panel — states` lines 779–793.
+ * The union of `Studio — run in progress` lines 595–648 and `Run panel — states` lines 779–793,
+ * with `variant` choosing which of the two node treatments the run is drawn with.
  *
  * Returns a fragment: `RunDock`'s body supplies the padding and the `16px` gap between blocks.
  */
 export function RunRunningView(props: RunRunningViewProps) {
   const { state } = props
   const log = state.log
+  const card = props.variant === 'card'
   const fill: StyleWithVars = { '--jbk-run-progress': progressWidth(state.progress) }
 
   return (
     <>
       <div className={s.progress}>
-        <div className={s.progressHead}>
-          <div data-testid="run-progress-summary" className={s.progressSummary}>
-            {formatNodesComplete(state.completedNodes, state.totalNodes)}
+        {card ? null : (
+          <div className={s.progressHead}>
+            <div data-testid="run-progress-summary" className={s.progressSummary}>
+              {formatNodesComplete(state.completedNodes, state.totalNodes)}
+            </div>
+            <div data-testid="run-progress-elapsed" className={s.progressElapsed}>
+              {state.elapsed}
+            </div>
           </div>
-          <div data-testid="run-progress-elapsed" className={s.progressElapsed}>
-            {state.elapsed}
-          </div>
-        </div>
+        )}
         <div data-testid="run-progress-bar" className={s.progressTrack}>
           <div data-testid="run-progress-fill" className={s.progressFill} style={fill} />
         </div>
@@ -54,39 +66,16 @@ export function RunRunningView(props: RunRunningViewProps) {
         </div>
       )}
 
-      <RunNodeRows nodes={state.nodes} />
+      {card ? (
+        <RunNodeTimings nodes={state.nodes} variant="running" />
+      ) : (
+        <RunNodeRows nodes={state.nodes} />
+      )}
 
       {log === undefined ? null : (
         <>
           <RunDivider data-testid="run-panel-divider" />
-          <div className={s.log}>
-            <div className={s.logHead}>
-              <SectionLabel data-testid="run-live-log-label">Live log</SectionLabel>
-              {log.followLabel === undefined ? null : (
-                <div data-testid="run-live-log-follow" className={s.logFollow}>
-                  {log.followLabel}
-                </div>
-              )}
-            </div>
-            <div className={s.logLines}>
-              {log.lines.map((line, index) => (
-                // biome-ignore lint/suspicious/noArrayIndexKey: the log is append-only, so the index is a stable key.
-                <div key={index} data-testid={`run-log-line-${index}`}>
-                  <span
-                    data-testid={`run-log-time-${index}`}
-                    className={s.logTime}
-                  >{`${line.time} `}</span>
-                  {line.text}
-                </div>
-              ))}
-              {log.pending === undefined ? null : (
-                <div data-testid="run-log-pending" className={s.logPending}>
-                  <span data-testid="run-log-caret" className={s.logCaret} />
-                  {log.pending}
-                </div>
-              )}
-            </div>
-          </div>
+          <RunLogSection log={log} label="Live log" />
         </>
       )}
 

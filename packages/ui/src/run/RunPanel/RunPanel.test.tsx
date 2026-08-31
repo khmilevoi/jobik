@@ -101,6 +101,14 @@ describe('RunPanelCard', () => {
     expect(screen.getByTestId('run-progress-bar')).toBeInTheDocument()
   })
 
+  /** The card artboard's running body is the bar and the compact timings, not the docked rows. */
+  it('draws the running state as the card artboard, not as the dock', () => {
+    render(<RunPanelCard state={RUNNING} entryNodeId="start1" />)
+    expect(screen.queryByTestId('run-node-rows')).toBeNull()
+    expect(screen.queryByTestId('run-progress-summary')).toBeNull()
+    expect(screen.getByTestId('run-timing-name-render').textContent).toBe('render')
+  })
+
   /** The error tint is the failed card's only mark, and it is now a class. Hold the branch. */
   it('frames a failed card differently from a settled one', () => {
     render(<RunPanelCard state={COMPLETED} entryNodeId="start1" />)

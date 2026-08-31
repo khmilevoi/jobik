@@ -1,6 +1,7 @@
 /*
- * The run panel's own chrome: the hairline, the two wells, the 34px action, the status dot and the
- * spinner. Every value traces to `tokens.ts` or `runPanelTokens.ts` — see `RunChrome.tsx` for the
+ * The run panel's own chrome: the hairline, the two wells, the 34px action and the status dot.
+ * The spinner left for `primitives/Spinner`, which is the same ring at every size the design
+ * draws. Every value traces to `tokens.ts` or `runPanelTokens.ts` — see `RunChrome.tsx` for the
  * artboard lines each one came from.
  */
 
@@ -46,6 +47,15 @@
   font-family: var(--jbk-font-ui);
   font-size: var(--jbk-size-12-5);
   color: var(--jbk-text-action-label);
+}
+
+/*
+ * 3A §2.5 — the h34 ghost panel button hovers `border-color:#34393d; background:#101214`. The run
+ * panel had no hover at all before `Button`'s `panel:lg` cell existed to state it.
+ */
+.action:hover:not(:disabled) {
+  border-color: var(--jbk-primitive-hover-border-panel);
+  background: var(--jbk-primitive-hover-fill-panel);
 }
 
 .actionRegular {
@@ -107,15 +117,4 @@
  */
 .toneCached {
   --jbk-run-dot-color: var(--jbk-kind-dot-cached);
-}
-
-/* RunSpinner */
-.spinner {
-  width: var(--jbk-run-spinner-size);
-  height: var(--jbk-run-spinner-size);
-  flex: none;
-  border: var(--jbk-run-spinner-border-width) solid var(--jbk-accent-spinner-track);
-  border-top-color: var(--jbk-accent);
-  border-radius: var(--jbk-radius-round);
-  animation: var(--jbk-motion-spinner);
 }

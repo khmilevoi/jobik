@@ -52,52 +52,6 @@
   color: var(--jbk-run-note);
 }
 
-.log {
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
-}
-
-.logHead {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.logFollow {
-  font-family: var(--jbk-font-mono);
-  font-size: var(--jbk-size-9-5);
-  color: var(--jbk-text-faintest);
-}
-
-.logLines {
-  display: flex;
-  flex-direction: column;
-  gap: var(--jbk-run-log-line-gap);
-  font-family: var(--jbk-font-mono);
-  font-size: var(--jbk-size-10);
-  line-height: 1.5;
-  color: var(--jbk-text-muted);
-}
-
-.logTime {
-  color: var(--jbk-text-faintest);
-}
-
-.logPending {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--jbk-text-type-annotation);
-}
-
-.logCaret {
-  width: var(--jbk-run-caret-width);
-  height: var(--jbk-run-caret-height);
-  background: var(--jbk-accent);
-  animation: var(--jbk-motion-pulse-fast);
-}
-
 .partial {
   display: flex;
   flex-direction: column;

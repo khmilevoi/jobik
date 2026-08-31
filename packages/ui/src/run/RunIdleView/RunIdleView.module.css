@@ -5,6 +5,23 @@
   color: var(--jbk-run-note);
 }
 
+/*
+ * The start chooser's row — drawn only for a flow that declares more than one start, which no
+ * artboard does. It is `3C`'s own `Format` row verbatim (`DownloadModal.module.css` §3): the label
+ * outside the track at 11.5px, the track taking the rest, and nothing else stated. Borrowing that
+ * construction rather than inventing one is what keeps this the minimum addition.
+ */
+.startChooser {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.startLabel {
+  font-size: var(--jbk-size-11-5);
+  color: var(--jbk-text-field-label);
+}
+
 .lastRun {
   display: flex;
   flex-direction: column;
