@@ -67,6 +67,10 @@ export function RenderedImage(props: OutputComponentProps) {
       }}
       emptyVariants={1}
       typedValues={typedValues}
+      // Jobik tells a flow-local component which surface it is drawing on — `card` in the node's
+      // inline slot, `dock` in the bottom output dock. Forwarding it is what lets the same
+      // component take the dock's taller primary column instead of the card's fixed geometry.
+      surface={props.surface}
     />
   )
 }

@@ -1,16 +1,17 @@
 {
-  "name": "@jobik/example-publication",
+  "name": "@jobik/examples",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --config ../../vitest.config.ts examples/publication/"
+    "test": "vitest run --config ../../vitest.config.ts examples/showcase/"
   },
   "dependencies": {
     "@jobik/core": "workspace:*",
     "@jobik/ui": "workspace:*",
     "errore": "0.14.1",
+    "jimp": "1.6.1",
     "react": "19.2.8",
     "zod": "4.5.4"
   },

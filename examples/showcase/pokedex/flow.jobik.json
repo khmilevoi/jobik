@@ -1,0 +1,213 @@
+{
+  "format": "jobik.flow",
+  "version": 1,
+  "connections": [
+    {
+      "from": {
+        "node": "card",
+        "field": "name"
+      },
+      "to": {
+        "node": "lookup",
+        "field": "name"
+      }
+    },
+    {
+      "from": {
+        "node": "card",
+        "field": "shiny"
+      },
+      "to": {
+        "node": "lookup",
+        "field": "shiny"
+      }
+    },
+    {
+      "from": {
+        "node": "lookup",
+        "field": "artworkUrl"
+      },
+      "to": {
+        "node": "sprite",
+        "field": "artworkUrl"
+      }
+    },
+    {
+      "from": {
+        "node": "lookup",
+        "field": "displayName"
+      },
+      "to": {
+        "node": "compose",
+        "field": "displayName"
+      }
+    },
+    {
+      "from": {
+        "node": "lookup",
+        "field": "number"
+      },
+      "to": {
+        "node": "compose",
+        "field": "number"
+      }
+    },
+    {
+      "from": {
+        "node": "lookup",
+        "field": "primaryType"
+      },
+      "to": {
+        "node": "compose",
+        "field": "primaryType"
+      }
+    },
+    {
+      "from": {
+        "node": "lookup",
+        "field": "secondaryType"
+      },
+      "to": {
+        "node": "compose",
+        "field": "secondaryType"
+      }
+    },
+    {
+      "from": {
+        "node": "lookup",
+        "field": "stats"
+      },
+      "to": {
+        "node": "compose",
+        "field": "stats"
+      }
+    },
+    {
+      "from": {
+        "node": "card",
+        "field": "theme"
+      },
+      "to": {
+        "node": "compose",
+        "field": "theme"
+      }
+    },
+    {
+      "from": {
+        "node": "sprite",
+        "field": "sprite"
+      },
+      "to": {
+        "node": "compose",
+        "field": "sprite"
+      }
+    },
+    {
+      "from": {
+        "node": "roster",
+        "field": "names"
+      },
+      "to": {
+        "node": "rank",
+        "field": "names"
+      }
+    },
+    {
+      "from": {
+        "node": "roster",
+        "field": "metric"
+      },
+      "to": {
+        "node": "rank",
+        "field": "metric"
+      }
+    },
+    {
+      "from": {
+        "node": "roster",
+        "field": "metric"
+      },
+      "to": {
+        "node": "standings",
+        "field": "metric"
+      }
+    },
+    {
+      "from": {
+        "node": "rank",
+        "field": "entries"
+      },
+      "to": {
+        "node": "standings",
+        "field": "entries"
+      }
+    },
+    {
+      "from": {
+        "node": "rank",
+        "field": "missing"
+      },
+      "to": {
+        "node": "standings",
+        "field": "missing"
+      }
+    },
+    {
+      "from": {
+        "node": "rank",
+        "field": "leader"
+      },
+      "to": {
+        "node": "standings",
+        "field": "leader"
+      }
+    },
+    {
+      "from": {
+        "node": "rank",
+        "field": "leaderValue"
+      },
+      "to": {
+        "node": "standings",
+        "field": "leaderValue"
+      }
+    }
+  ],
+  "literals": {
+    "lookup": {},
+    "sprite": {},
+    "compose": {},
+    "rank": {},
+    "standings": {}
+  },
+  "layout": {
+    "card": {
+      "x": 56,
+      "y": 120
+    },
+    "lookup": {
+      "x": 396,
+      "y": 96
+    },
+    "sprite": {
+      "x": 736,
+      "y": 96
+    },
+    "compose": {
+      "x": 1076,
+      "y": 120
+    },
+    "roster": {
+      "x": 56,
+      "y": 620
+    },
+    "rank": {
+      "x": 396,
+      "y": 620
+    },
+    "standings": {
+      "x": 796,
+      "y": 620
+    }
+  }
+}

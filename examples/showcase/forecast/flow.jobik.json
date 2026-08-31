@@ -1,0 +1,239 @@
+{
+  "format": "jobik.flow",
+  "version": 1,
+  "connections": [
+    {
+      "from": {
+        "node": "start1",
+        "field": "latitude"
+      },
+      "to": {
+        "node": "fetch",
+        "field": "latitude"
+      }
+    },
+    {
+      "from": {
+        "node": "start1",
+        "field": "longitude"
+      },
+      "to": {
+        "node": "fetch",
+        "field": "longitude"
+      }
+    },
+    {
+      "from": {
+        "node": "start1",
+        "field": "days"
+      },
+      "to": {
+        "node": "fetch",
+        "field": "days"
+      }
+    },
+    {
+      "from": {
+        "node": "start1",
+        "field": "unit"
+      },
+      "to": {
+        "node": "fetch",
+        "field": "unit"
+      }
+    },
+    {
+      "from": {
+        "node": "fetch",
+        "field": "dates"
+      },
+      "to": {
+        "node": "summarise",
+        "field": "dates"
+      }
+    },
+    {
+      "from": {
+        "node": "fetch",
+        "field": "maxTemperatures"
+      },
+      "to": {
+        "node": "summarise",
+        "field": "maxTemperatures"
+      }
+    },
+    {
+      "from": {
+        "node": "fetch",
+        "field": "minTemperatures"
+      },
+      "to": {
+        "node": "summarise",
+        "field": "minTemperatures"
+      }
+    },
+    {
+      "from": {
+        "node": "fetch",
+        "field": "precipitation"
+      },
+      "to": {
+        "node": "summarise",
+        "field": "precipitation"
+      }
+    },
+    {
+      "from": {
+        "node": "fetch",
+        "field": "place"
+      },
+      "to": {
+        "node": "report",
+        "field": "place"
+      }
+    },
+    {
+      "from": {
+        "node": "fetch",
+        "field": "timezone"
+      },
+      "to": {
+        "node": "report",
+        "field": "timezone"
+      }
+    },
+    {
+      "from": {
+        "node": "fetch",
+        "field": "temperatureUnit"
+      },
+      "to": {
+        "node": "report",
+        "field": "temperatureUnit"
+      }
+    },
+    {
+      "from": {
+        "node": "fetch",
+        "field": "precipitationUnit"
+      },
+      "to": {
+        "node": "report",
+        "field": "precipitationUnit"
+      }
+    },
+    {
+      "from": {
+        "node": "summarise",
+        "field": "warmestDay"
+      },
+      "to": {
+        "node": "report",
+        "field": "warmestDay"
+      }
+    },
+    {
+      "from": {
+        "node": "summarise",
+        "field": "warmestMax"
+      },
+      "to": {
+        "node": "report",
+        "field": "warmestMax"
+      }
+    },
+    {
+      "from": {
+        "node": "summarise",
+        "field": "coldestDay"
+      },
+      "to": {
+        "node": "report",
+        "field": "coldestDay"
+      }
+    },
+    {
+      "from": {
+        "node": "summarise",
+        "field": "coldestMin"
+      },
+      "to": {
+        "node": "report",
+        "field": "coldestMin"
+      }
+    },
+    {
+      "from": {
+        "node": "summarise",
+        "field": "meanMax"
+      },
+      "to": {
+        "node": "report",
+        "field": "meanMax"
+      }
+    },
+    {
+      "from": {
+        "node": "summarise",
+        "field": "wettestDay"
+      },
+      "to": {
+        "node": "report",
+        "field": "wettestDay"
+      }
+    },
+    {
+      "from": {
+        "node": "summarise",
+        "field": "wettestPrecipitation"
+      },
+      "to": {
+        "node": "report",
+        "field": "wettestPrecipitation"
+      }
+    },
+    {
+      "from": {
+        "node": "summarise",
+        "field": "totalPrecipitation"
+      },
+      "to": {
+        "node": "report",
+        "field": "totalPrecipitation"
+      }
+    },
+    {
+      "from": {
+        "node": "summarise",
+        "field": "trend"
+      },
+      "to": {
+        "node": "report",
+        "field": "trend"
+      }
+    }
+  ],
+  "literals": {
+    "fetch": {},
+    "summarise": {},
+    "report": {}
+  },
+  "layout": {
+    "start1": {
+      "x": 56,
+      "y": 248
+    },
+    "fetch": {
+      "x": 386,
+      "y": 150
+    },
+    "summarise": {
+      "x": 786,
+      "y": 180
+    },
+    "report": {
+      "x": 1186,
+      "y": 300
+    }
+  }
+}

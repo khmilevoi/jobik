@@ -17,8 +17,8 @@ import {
  * imported by browser code — that is what `types.ts` is for.
  *
  * Consumers inside `packages/ui` import this file by relative path and must NOT add
- * `@jobik/example-publication` to `@jobik/ui`'s dependencies: P12 adds `flow.ui.tsx`, which
- * imports `@jobik/ui`, and the pair would be a cycle in turbo's workspace graph.
+ * `@jobik/examples` to `@jobik/ui`'s dependencies: `flow.ui.tsx` imports `@jobik/ui`, and the pair
+ * would be a cycle in turbo's workspace graph.
  */
 
 const root = path.dirname(import.meta.filename)
@@ -26,7 +26,7 @@ const root = path.dirname(import.meta.filename)
 export const publicationFixture = {
   /** The example's directory. */
   root,
-  /** The binding entrypoint `jobik.config.ts` points at. Absolute. */
+  /** The binding entrypoint `../jobik.config.ts` points at. Absolute. */
   bindingPath: path.resolve(root, 'index.ts'),
   /** The flow document the binding is bound to. Absolute. */
   documentPath: path.resolve(root, 'flow.jobik.json'),
