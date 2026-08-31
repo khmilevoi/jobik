@@ -1,4 +1,4 @@
-import type { FlowDocument } from '@jobik/core'
+import type { FlowDocument, NodeStatus } from '@jobik/core'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { JobikClient, RunStreamEvent } from '../client/index.js'
@@ -71,6 +71,15 @@ function setup(client: JobikClient) {
 /** The hook no longer exposes `loading` (R10): a defined draft is the load having completed. */
 async function waitForReady(result: { current: ReturnType<typeof useStudioSession> }) {
   await waitFor(() => expect(result.current.draft).toBeDefined())
+}
+
+/**
+ * A macrotask boundary. Releasing a gate resolves a promise several microtask hops away from the
+ * `setSession` it eventually drives, and an assertion that the session was *not* touched has
+ * nothing to `waitFor`. A `setTimeout(0)` guarantees every one of those hops has already run.
+ */
+function flush(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0))
 }
 
 describe('loading', () => {
@@ -328,6 +337,85 @@ describe('running', () => {
     await waitFor(() => expect(result.current.running).toBe(false))
 
     expect(result.current.session?.runNumber).toBe(219)
+    expect(result.current.lastReport).toEqual(REPORT)
+  })
+
+  // Settling is ONE transition, and its two halves are read by two different parts of the editor:
+  // the run dock renders from `lastReport`, the canvas node cards render from `session.nodes`.
+  // While those were two `useState` values written by two setter calls, the stream's last
+  // `setSession` and the `setLastReport` after the loop landed in different React commits whenever
+  // a real task boundary separated them — which is exactly what the socket read that discovers
+  // end-of-stream is — and React painted the frame in between. That frame contradicts itself:
+  // today it draws finished node cards under a dock that still says the run is in flight, and
+  // since `Node states` queued now draws `Waiting on <node>.<field>`, the mirror of it reads as
+  // "finished, and also still waiting on an upstream node".
+  //
+  // Asserting the settled state *eventually* agrees is what `StudioApp.e2e.test.tsx` did, and it
+  // is precisely what let this through. So this records every committed render and asserts the
+  // invariant over the whole sequence rather than over its last frame.
+  it('never commits the settled report and the node statuses out of step', async () => {
+    const frames: {
+      readonly reportExposed: boolean
+      readonly sessionSettled: boolean
+      readonly nodeStatuses: readonly NodeStatus[]
+    }[] = []
+    const client = stubClient({
+      startRun: async () =>
+        (async function* () {
+          yield { type: 'run-accepted', runToken: 'tok' } as RunStreamEvent
+          await flush()
+          yield {
+            type: 'node-status',
+            nodeId: 'start1',
+            status: 'running',
+            elapsedMs: 5,
+            error: null,
+          } as RunStreamEvent
+          await flush()
+          yield { type: 'run-settled', report: REPORT } as RunStreamEvent
+          // The gap a real reader has between the terminal line and end-of-stream: one more read
+          // off the socket. `flush()` is what makes it a task boundary — without it every write in
+          // and after the loop coalesces into a single commit and no frame is observable at all.
+          await flush()
+        })(),
+    })
+
+    const { result } = renderHook(() => {
+      const studio = useStudioSession({
+        client,
+        externals: {},
+        importModule: async () => ({}),
+        now: () => 1000,
+      })
+      frames.push({
+        reportExposed: studio.lastReport !== undefined,
+        sessionSettled: studio.session?.report !== undefined,
+        nodeStatuses: [...(studio.session?.nodes.values() ?? [])].map((node) => node.status),
+      })
+      return studio
+    })
+    await waitForReady(result)
+    // Only the run's own commits are under test; the load's are not.
+    frames.length = 0
+
+    act(() => result.current.run({ title: 't' }))
+    await waitFor(() => expect(result.current.running).toBe(false))
+    await act(async () => flush())
+
+    const torn = frames.filter(
+      (frame) =>
+        // The report the dock renders and the report the cards were settled from are the same
+        // report, so no commit may carry one without the other...
+        frame.reportExposed !== frame.sessionSettled ||
+        // ...and a commit that exposes a settled report may not still be showing a node the run
+        // has not reached: that is the `Waiting on …` line under a completed dock.
+        (frame.reportExposed &&
+          frame.nodeStatuses.some((status) => status === 'queued' || status === 'running')),
+    )
+
+    expect(torn).toEqual([])
+    // Guards against passing vacuously: the run really did stream and really did settle.
+    expect(frames.length).toBeGreaterThan(1)
     expect(result.current.lastReport).toEqual(REPORT)
   })
 
@@ -593,6 +681,274 @@ describe('running', () => {
 
     expect(result.current.session?.failure?.message).toContain('not valid JSON')
     expect(result.current.lastReport).toBeUndefined()
+  })
+
+  // Deferred finding 8-B. A cancel that loses the race against the run's own terminal line is
+  // answered `404` — the run has already left the server's registry — and R27 routed that `404`
+  // straight onto `session.failure`, so the panel rendered `Error / Not found` in place of a
+  // completed run and its outputs vanished. The stream and the cancel response are gated
+  // independently here, so the losing order is deterministic rather than a real race: the run
+  // settles first, the cancel's `404` lands after it.
+  it('keeps a completed run report when a late cancel is answered 404', async () => {
+    let releaseStream = () => {}
+    const streamGate = new Promise<void>((resolve) => {
+      releaseStream = resolve
+    })
+    let releaseCancel = () => {}
+    const cancelGate = new Promise<void>((resolve) => {
+      releaseCancel = resolve
+    })
+    const cancelRun = vi.fn(async () => {
+      await cancelGate
+      return new JobikServerError({
+        reason: 'Not found',
+        status: 404,
+        payload: { _tag: null, message: 'Not found' },
+      })
+    })
+    const { result } = setup(
+      stubClient({
+        cancelRun,
+        startRun: async () =>
+          (async function* () {
+            yield { type: 'run-accepted', runToken: 'tok-9' } as RunStreamEvent
+            await streamGate
+            yield { type: 'run-settled', report: REPORT } as RunStreamEvent
+          })(),
+      }),
+    )
+    await waitForReady(result)
+
+    act(() => result.current.run({ title: 't' }))
+    await waitFor(() => expect(result.current.session?.runToken).toBe('tok-9'))
+
+    // Clicked while the run was still live: the request is legitimately sent.
+    act(() => result.current.cancel())
+    expect(cancelRun).toHaveBeenCalledWith('tok-9')
+
+    await act(async () => {
+      releaseStream()
+      await streamGate
+    })
+    await waitFor(() => expect(result.current.running).toBe(false))
+    expect(result.current.session?.report).toEqual(REPORT)
+
+    await act(async () => {
+      releaseCancel()
+      await flush()
+    })
+
+    expect(result.current.session?.report).toEqual(REPORT)
+    expect(result.current.session?.failure).toBeUndefined()
+    expect(result.current.lastReport).toEqual(REPORT)
+  })
+
+  // The same invariant on the other terminal line: a run that *failed* is settled too, and a
+  // late cancel must not rewrite its error into the cancel's own. Without this the fix could be
+  // written as "keep a report" and still lose the one thing a failed run has to show.
+  it('keeps a failed run outcome when a late cancel is answered 404', async () => {
+    let releaseStream = () => {}
+    const streamGate = new Promise<void>((resolve) => {
+      releaseStream = resolve
+    })
+    let releaseCancel = () => {}
+    const cancelGate = new Promise<void>((resolve) => {
+      releaseCancel = resolve
+    })
+    const cancelRun = vi.fn(async () => {
+      await cancelGate
+      return new JobikServerError({
+        reason: 'Not found',
+        status: 404,
+        payload: { _tag: null, message: 'Not found' },
+      })
+    })
+    const { result } = setup(
+      stubClient({
+        cancelRun,
+        startRun: async () =>
+          (async function* () {
+            yield { type: 'run-accepted', runToken: 'tok-9' } as RunStreamEvent
+            await streamGate
+            yield {
+              type: 'run-failed',
+              error: { _tag: 'ImageRenderError', message: 'Unsupported colour profile CMYK' },
+            } as RunStreamEvent
+          })(),
+      }),
+    )
+    await waitForReady(result)
+
+    act(() => result.current.run({ title: 't' }))
+    await waitFor(() => expect(result.current.session?.runToken).toBe('tok-9'))
+    act(() => result.current.cancel())
+
+    await act(async () => {
+      releaseStream()
+      await streamGate
+    })
+    await waitFor(() => expect(result.current.running).toBe(false))
+
+    await act(async () => {
+      releaseCancel()
+      await flush()
+    })
+
+    expect(result.current.session?.failure).toEqual({
+      _tag: 'ImageRenderError',
+      message: 'Unsupported colour profile CMYK',
+    })
+  })
+
+  // 8-B's fix must not be a blanket "ignore every failed cancel": a transport failure while the
+  // run is genuinely live is a real error the user has to see, and a `404` is not special —
+  // whatever the status, an unsettled session still takes the failure. This is the R27 case with
+  // the server's own `404` payload rather than a transport error, so the fix cannot be written as
+  // "drop 404" either.
+  it('surfaces a cancel rejected with 404 while the run is still live', async () => {
+    let release = () => {}
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const cancelRun = vi.fn(
+      async () =>
+        new JobikServerError({
+          reason: 'Not found',
+          status: 404,
+          payload: { _tag: null, message: 'Not found' },
+        }),
+    )
+    const { result } = setup(
+      stubClient({
+        cancelRun,
+        startRun: async () =>
+          (async function* () {
+            yield { type: 'run-accepted', runToken: 'tok-9' } as RunStreamEvent
+            await gate
+            yield { type: 'run-settled', report: REPORT } as RunStreamEvent
+          })(),
+      }),
+    )
+    await waitForReady(result)
+
+    act(() => result.current.run({ title: 't' }))
+    await waitFor(() => expect(result.current.session?.runToken).toBe('tok-9'))
+
+    await act(async () => result.current.cancel())
+
+    expect(result.current.session?.failure).toEqual({ _tag: null, message: 'Not found' })
+
+    await act(async () => {
+      release()
+      await gate
+    })
+  })
+
+  // The other direction of the same invariant. `markCancelling` wrote `cancelling: true` through a
+  // functional updater, but the stream loop wrote `setSession(current)` from a local variable it
+  // had been folding events into since before the click — so the very next `node-status` line
+  // replaced the state with a session that had never heard of the cancel. Measured directly:
+  // `cancelling` went `true` on the click and back to `false` on the next event, which is the
+  // `Cancelling…` affordance going dark and telling the user their click did nothing.
+  //
+  // The two gates make the order deterministic: the click lands with the stream open, then one
+  // non-terminal event arrives, and only then does the run settle.
+  it('keeps the session cancelling across the stream events that follow the click', async () => {
+    let releaseStatus = () => {}
+    const statusGate = new Promise<void>((resolve) => {
+      releaseStatus = resolve
+    })
+    let releaseSettle = () => {}
+    const settleGate = new Promise<void>((resolve) => {
+      releaseSettle = resolve
+    })
+    const { result } = setup(
+      stubClient({
+        cancelRun: async () => true as const,
+        startRun: async () =>
+          (async function* () {
+            yield { type: 'run-accepted', runToken: 'tok-9' } as RunStreamEvent
+            await statusGate
+            yield {
+              type: 'node-status',
+              nodeId: 'start1',
+              status: 'running',
+              elapsedMs: 5,
+              error: null,
+            } as RunStreamEvent
+            await settleGate
+            yield {
+              type: 'run-settled',
+              report: { ...REPORT, status: 'cancelled' as const },
+            } as RunStreamEvent
+          })(),
+      }),
+    )
+    await waitForReady(result)
+
+    act(() => result.current.run({ title: 't' }))
+    await waitFor(() => expect(result.current.session?.runToken).toBe('tok-9'))
+
+    await act(async () => result.current.cancel())
+    expect(result.current.session?.cancelling).toBe(true)
+
+    await act(async () => {
+      releaseStatus()
+      await flush()
+    })
+
+    // Not vacuous: the event really did land — and it did not take the cancel down with it.
+    expect(result.current.session?.nodes.get('start1')?.status).toBe('running')
+    expect(result.current.session?.cancelling).toBe(true)
+
+    await act(async () => {
+      releaseSettle()
+      await flush()
+    })
+    await waitFor(() => expect(result.current.running).toBe(false))
+  })
+
+  // 8-B's ruling, in the order the earlier tests do not cover: the cancel request fails *first*,
+  // while the run is genuinely live, and the run then settles on its own. The failure was real
+  // when it landed (the test above pins that it surfaces), but the run's own report is the later
+  // and more authoritative word — and `StudioApp.runPanelState` paints `kind: 'failed'` whenever
+  // `session.failure !== undefined`, so leaving both set renders a successfully completed run as
+  // an error with its outputs gone. The run's outcome wins; the stale request failure is dropped.
+  it('drops a cancel-request failure once the run settles with its own report', async () => {
+    let release = () => {}
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const cancelRun = vi.fn(async () => new JobikTransportError({ url: '/api/runs/tok-9/cancel' }))
+    const { result } = setup(
+      stubClient({
+        cancelRun,
+        startRun: async () =>
+          (async function* () {
+            yield { type: 'run-accepted', runToken: 'tok-9' } as RunStreamEvent
+            await gate
+            yield { type: 'run-settled', report: REPORT } as RunStreamEvent
+          })(),
+      }),
+    )
+    await waitForReady(result)
+
+    act(() => result.current.run({ title: 't' }))
+    await waitFor(() => expect(result.current.session?.runToken).toBe('tok-9'))
+
+    await act(async () => result.current.cancel())
+    // R27, unchanged: while the run is live the failed request is real and the user sees it.
+    expect(result.current.session?.failure?._tag).toBe('JobikTransportError')
+
+    await act(async () => {
+      release()
+      await gate
+    })
+    await waitFor(() => expect(result.current.running).toBe(false))
+
+    expect(result.current.session?.report).toEqual(REPORT)
+    expect(result.current.session?.failure).toBeUndefined()
+    expect(result.current.lastReport).toEqual(REPORT)
   })
 })
 

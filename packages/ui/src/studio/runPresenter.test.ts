@@ -213,3 +213,51 @@ describe('toNodeOverlays', () => {
     })
   })
 })
+
+/**
+ * Closeout finding 3: `cached` used to narrow to `ok` on the way into the panel, so a reused result
+ * would have been reported as a freshly computed one. It is unreachable in v1 by design — this is
+ * the guard that keeps a future caching feature from arriving invisible.
+ */
+describe('a cached node reaches the panel as cached', () => {
+  it('keeps the status in the node list rather than reporting ok', () => {
+    const session = reduce([
+      { type: 'node-status', nodeId: 'render', status: 'cached', elapsedMs: 0, error: null },
+    ])
+
+    expect(toRunNodeTimings(session, ORDER)[1]).toEqual({
+      nodeId: 'render',
+      status: 'cached',
+      elapsed: '0.0s',
+    })
+  })
+
+  it('keeps it in the Last run summary too', () => {
+    const report = {
+      flowName: 'publication',
+      startId: 'start1',
+      runNumber: 221,
+      status: 'ok',
+      elapsedMs: 2400,
+      nodes: [
+        { nodeId: 'render', status: 'cached', elapsedMs: 0, output: {}, assets: {}, error: null },
+      ],
+      logs: [],
+      error: null,
+    } as unknown as WireRunReportPayload
+
+    expect(toRunSummary(report).timings[0]?.status).toBe('cached')
+  })
+
+  it('still paints the canvas card with the cached treatment', () => {
+    const session = reduce([
+      { type: 'node-status', nodeId: 'render', status: 'cached', elapsedMs: 0, error: null },
+    ])
+
+    expect(toNodeOverlays(session).get('render')).toMatchObject({
+      state: 'cached',
+      status: 'cached',
+      elapsed: '0.0s',
+    })
+  })
+})

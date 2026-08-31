@@ -38,6 +38,10 @@ const action: CSSProperties = {
 
 export interface MetadataRowProps {
   readonly parts: readonly string[]
+  /** `Node states` ok (design 714) is `10px`; the in-canvas slot's caption row (204) is `9.5px`. */
+  readonly fontSize?: number
+  /** `8px` between the cells on the `Node states` card (714), `10px` in the slot caption (204). */
+  readonly gap?: number
 }
 
 /** `1024×1024 · png · 412 kb` — the mono metadata row of an ok node. */
@@ -49,9 +53,9 @@ export function MetadataRow(props: MetadataRowProps) {
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: px(8),
+        gap: px(props.gap ?? 8),
         fontFamily: fontFamilies.mono,
-        fontSize: px(10),
+        fontSize: px(props.fontSize ?? 10),
         color: canvasColors.metadata,
       }}
     >

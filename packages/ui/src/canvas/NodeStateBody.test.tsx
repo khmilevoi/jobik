@@ -152,3 +152,22 @@ describe('NodeStateBody — failed', () => {
     expect(onRetry).toHaveBeenCalledTimes(1)
   })
 })
+
+/**
+ * The same row serves both artboards: `Node states` ok is 10px with an 8px gap (design 714), the
+ * in-canvas slot's caption row is 9.5px with a 10px gap (204). Same colour, same separators.
+ */
+describe('MetadataRow', () => {
+  it('defaults to the Node states card’s own size and gap', () => {
+    render(<MetadataRow parts={['png', '412 kb']} />)
+    const row = screen.getByTestId('node-metadata-row')
+    expect(row).toHaveStyle({ fontSize: '10px', gap: '8px', color: canvasColors.metadata })
+  })
+
+  it('takes the slot caption row’s size and gap when the caller asks for them', () => {
+    render(<MetadataRow parts={['png', '412 kb']} fontSize={9.5} gap={10} />)
+    const row = screen.getByTestId('node-metadata-row')
+    expect(row).toHaveStyle({ fontSize: '9.5px', gap: '10px' })
+    expect(row).toHaveTextContent('png · 412 kb')
+  })
+})

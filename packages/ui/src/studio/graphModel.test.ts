@@ -7,6 +7,7 @@ import {
   toFlowNodeSummaries,
   toFlowSummaries,
   toInventory,
+  waitingOnField,
 } from './graphModel.js'
 
 const DESCRIPTOR: SafeFlowDescriptorPayload = {
@@ -302,5 +303,39 @@ describe('the sidebar lists', () => {
     expect(toFlowSummaries([{ id: 'publication', name: 'publication', nodeCount: 3 }])).toEqual([
       { id: 'publication', name: 'publication', nodeCount: 3 },
     ])
+  })
+})
+
+/** Closeout finding 1, queued: `Waiting on render.image` (design 671) is a fact of the graph. */
+describe('waitingOnField', () => {
+  const CHAIN = {
+    format: 'jobik.flow',
+    version: 1,
+    connections: [
+      { from: { node: 'start1', field: 'title' }, to: { node: 'render', field: 'title' } },
+      { from: { node: 'render', field: 'image' }, to: { node: 'publish', field: 'image' } },
+      { from: { node: 'start1', field: 'markdown' }, to: { node: 'publish', field: 'caption' } },
+    ],
+    literals: {},
+    layout: {},
+  } as unknown as FlowDocument
+
+  it('names the upstream node.field the artboard template asks for', () => {
+    expect(waitingOnField(DOCUMENT, 'render')).toBe('start1.title')
+  })
+
+  it('skips an upstream that has already settled and names the one still owed', () => {
+    // `start1` has produced; `render` has not. `publish` is blocked on `render.image`, which is
+    // the artboard's own line — not on the settled `start1.markdown` that comes first in the list.
+    expect(waitingOnField(CHAIN, 'publish', new Set(['start1']))).toBe('render.image')
+  })
+
+  it('falls back to the first incoming connection once every upstream has settled', () => {
+    expect(waitingOnField(CHAIN, 'publish', new Set(['start1', 'render']))).toBe('render.image')
+  })
+
+  it('has nothing to say about a node with no incoming connection', () => {
+    expect(waitingOnField(CHAIN, 'start1')).toBeUndefined()
+    expect(waitingOnField(EMPTY_DOCUMENT, 'render')).toBeUndefined()
   })
 })

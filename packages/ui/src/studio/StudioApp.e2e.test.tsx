@@ -188,13 +188,44 @@ describe('the Studio over the publication example', () => {
     // Every node settled ok.
     expect(screen.getByTestId('run-timing-value-publish').textContent).toMatch(/s$/)
 
-    // `### Run identity`: `#219` in the header is `RunStateHeader`'s own doc comment — `RunPanel`
-    // (the in-dock body `StudioApp` renders) draws no header at all, and `RunDock` draws one with
-    // no run number in it; hoisting it there is `RunStateHeader`'s own documented gap, not this
-    // plan's file to fix. The run number is not unreachable, though: `StudioApp` hands the whole
-    // `WireRunReportPayload` — `runNumber` included — to `OutputViewer`'s `Raw` tab. `Open`ing the
-    // asset field's viewer and switching to `Raw` proves both the run's identity and the viewer
-    // tabs `## Verification` asks for, over the one route `StudioApp` actually built.
+    // `### Run identity` (closeout finding 8-A, now closed): the dock header carries the run
+    // number the server really issued — `#N · 2.4s` once settled (design 838) — and the chevron
+    // that occupies that slot while idle is gone. This is the run number over a real run, not a
+    // fixture: nothing in this file chooses `N`.
+    const meta = screen.getByTestId('studio-dock-run-meta').textContent ?? ''
+    expect(meta).toMatch(/^#\d+ · \d+\.\d+s$/)
+    expect(screen.queryByLabelText('Collapse run panel')).toBeNull()
+    // Still exactly one header in the dock: `RunPanel` returns a fragment and draws none.
+    expect(screen.queryByTestId('run-state-header')).toBeNull()
+
+    // Closeout finding 1, ok: the settled `render` card's inline slot caption is the mono metadata
+    // row built from the real `AssetDescriptor` the server sent — its mime and its byte count, and
+    // never the artboard's `1024×1024`, which no descriptor carries.
+    //
+    // `waitFor`, not a bare read — and NOT for the reason this comment used to give. The hook's
+    // own tear (`lastReport` and `session` as two `useState` values settled by two setter calls)
+    // is gone: `useStudioSession` derives the report from the session, so the dock and the node
+    // overlays now settle in one commit, and `useStudioSession.test.ts` asserts that per commit.
+    // What survives is downstream and outside this fix: `FlowCanvas` mirrors its `nodes` prop into
+    // its own `useState` from a `useEffect` (`canvas/FlowCanvas.tsx`), so the canvas DOM is one
+    // commit behind the run panel, which renders from props directly. Removing this wait fails
+    // here with the `render` card still drawn as `node-state-queued`. Left in deliberately.
+    const caption = await waitFor(() =>
+      within(screen.getByTestId('node-card-render')).getByTestId('node-output-caption'),
+    )
+    expect(caption.textContent).toMatch(/^png · \d+ kb/)
+    expect(caption.textContent).not.toContain('×')
+    // The caption row's right cell is the producing node DEFINITION's own name (design 206 reads
+    // `imageOut`, the same string that artboard's `Inventory` lists). On the wire that is
+    // `SafeNodeDescriptorPayload.title` — the one field `toInventory` also reads — so here it is
+    // the example's own `imageOut.title`, not the artboard's fixture spelling of it.
+    expect(
+      within(screen.getByTestId('node-card-render')).getByTestId('node-output-source'),
+    ).toHaveTextContent('Render image')
+
+    // `StudioApp` also hands the whole `WireRunReportPayload` — `runNumber` included — to
+    // `OutputViewer`'s `Raw` tab. `Open`ing the asset field's viewer and switching to `Raw` proves
+    // the viewer tabs `## Verification` asks for, over the one route `StudioApp` actually built.
     await userEvent.click(screen.getByTestId('run-output-open-image'))
     await waitFor(() => expect(screen.getByTestId('output-viewer')).toBeInTheDocument())
     await userEvent.click(screen.getByText('Raw'))

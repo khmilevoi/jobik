@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  assetMetaParts,
   formatAssetMeta,
   formatHiddenFrames,
   formatLastRunMeta,
@@ -97,5 +98,33 @@ describe('runNodeStatusLabel', () => {
     expect(runNodeStatusLabel({ nodeId: 'publish', status: 'queued' })).toBe('queued')
     expect(runNodeStatusLabel({ nodeId: 'render', status: 'failed' })).toBe('failed')
     expect(runNodeStatusLabel({ nodeId: 'publish', status: 'skipped' })).toBe('skipped')
+  })
+})
+
+describe('assetMetaParts', () => {
+  it('is the two cells the descriptor carries, for a renderer that draws its own separators', () => {
+    expect(assetMetaParts({ type: 'Buffer', mime: 'image/png', bytes: 421888, id: 'a1' })).toEqual([
+      'png',
+      '412 kb',
+    ])
+  })
+
+  it('never invents the artboard’s leading dimension cell', () => {
+    expect(
+      assetMetaParts({ type: 'Buffer', mime: 'image/png', bytes: 421888, id: 'a1' }),
+    ).toHaveLength(2)
+  })
+})
+
+/** Closeout finding 3: `cached` must never read as a freshly computed `ok`. */
+describe('runNodeStatusLabel — cached', () => {
+  it('reads the Node states card’s own cached · 0.0s rather than a bare elapsed', () => {
+    expect(runNodeStatusLabel({ nodeId: 'render', status: 'cached', elapsed: '0.0s' })).toBe(
+      'cached · 0.0s',
+    )
+  })
+
+  it('falls back to the word alone when the node reported no time', () => {
+    expect(runNodeStatusLabel({ nodeId: 'render', status: 'cached' })).toBe('cached')
   })
 })

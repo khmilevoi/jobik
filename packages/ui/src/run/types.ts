@@ -9,10 +9,16 @@ import type { ReactNode } from 'react'
 import type * as z from 'zod'
 
 /**
- * The closed per-node status set from `### Node status vocabulary`. `cached` is reserved and unused
- * in v1, and no run-panel artboard fixes a row treatment for it, so it is deliberately absent.
+ * The closed per-node status set from `### Node status vocabulary`, mirroring core's `NodeStatus`
+ * one for one so a status can never be silently collapsed into a neighbouring one on the way here.
+ *
+ * `cached` stays unreachable in v1 (standing ruling 3) and still has no run-panel artboard of its
+ * own; it is carried anyway because the alternative — the mapping `runPresenter.ts` used to do,
+ * `cached` → `ok` — reports a cached node as a freshly computed one. Its row borrows the two things
+ * the `Node states` cached card does fix: the `#4a5157` dot (design 747) and the `cached · 0.0s`
+ * label (750). Everything the design leaves open stays as the list already draws a settled node.
  */
-export type RunNodeStatus = 'queued' | 'running' | 'ok' | 'failed' | 'skipped'
+export type RunNodeStatus = 'queued' | 'running' | 'ok' | 'failed' | 'skipped' | 'cached'
 
 export type RunNodeTiming = {
   readonly nodeId: string

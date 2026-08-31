@@ -726,3 +726,115 @@ describe('the output viewer', () => {
     )
   })
 })
+
+/**
+ * Closeout finding 1 and 8-A: three treatments the artboards fix that only ever existed against
+ * fixtures. Every assertion below runs against a REAL `StudioApp` driven by a real stream — the
+ * layer the audit found never builds them.
+ */
+describe('the treatments a real run builds', () => {
+  function gatedRun() {
+    let release = () => {}
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const client = stubClient({
+      startRun: async () =>
+        (async function* () {
+          yield { type: 'run-accepted', runToken: 'tok' } as RunStreamEvent
+          yield {
+            type: 'run-started',
+            runNumber: 219,
+            flowName: 'publication',
+            startId: 'start1',
+            nodeCount: 2,
+          } as RunStreamEvent
+          await gate
+          yield { type: 'run-settled', report: REPORT } as RunStreamEvent
+        })(),
+    })
+    return { client, release: () => release() }
+  }
+
+  async function startRun(client: JobikClient) {
+    mount(client)
+    await waitFor(() => expect(screen.getByTestId('run-input-title')).toBeInTheDocument())
+    await userEvent.type(screen.getByTestId('run-input-title'), 'A post')
+    await userEvent.click(screen.getByTestId('run-start-button'))
+  }
+
+  // `Node states` queued (design 671–676): `Waiting on render.image` over three flat bars. The
+  // upstream `node.field` comes from the document's own connection list — here `start1.title`.
+  it('gives a queued node the Waiting on line and the three placeholder bars', async () => {
+    const { client, release } = gatedRun()
+    await startRun(client)
+
+    await waitFor(() => {
+      const card = screen.getByTestId('node-card-render')
+      expect(within(card).getByTestId('node-waiting-on')).toHaveTextContent(
+        'Waiting on start1.title',
+      )
+    })
+    const card = screen.getByTestId('node-card-render')
+    expect(within(card).getAllByTestId('node-placeholder-bar')).toHaveLength(3)
+    // `start1` has no incoming connection, so there is nothing honest to name: no line at all.
+    expect(
+      within(screen.getByTestId('node-card-start1')).queryByTestId('node-waiting-on'),
+    ).toBeNull()
+
+    release()
+  })
+
+  // `Studio — default` ok (design 204–208): the inline slot's caption row is the mono metadata
+  // row, beside the flow-local component the slot already holds. Only what the `AssetDescriptor`
+  // carries — the artboard's `1024×1024` is a dimension no descriptor has.
+  it('captions a settled ok node with the descriptor’s own mime and size', async () => {
+    mount(
+      stubClient({
+        startRun: async () =>
+          streamOf([
+            { type: 'run-accepted', runToken: 'tok' },
+            { type: 'run-settled', report: REPORT },
+          ]),
+      }),
+    )
+    await waitFor(() => expect(screen.getByTestId('run-input-title')).toBeInTheDocument())
+    await userEvent.type(screen.getByTestId('run-input-title'), 'A post')
+    await userEvent.click(screen.getByTestId('run-start-button'))
+
+    await waitFor(() => {
+      const card = screen.getByTestId('node-card-render')
+      expect(within(card).getByTestId('node-output-caption')).toHaveTextContent('png · 402 kb')
+    })
+    const card = screen.getByTestId('node-card-render')
+    expect(within(card).getByTestId('node-output-source')).toHaveTextContent('imageOut')
+    expect(within(card).getByTestId('node-output-caption').textContent).not.toContain('×')
+  })
+
+  // 8-A: `Studio — run in progress` (592) replaces the dock header's chevron with the run number;
+  // the standalone settled cards (801, 838) add the elapsed after it.
+  it('replaces the dock header’s chevron with the run number, then the settled meta', async () => {
+    const { client, release } = gatedRun()
+    await startRun(client)
+
+    await waitFor(() => expect(screen.getByTestId('studio-dock-run-meta').textContent).toBe('#219'))
+    expect(screen.queryByLabelText('Collapse run panel')).toBeNull()
+    expect(screen.getByTestId('studio-dock-header').style.padding).toBe('0px 14px')
+
+    release()
+    await waitFor(() =>
+      expect(screen.getByTestId('studio-dock-run-meta').textContent).toBe('#219 · 2.4s'),
+    )
+    // Never a second header: `RunPanel` returns a fragment and the dock owns the one header.
+    expect(screen.queryByTestId('run-state-header')).toBeNull()
+  })
+
+  it('heads the idle dock with the chevron and no run number', async () => {
+    mount(stubClient())
+    await waitFor(() => expect(screen.getByTestId('run-input-title')).toBeInTheDocument())
+
+    expect(screen.getByLabelText('Collapse run panel')).toBeInTheDocument()
+    expect(screen.queryByTestId('studio-dock-run-meta')).toBeNull()
+    expect(screen.getByTestId('studio-dock-header').style.padding).toBe('0px 10px 0px 14px')
+  })
+})

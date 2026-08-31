@@ -1,4 +1,12 @@
-import { accent, fontFamilies, px, radii, statusColors, textColors } from '../tokens.js'
+import {
+  accent,
+  fontFamilies,
+  kindDotColors,
+  px,
+  radii,
+  statusColors,
+  textColors,
+} from '../tokens.js'
 import { runNodeStatusLabel } from './format.js'
 import { RunSpinner, RunStatusDot } from './RunChrome.js'
 import { runPanelColors, runPanelMetrics } from './runPanelTokens.js'
@@ -13,10 +21,11 @@ type StatusTone = {
 }
 
 /**
- * Four of the five statuses as the artboards paint them. `ok` is the one whose right-hand cell
- * changes between artboards, so its two colours are supplied per list instead of fixed here.
+ * Four of the six statuses as the artboards paint them. `ok` is the one whose right-hand cell
+ * changes between artboards, so its two colours are supplied per list instead of fixed here, and
+ * `cached` has no run-panel artboard at all — both are resolved in `toneOf` below.
  */
-const statusTones: Record<Exclude<RunNodeStatus, 'ok'>, StatusTone> = {
+const statusTones: Record<Exclude<RunNodeStatus, 'ok' | 'cached'>, StatusTone> = {
   running: { dot: 'spinner', name: textColors.activeIdentifier, value: accent.cssVar },
   queued: { dot: 'hollow', name: runPanelColors.queuedNodeName, value: textColors.faintest },
   failed: {
@@ -31,6 +40,14 @@ const statusTones: Record<Exclude<RunNodeStatus, 'ok'>, StatusTone> = {
 function toneOf(status: RunNodeStatus, okName: string, okValue: string): StatusTone {
   if (status === 'ok') {
     return { dot: 'round', dotColor: statusColors.ok, name: okName, value: okValue }
+  }
+  // Standing ruling 3: no run-panel artboard fixes a cached row. The two marks that keep it from
+  // reading as `ok` are read straight off the `Node states` cached card — the `#4a5157` dot
+  // (design 747) and the `#79828a` status text (750), whose `cached · 0.0s` wording
+  // `runNodeStatusLabel` composes. The name cell keeps the settled tone the list already gives,
+  // because that is the part the design does not fix and this is not the place to invent it.
+  if (status === 'cached') {
+    return { dot: 'round', dotColor: kindDotColors.cached, name: okName, value: textColors.muted }
   }
   return statusTones[status]
 }

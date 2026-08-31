@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { EdgeShape } from '../canvas/index.js'
-import { FlowCanvas } from '../canvas/index.js'
+import { FlowCanvas, MetadataRow } from '../canvas/index.js'
 import type { JobikClient } from '../client/index.js'
 import { createJobikClient } from '../client/index.js'
 import { OutputViewer, resolveOutputComponent } from '../output/index.js'
 import type { RunOutputField, RunPanelState } from '../run/index.js'
-import { RunPanel, validateRunInputs } from '../run/index.js'
+import { assetMetaParts, formatRunMeta, RunPanel, validateRunInputs } from '../run/index.js'
+import type { RunDockMetaTone } from '../shell/index.js'
 import { surfaces } from '../tokens.js'
 import { toOutputFields } from './assets.js'
 import type { ExternalModules } from './extensionLoader.js'
@@ -17,6 +18,7 @@ import {
   toFlowNodeSummaries,
   toFlowSummaries,
   toInventory,
+  waitingOnField,
 } from './graphModel.js'
 import { runInputPresentation, toRunInputSchema } from './inputSchema.js'
 import { RunningChip, SaveConflictChip, SaveErrorChip } from './RunningChip.js'
@@ -36,10 +38,11 @@ import { useStudioSession } from './useStudioSession.js'
  * The Studio, driven by a live server.
  *
  * `<Studio />` (P4) is the frame, `<FlowCanvas />` (P7) the canvas, `<OutputViewer />` (P12) the
- * viewer, and `<RunPanel />` (P11) the dock's body — `RunDock` already draws the dock's one header
+ * viewer, and `<RunPanel />` (P11) the dock's body — `RunDock` draws the dock's one header
  * (`RunStateHeader.tsx`'s own doc comment says so), so this passes `RunPanel`, never the standalone
- * `RunPanelCard`, as `Studio`'s `runPanel`. Every one of them is presentational and untouched; this
- * component's whole job is turning `useStudioSession`'s state into their props.
+ * `RunPanelCard`, as `Studio`'s `runPanel`, and hands the run number to that one header through
+ * `runMeta`. Every one of them is presentational and untouched; this component's whole job is
+ * turning `useStudioSession`'s state into their props.
  *
  * **`nodes` and `edges` are memoised.** `FlowCanvas` syncs its internal state from prop ARRAY
  * IDENTITY, so rebuilding either array on every render silently resets an in-flight drag and
@@ -138,8 +141,28 @@ export function StudioApp(props: StudioAppProps) {
 
     const base = toNodeOverlays(session)
     const enriched = new Map<string, NodeOverlay>()
+    // Closeout finding 1, queued: a node is blocked on an upstream that has not produced yet, so
+    // anything already settled is not what it waits on. `waitingOnField` reads the rest off the
+    // document's own connection list.
+    const settledNodeIds = new Set(
+      [...session.nodes]
+        .filter(([, record]) => record.status !== 'queued' && record.status !== 'running')
+        .map(([nodeId]) => nodeId),
+    )
 
     for (const [nodeId, overlay] of base) {
+      // `Node states` queued (design 671–676): the `Waiting on render.image` line and the three
+      // flat placeholder bars, which nothing under `studio/` used to build. `overlay.status` is
+      // the RAW node status, so a `skipped` node — which shares the queued CARD treatment — never
+      // claims to be waiting on anything.
+      if (overlay.status === 'queued' && document !== undefined) {
+        const waitingOn = waitingOnField(document, nodeId, settledNodeIds)
+        if (waitingOn !== undefined) {
+          enriched.set(nodeId, { ...overlay, detail: { kind: 'queued', waitingOn } })
+          continue
+        }
+      }
+
       const report = session.report?.nodes.find((node) => node.nodeId === nodeId)
       if (overlay.state !== 'ok' || report === null || report === undefined) {
         enriched.set(nodeId, overlay)
@@ -149,6 +172,15 @@ export function StudioApp(props: StudioAppProps) {
       // `## Flow-local output UI`: the registered component fills the inline slot; an absent one
       // falls back to the generic JSON viewer. P12's resolver already encodes that fallback.
       const Output = resolveOutputComponent(extension, nodeId)
+      // Closeout finding 1, ok: the settled `render` card of `Studio — default` (design 195–208)
+      // draws BOTH — the output in the well and, in the slot's own 18px caption row, the mono
+      // metadata row plus the producing node's name (`imageOut`, 206). So the flow-local
+      // component keeps the well and the metadata row takes the caption row beside it; neither
+      // replaces the other. `assetMetaParts` emits only what the `AssetDescriptor` carries — the
+      // artboard's leading `1024×1024` is a dimension nothing on the wire has, and is not
+      // fabricated here. A node with no asset output (a URL sink, say) gets no caption at all.
+      const asset = Object.values(report.assets)[0]
+      const producedBy = descriptor?.nodes.find((node) => node.id === nodeId)?.title
       enriched.set(nodeId, {
         ...overlay,
         outputSlot: {
@@ -160,12 +192,18 @@ export function StudioApp(props: StudioAppProps) {
               assetUrl={assetUrl}
             />
           ),
+          ...(asset === undefined
+            ? {}
+            : {
+                caption: <MetadataRow parts={assetMetaParts(asset)} fontSize={9.5} gap={10} />,
+                ...(producedBy === undefined ? {} : { source: producedBy }),
+              }),
         },
       })
     }
 
     return enriched
-  }, [session, extension, assetUrl])
+  }, [session, extension, assetUrl, document, descriptor])
 
   // Ruling 1: keyed on the model INPUTS (descriptor, document, selection, overlays), never on the
   // previous `nodes`/`edges` output. `FlowCanvas` syncs from these two arrays by identity alone.
@@ -298,6 +336,27 @@ export function StudioApp(props: StudioAppProps) {
     outputs,
     runFromDraft,
   ])
+
+  /**
+   * Closeout finding 8-A: the run number reached no run state at all. `Studio — run in progress`
+   * (design 592) puts it where the idle chevron was; the standalone settled cards (801, 838) add
+   * the elapsed after it, the failed one in its own `#6d5f5c`. `RunDock` owns the treatment and
+   * stays the dock's ONE header — `RunPanel` still returns a fragment and draws none, so this is
+   * the whole hoist `RunStateHeader`'s doc comment reported as a gap.
+   *
+   * `RunStateHeader` itself is untouched: it is the standalone `RunPanelCard`'s header, and the
+   * dock's left half keeps the entry point rather than a state title (264–273, 586–591).
+   */
+  const runMeta = useMemo<{ text: string; tone: RunDockMetaTone } | undefined>(() => {
+    if (runPanelState === undefined || runPanelState.kind === 'idle') return undefined
+    if (runPanelState.kind === 'running') {
+      return { text: formatRunMeta(runPanelState.runNumber), tone: 'normal' }
+    }
+    return {
+      text: formatRunMeta(runPanelState.runNumber, runPanelState.elapsed),
+      tone: runPanelState.kind === 'failed' ? 'failed' : 'normal',
+    }
+  }, [runPanelState])
 
   // `### Run panel`: P11 renders `⌘↵` and `esc` and binds neither.
   useEffect(() => {
@@ -470,6 +529,7 @@ export function StudioApp(props: StudioAppProps) {
       {...(runningChip === undefined ? {} : { runningChip })}
       canvas={canvas}
       {...(runPanelState === undefined ? {} : { runPanel: <RunPanel state={runPanelState} /> })}
+      {...(runMeta === undefined ? {} : { runMeta: runMeta.text, runMetaTone: runMeta.tone })}
       onValidate={studio.validate}
       onSave={studio.save}
       onRun={runFromDraft}

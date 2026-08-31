@@ -1,3 +1,4 @@
+// biome-ignore-all assist/source/organizeImports: barrels are append-only
 export type { DockedRunControlProps } from './DockedControls.js'
 export { DockedFlowsControl, DockedRunControl } from './DockedControls.js'
 export type {
@@ -15,3 +16,6 @@ export type { StudioFrameProps } from './StudioFrame.js'
 export { StudioFrame } from './StudioFrame.js'
 export type { TopBarProps } from './TopBar.js'
 export { TopBar } from './TopBar.js'
+
+// --- closeout finding 8-A: the run number in the docked header ---
+export type { RunDockMetaTone } from './RunDock.js'

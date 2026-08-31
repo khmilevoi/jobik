@@ -26,9 +26,12 @@ export interface RunStateHeaderProps {
  * (`Studio — default`, 590–594).
  *
  * `RunPanel` does NOT render this. P4's `RunDock` already draws a header above the panel body and
- * this plan may not stack a second one inside it; only `RunPanelCard` places it. Hoisting it into
- * `RunDock` — the spec's "during and after a run the chevron is replaced by the run number" — is a
- * shell change, reported as a gap rather than made here.
+ * nothing may stack a second one inside it; only `RunPanelCard` places it.
+ *
+ * Closeout finding 8-A closed the other half: the spec's "during and after a run the chevron is
+ * replaced by the run number" now lives in `RunDock` itself (its `runMeta` prop), because the
+ * docked header keeps the flow's entry point on its left (design 264–273, 586–591) rather than the
+ * state title this component draws. The two are deliberately separate headers, not one hoisted.
  */
 export function RunStateHeader(props: RunStateHeaderProps) {
   const { state } = props

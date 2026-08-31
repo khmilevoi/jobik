@@ -37,16 +37,36 @@ export function formatHiddenFrames(hiddenFrames: number): string | undefined {
 }
 
 /**
+ * The cells of a mono metadata row, for a renderer that draws its own `·` separators:
+ * `['png', '412 kb']`. Both metadata rows the design fixes — the node card's inline slot caption
+ * (`Studio — default`, 204–207) and the `Node states` ok body (714–716) — open with `1024×1024`,
+ * a dimension no `AssetDescriptor` carries. These are the two cells one really does.
+ */
+export function assetMetaParts(asset: AssetDescriptor): readonly string[] {
+  const subtype = asset.mime.split('/').at(-1) ?? asset.mime
+  const size = asset.bytes < 1024 ? `${asset.bytes} b` : `${Math.round(asset.bytes / 1024)} kb`
+  return [subtype, size]
+}
+
+/**
  * `png · 412 kb` from an `AssetDescriptor`. The artboard's own line is `png · 1024² · 412 kb`;
  * the dimensions are not in the descriptor, so a caller that has them passes `meta` instead.
  */
 export function formatAssetMeta(asset: AssetDescriptor): string {
-  const subtype = asset.mime.split('/').at(-1)
-  const size = asset.bytes < 1024 ? `${asset.bytes} b` : `${Math.round(asset.bytes / 1024)} kb`
-  return `${subtype} · ${size}`
+  return assetMetaParts(asset).join(' · ')
 }
 
-/** The right-hand cell of a node row: the elapsed time, or the status word when there is none. */
+/**
+ * The right-hand cell of a node row: the elapsed time, or the status word when there is none.
+ *
+ * `cached` shows both — `cached · 0.0s`, the `Node states` cached card's own label (design 750).
+ * No run-panel artboard fixes a cached row, and `RunNodeTimings` draws no dot at all, so a bare
+ * elapsed would leave a cached node indistinguishable from an `ok` one — the exact invisibility
+ * standing ruling 3 recorded.
+ */
 export function runNodeStatusLabel(timing: RunNodeTiming): string {
+  if (timing.status === 'cached') {
+    return timing.elapsed === undefined ? timing.status : `${timing.status} · ${timing.elapsed}`
+  }
   return timing.elapsed ?? timing.status
 }

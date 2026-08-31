@@ -85,6 +85,29 @@ export function toCanvasNodes(args: {
   })
 }
 
+/**
+ * `Node states` queued (design 671): the `Waiting on render.image` line, whose template is
+ * `Waiting on <node>.<field>`.
+ *
+ * The document's connection list is the only place that fact lives. A queued node names the first
+ * incoming connection whose source has not settled — the upstream it is actually blocked on — and
+ * falls back to its first incoming connection once every upstream has. A node with no incoming
+ * connection at all has nothing to wait on and gets `undefined`: the card then draws the dashed
+ * chrome the design also fixes, rather than an invented line.
+ */
+export function waitingOnField(
+  document: FlowDocument,
+  nodeId: string,
+  settledNodeIds?: ReadonlySet<string>,
+): string | undefined {
+  const incoming = document.connections.filter((connection) => connection.to.node === nodeId)
+  const blocked = incoming.filter(
+    (connection) => settledNodeIds?.has(connection.from.node) !== true,
+  )
+  const waiting = blocked[0] ?? incoming[0]
+  return waiting === undefined ? undefined : `${waiting.from.node}.${waiting.from.field}`
+}
+
 export function toCanvasEdges(document: FlowDocument): readonly FlowCanvasEdge[] {
   return document.connections.map((connection) => ({
     id: `${connection.from.node}.${connection.from.field}->${connection.to.node}.${connection.to.field}`,

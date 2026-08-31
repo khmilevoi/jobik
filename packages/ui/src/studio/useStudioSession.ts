@@ -15,7 +15,13 @@ import type { RunInputDraft, RunInputDraftValue } from '../run/index.js'
 import { connectFields, createDraft, type FlowDraft, markSaved, moveNode } from './draft.js'
 import { type ExternalModules, loadFlowUi } from './extensionLoader.js'
 import { initialRunInputDraft } from './inputSchema.js'
-import { applyRunEvent, createRunSession, markCancelling, type RunSession } from './runSession.js'
+import {
+  applyRunEvent,
+  createRunSession,
+  markCancelFailed,
+  markCancelling,
+  type RunSession,
+} from './runSession.js'
 
 /**
  * The Studio's only stateful layer.
@@ -40,6 +46,38 @@ import { applyRunEvent, createRunSession, markCancelling, type RunSession } from
  * failed cancel, a mid-stream parse error, a stream that ends without a terminal event — now
  * lands on `session.failure`, the one surface the run panel already knows how to render as
  * `kind: 'failed'`.
+ *
+ * 8-B narrows exactly one of those. A cancel whose failure arrives *after* the run has already
+ * produced its own terminal line is dropped instead of written over that outcome, because the run
+ * panel renders `failure` in place of the report and a completed run would lose its outputs to a
+ * request that only failed because the run had already finished. `markCancelFailed` in
+ * `runSession.ts` owns that rule; a cancel that fails while the run is still live is untouched.
+ *
+ * Every write to `session` from inside `run()` is a functional updater, and that is load-bearing
+ * rather than stylistic. The stream loop used to fold events into a local `current` and write
+ * `setSession(current)`, so `current` was a private copy of the session as it stood *before* the
+ * run began — and every state change made outside the loop was erased by the next event to
+ * arrive. Measured: a click on Cancel set `cancelling: true`, and the next `node-status` line put
+ * it back to `false`, so the `Cancelling…` affordance went dark and told the user the click had
+ * done nothing. The same shape sat on the rejected-start path, the dropped-stream path (R28) and
+ * the `catch`. Only the fresh `createRunSession` is written as a plain value, because starting a
+ * run is the one write that legitimately replaces the session rather than folding into it.
+ *
+ * The companion half of that rule lives in `applyRunEvent`: `run-settled` clears `failure`. Once
+ * the writes stopped being erased, a cancel request that failed while the run was live (R27)
+ * survived the run's own terminal line, and `StudioApp.runPanelState` paints `kind: 'failed'`
+ * whenever `session.failure !== undefined` — so a successfully completed run rendered as an error
+ * with its outputs gone. The run's own outcome wins over the outcome of a control action issued
+ * against it, in both directions: 8-B drops the late cancel answer, and `run-settled` drops the
+ * early one.
+ *
+ * `lastReport` is no longer state. It was a second `useState` holding a copy of `session.report`,
+ * written by its own setter after the stream loop had already committed the settled session — so
+ * settling, which is one transition, took two commits, and the frame in between showed the canvas
+ * finished under a dock that still read in flight. It is now derived (see `lastReport` below) and
+ * the two halves cannot come apart. `running` deliberately stays its own flag: it is not a
+ * projection of the run's outcome but of whether the stream is still open, and it is the draft
+ * lock's source.
  */
 
 export type SaveState =
@@ -125,7 +163,6 @@ export function useStudioSession(args: {
   const [selectedNodeId, setSelectedNodeId] = useState<string | undefined>(undefined)
   const [inputDraft, setInputDraft] = useState<RunInputDraft>({})
   const [session, setSession] = useState<RunSession | undefined>(undefined)
-  const [lastReport, setLastReport] = useState<WireRunReportPayload | undefined>(undefined)
   const [running, setRunning] = useState(false)
   const [saveState, setSaveState] = useState<SaveState>({ kind: 'idle' })
   const [extension, setExtension] = useState<FlowUiDescriptor | undefined>(undefined)
@@ -160,6 +197,20 @@ export function useStudioSession(args: {
   importModuleRef.current = args.importModule
 
   const startId = descriptor?.startIds[0]
+
+  /**
+   * Derived, never stored. `lastReport` used to be its own `useState`, written after the stream
+   * loop had already committed the settled session — two setters, two commits, and a frame in
+   * between where the canvas had settled and the dock had not. Settling is one transition, so it
+   * gets one state write; making the report a projection of the session it belongs to means the
+   * two cannot disagree at all, rather than merely being written together today.
+   *
+   * This loses nothing, because the stored value was already a copy of exactly this: `run()` set
+   * it to `undefined` beside every fresh `createRunSession` (whose `report` is `undefined`) and to
+   * `current.report` on the one path where the session carried one. Every other outcome — a
+   * rejected start, `run-failed`, a dropped stream, a parse error — left both `undefined`.
+   */
+  const lastReport = session?.report
 
   const adopt = useCallback((loaded: LoadedFlowPayload) => {
     setDescriptor(loaded.descriptor)
@@ -351,24 +402,28 @@ export function useStudioSession(args: {
       runningRef.current = true
 
       void (async () => {
-        setLastReport(undefined)
         startedAtRef.current = now()
         runTokenRef.current = undefined
 
-        let current = createRunSession({
-          startId,
-          nodeIds: descriptor.nodes.map((node) => node.id),
-          startedAt: startedAtRef.current,
-        })
-        setSession(current)
+        // The one write in this run that is deliberately not a functional updater: a fresh run
+        // *replaces* whatever the panel was showing rather than folding into it.
+        setSession(
+          createRunSession({
+            startId,
+            nodeIds: descriptor.nodes.map((node) => node.id),
+            startedAt: startedAtRef.current,
+          }),
+        )
         setRunning(true)
 
         const stream = await client.startRun({ flowId, startId, input: values })
         if (stream instanceof Error) {
           // R25: a rejected start no longer nulls the session — it ends it as a failure, the
           // same surface every other failure path below uses.
-          current = { ...current, failure: toFailurePayload(stream) }
-          setSession(current)
+          const payload = toFailurePayload(stream)
+          setSession((current) =>
+            current === undefined ? current : { ...current, failure: payload },
+          )
           setRunning(false)
           runningRef.current = false
           return
@@ -376,27 +431,33 @@ export function useStudioSession(args: {
 
         try {
           for await (const event of stream) {
-            current = applyRunEvent(current, event)
             if (event.type === 'run-accepted') runTokenRef.current = event.runToken
-            setSession(current)
+            setSession((current) =>
+              current === undefined ? current : applyRunEvent(current, event),
+            )
           }
           // R28: the stream ended without a terminal line. `applyRunEvent` never sets `failure`
           // or `report` on its own for that case — only `run-settled` and `run-failed` do — so a
           // session that reaches here with neither is a dropped connection, not a settled run.
-          if (current.report === undefined && current.failure === undefined) {
-            current = { ...current, failure: DROPPED_STREAM_PAYLOAD }
-            setSession(current)
-          }
+          // The test for it is inside the updater because that is the only place that can see
+          // the session as it actually stands (see the note on functional updaters at the top of
+          // this module).
+          setSession((current) => {
+            if (current === undefined) return current
+            if (current.report !== undefined || current.failure !== undefined) return current
+            return { ...current, failure: DROPPED_STREAM_PAYLOAD }
+          })
         } catch (cause) {
           // R16: `readNdjsonStream` throws `NdjsonParseError` mid-iteration on a protocol
           // violation, and `JobikClient.startRun` deliberately does not catch it — this `for
           // await` is the one place that owns the failure.
           const error = cause instanceof Error ? cause : new Error(String(cause))
-          current = { ...current, failure: toFailurePayload(error) }
-          setSession(current)
+          const payload = toFailurePayload(error)
+          setSession((current) =>
+            current === undefined ? current : { ...current, failure: payload },
+          )
         }
 
-        if (current.report !== undefined) setLastReport(current.report)
         setRunning(false)
         runningRef.current = false
       })()
@@ -415,10 +476,15 @@ export function useStudioSession(args: {
       // R27: a failed cancel request used to be discarded with `void`, leaving `cancelling: true`
       // forever with nothing telling the user the request never reached the server. Reuses the
       // same `session.failure` surface R25 routes every other failure through.
+      //
+      // 8-B: `markCancelFailed`, not a spread, and the decision is made inside the updater so it
+      // reads the session as it stands when the answer lands — which is the whole race. If the
+      // run settled while this request was in flight the answer is dropped there; see the
+      // invariant on `markCancelFailed` in `runSession.ts`.
       if (result instanceof Error) {
         const payload = toFailurePayload(result)
         setSession((current) =>
-          current === undefined ? current : { ...current, failure: payload },
+          current === undefined ? current : markCancelFailed(current, payload),
         )
       }
     })()

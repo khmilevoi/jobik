@@ -4,6 +4,7 @@ import {
   applyRunEvent,
   completedNodeCount,
   createRunSession,
+  markCancelFailed,
   markCancelling,
 } from './runSession.js'
 
@@ -364,6 +365,25 @@ describe('applyRunEvent', () => {
       authored: true,
     })
   })
+
+  // 8-B's invariant, applied in the direction `markCancelFailed` cannot reach: the cancel request
+  // failed while the run was still live, so `failure` was legitimately set (R27) — and then the
+  // run produced its own report anyway. The run's outcome is the authority over the outcome of a
+  // control action issued against it, and the panel renders `failure` *instead of* the report, so
+  // carrying the stale request failure past the terminal line would paint a completed run as an
+  // error and take its outputs off the panel. Only a cancel failure can ever be here to drop:
+  // `run-settled` and `run-failed` are mutually exclusive, and nothing else in this reducer writes
+  // `failure`.
+  it('drops a failed cancel request when the run settles with its own report', () => {
+    const live = markCancelling(applyRunEvent(session(), { type: 'run-accepted', runToken: 'tok' }))
+    const cancelFailed = markCancelFailed(live, { _tag: null, message: 'Not found' })
+    expect(cancelFailed.failure).toEqual({ _tag: null, message: 'Not found' })
+
+    const settled = applyRunEvent(cancelFailed, { type: 'run-settled', report: REPORT })
+
+    expect(settled.report).toEqual(REPORT)
+    expect(settled.failure).toBeUndefined()
+  })
 })
 
 describe('markCancelling', () => {
@@ -382,6 +402,66 @@ describe('markCancelling', () => {
 
     expect(after).not.toBe(before)
     expect(before.cancelling).toBe(false)
+  })
+
+  // 8-B's invariant, on the click rather than the answer: a run that has already produced its
+  // terminal line has nothing left to cancel, so the click cannot flag it either.
+  it('leaves a settled session alone', () => {
+    const settled = applyRunEvent(session(), { type: 'run-settled', report: REPORT })
+
+    expect(markCancelling(settled)).toBe(settled)
+  })
+})
+
+// Deferred finding 8-B. The panel renders `failure` in place of the report, so writing a failed
+// cancel onto a session that has already settled is what made a completed run's outputs vanish
+// behind `Error / Not found`. The rule is about the settled session, not about the status code:
+// while the run is live the failure is real and still lands.
+describe('markCancelFailed', () => {
+  const NOT_FOUND = { _tag: null, message: 'Not found' } as const
+
+  it('fails a live session — the cancel did not happen and the user must see it', () => {
+    const live = applyRunEvent(session(), { type: 'run-accepted', runToken: 'tok-1' })
+
+    const next = markCancelFailed(live, NOT_FOUND)
+
+    expect(next.failure).toEqual(NOT_FOUND)
+  })
+
+  it('leaves a completed run report untouched', () => {
+    const settled = applyRunEvent(session(), { type: 'run-settled', report: REPORT })
+
+    const next = markCancelFailed(settled, NOT_FOUND)
+
+    expect(next).toBe(settled)
+    expect(next.report).toEqual(REPORT)
+    expect(next.failure).toBeUndefined()
+  })
+
+  it("leaves a failed run's own error untouched", () => {
+    const failed = applyRunEvent(session(), {
+      type: 'run-failed',
+      error: { _tag: 'ImageRenderError', message: 'Unsupported colour profile CMYK' },
+    })
+
+    const next = markCancelFailed(failed, NOT_FOUND)
+
+    expect(next).toBe(failed)
+    expect(next.failure).toEqual({
+      _tag: 'ImageRenderError',
+      message: 'Unsupported colour profile CMYK',
+    })
+  })
+
+  // A cancel that was accepted and settled the run as cancelled is settled like any other: the
+  // report the server sent back is the outcome, not a later failed retry of the same cancel.
+  it('leaves a cancelled run report untouched', () => {
+    const cancelled = applyRunEvent(markCancelling(session()), {
+      type: 'run-settled',
+      report: { ...REPORT, status: 'cancelled' },
+    })
+
+    expect(markCancelFailed(cancelled, NOT_FOUND)).toBe(cancelled)
   })
 })
 

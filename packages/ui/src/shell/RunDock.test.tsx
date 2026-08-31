@@ -61,3 +61,49 @@ describe('RunDock', () => {
     expect(screen.getByTestId('studio-dock-body').childElementCount).toBe(0)
   })
 })
+
+/**
+ * Closeout finding 8-A. `Studio — run in progress` (design 586–593) draws the dock header with the
+ * run number where the idle chevron was and symmetric `0 14px` padding; the standalone settled
+ * cards (801, 838) add the elapsed after it.
+ */
+describe('RunDock — the run number', () => {
+  it('keeps the chevron and the asymmetric padding while idle', () => {
+    render(<RunDock entryNodeId="start1" onCollapse={() => {}} />)
+    expect(screen.getByTestId('studio-dock-header').style.padding).toBe('0px 10px 0px 14px')
+    expect(screen.getByRole('button', { name: 'Collapse run panel' })).toBeInTheDocument()
+    expect(screen.queryByTestId('studio-dock-run-meta')).toBeNull()
+  })
+
+  it('replaces the chevron with the run number during a run', () => {
+    render(<RunDock entryNodeId="start1" onCollapse={() => {}} runMeta="#219" />)
+    const header = screen.getByTestId('studio-dock-header')
+    expect(header.style.padding).toBe('0px 14px')
+    expect(header.textContent).toContain('start1')
+    expect(screen.queryByRole('button', { name: 'Collapse run panel' })).toBeNull()
+    const meta = screen.getByTestId('studio-dock-run-meta')
+    expect(meta.textContent).toBe('#219')
+    expect(meta.style.fontSize).toBe('10px')
+    expect(meta.style.fontFamily).toContain('JetBrains Mono')
+    expect(meta.style.color).toBe('rgb(93, 101, 108)')
+  })
+
+  it('paints a failed run’s meta in the failed card’s own colour', () => {
+    render(
+      <RunDock
+        entryNodeId="start1"
+        onCollapse={() => {}}
+        runMeta="#220 · 0.8s"
+        runMetaTone="failed"
+      />,
+    )
+    const meta = screen.getByTestId('studio-dock-run-meta')
+    expect(meta.textContent).toBe('#220 · 0.8s')
+    expect(meta.style.color).toBe('rgb(109, 95, 92)')
+  })
+
+  it('still builds nothing of its own inside the body while a run is in flight', () => {
+    render(<RunDock entryNodeId="start1" onCollapse={() => {}} runMeta="#219" />)
+    expect(screen.getByTestId('studio-dock-body').childElementCount).toBe(0)
+  })
+})

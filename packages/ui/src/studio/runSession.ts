@@ -35,7 +35,11 @@ export type RunSession = {
   readonly nodes: ReadonlyMap<string, NodeRunRecord>
   readonly logs: readonly RunLogLine[]
   readonly report: WireRunReportPayload | undefined
-  /** Set only by `run-failed`, which carries an error and no report. */
+  /**
+   * The run's own failure — `run-failed`, which carries an error and no report — or a cancel
+   * request that failed while the run was still live (R27). `run-settled` clears it: the run's own
+   * outcome outranks the outcome of a control action issued against it.
+   */
   readonly failure: WireErrorPayload | undefined
   readonly cancelling: boolean
 }
@@ -102,6 +106,14 @@ export function applyRunEvent(session: RunSession, event: RunStreamEvent): RunSe
         logs: event.report.logs,
         report: event.report,
         runNumber: event.report.runNumber,
+        // 8-B, the other direction: the only thing that can already be on `failure` here is a
+        // cancel *request* that failed while the run was still live (R27) — the two terminal
+        // lines are mutually exclusive and nothing else in this reducer writes it. The run has
+        // now said what it is, and the run's own outcome outranks the outcome of a control
+        // action issued against it. It must be dropped rather than merely outranked: the panel
+        // renders `failure` *in place of* the report, so a session carrying both paints a
+        // completed run as an error with no outputs.
+        failure: undefined,
       }
     }
 
@@ -110,8 +122,41 @@ export function applyRunEvent(session: RunSession, event: RunStreamEvent): RunSe
   }
 }
 
+/**
+ * Has the stream produced its terminal line? `## Execution` allows exactly two — `run-settled`
+ * and `run-failed` — and each writes one of these two fields, so their presence is the whole
+ * definition of settled. (R21 deleted an earlier `isSettled` as unconsumed; the cancel transitions
+ * below are its consumer, and they are the only place it is used.)
+ */
+function isSettled(session: RunSession): boolean {
+  return session.report !== undefined || session.failure !== undefined
+}
+
+/**
+ * The two transitions a cancel can drive, and the one rule they share.
+ *
+ * Deferred finding 8-B: a cancel that loses the race against the run's own terminal line is
+ * answered `404` — the run has already left the server's registry — and routing that answer onto
+ * `failure` (R27) replaced a completed run's report with `Error / Not found`, taking its outputs
+ * off the panel with it. The invariant both functions below hold is broader than that one status
+ * code: **a settled session is never rewritten by the outcome of a control action issued against
+ * it.** A run that has produced its report, or its failure, has already said what it is; cancel is
+ * a request about that run, not a result of it.
+ *
+ * That is deliberately not "ignore a failed cancel". While the run is still live there is
+ * something to cancel and a failed request means it did not happen, so `markCancelFailed` puts the
+ * failure on `failure` exactly as R27 made it — whatever the status, `404` included. Only the late
+ * arrival is dropped, because by then the request is moot: there is no run left to cancel and
+ * nothing the user could do about it.
+ */
 export function markCancelling(session: RunSession): RunSession {
+  if (isSettled(session)) return session
   return { ...session, cancelling: true }
+}
+
+export function markCancelFailed(session: RunSession, error: WireErrorPayload): RunSession {
+  if (isSettled(session)) return session
+  return { ...session, failure: error }
 }
 
 export function completedNodeCount(session: RunSession): number {

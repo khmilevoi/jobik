@@ -109,3 +109,30 @@ describe('RunNodeTimings', () => {
     expect(screen.getByTestId('run-timing-value-render').style.color).toBe('rgb(78, 85, 91)')
   })
 })
+
+/**
+ * Closeout finding 3. No run-panel artboard fixes a cached row, so the row borrows exactly two
+ * things from the `Node states` cached card — its `#4a5157` dot (design 747) and its
+ * `cached · 0.0s` label (750) — and nothing else changes.
+ */
+describe('a cached node in the run panel', () => {
+  const CACHED: readonly RunNodeTiming[] = [
+    { nodeId: 'start1', status: 'ok', elapsed: '0.0s' },
+    { nodeId: 'render', status: 'cached', elapsed: '0.0s' },
+  ]
+
+  it('never reads as a freshly computed ok in the 30px rows', () => {
+    render(<RunNodeRows nodes={CACHED} />)
+    expect(screen.getByTestId('run-node-dot-render').style.background).toBe('rgb(74, 81, 87)')
+    expect(screen.getByTestId('run-node-dot-start1').style.background).toBe('rgb(111, 156, 130)')
+    const value = screen.getByTestId('run-node-value-render')
+    expect(value.textContent).toBe('cached · 0.0s')
+    expect(value.style.color).toBe('rgb(121, 130, 138)')
+  })
+
+  it('says so in the timings list too, which draws no dot at all', () => {
+    render(<RunNodeTimings nodes={CACHED} variant="completed" />)
+    expect(screen.getByTestId('run-timing-value-render').textContent).toBe('cached · 0.0s')
+    expect(screen.getByTestId('run-timing-value-start1').textContent).toBe('0.0s')
+  })
+})

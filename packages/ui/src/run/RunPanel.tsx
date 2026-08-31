@@ -17,7 +17,7 @@ export interface RunPanelProps {
  * Returns a FRAGMENT on purpose. `RunDock` supplies the `16px 14px` padding and the `16px` gap
  * between blocks, and its own doc comment forbids a child restating them; a wrapper here would
  * introduce a second gap context and break that contract. It also renders no header: `RunDock`
- * already draws one.
+ * draws the one header, run number included (its `runMeta` prop, closeout finding 8-A).
  */
 export function RunPanel(props: RunPanelProps) {
   const { state } = props

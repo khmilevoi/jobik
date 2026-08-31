@@ -1,3 +1,4 @@
+// biome-ignore-all assist/source/organizeImports: barrels are append-only
 /** The Studio run panel: its four states, its controls, and its validation. */
 
 export {
@@ -41,3 +42,6 @@ export { RunStateHeader } from './RunStateHeader.js'
 export { runPanelColors, runPanelMetrics } from './runPanelTokens.js'
 export * from './types.js'
 export { collectRunInputValues, toRunInputIssues, validateRunInputs } from './validate.js'
+
+// --- closeout finding 1: the ok node card's mono metadata row ---
+export { assetMetaParts } from './format.js'

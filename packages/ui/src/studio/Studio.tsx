@@ -1,5 +1,10 @@
 import { type ReactNode, useState } from 'react'
-import type { FlowNodeSummary, FlowSummary, InventoryEntry } from '../shell/index.js'
+import type {
+  FlowNodeSummary,
+  FlowSummary,
+  InventoryEntry,
+  RunDockMetaTone,
+} from '../shell/index.js'
 import {
   DockedFlowsControl,
   DockedRunControl,
@@ -44,6 +49,12 @@ export interface StudioProps {
   readonly canvas?: ReactNode
   /** P11 fills this. */
   readonly runPanel?: ReactNode
+  /**
+   * The run number the dock header shows in place of its chevron once a run exists — `#219` in
+   * flight, `#220 · 0.8s` settled. `RunDock` owns the treatment; this only carries it down.
+   */
+  readonly runMeta?: string
+  readonly runMetaTone?: RunDockMetaTone
   readonly running?: boolean
   /** The slot the running chip occupies. No plan owns the chip's markup yet. */
   readonly runningChip?: ReactNode
@@ -108,7 +119,12 @@ export function Studio(props: StudioProps) {
       }
       right={
         rightCollapsed ? undefined : (
-          <RunDock entryNodeId={entryNodeId} onCollapse={() => setRightCollapsed(true)}>
+          <RunDock
+            entryNodeId={entryNodeId}
+            onCollapse={() => setRightCollapsed(true)}
+            {...(props.runMeta === undefined ? {} : { runMeta: props.runMeta })}
+            {...(props.runMetaTone === undefined ? {} : { runMetaTone: props.runMetaTone })}
+          >
             {props.runPanel}
           </RunDock>
         )

@@ -19,17 +19,23 @@ import { completedNodeCount, type RunSession } from './runSession.js'
  * A `RunSession` projected onto the two surfaces the design fixes: the run panel's node list, log,
  * summary and error block, and the node cards' own state.
  *
- * `cached` never occurs in v1 (standing ruling 3) but is mapped rather than thrown on, so a future
- * execution change cannot produce an unrenderable card.
+ * `cached` never occurs in v1 (standing ruling 3) but is carried through rather than thrown on, so
+ * a future execution change cannot produce an unrenderable card — or, as this module used to do,
+ * a panel row that reports a reused result as a freshly computed one.
  */
 
 const SETTLED_WITH_TIME: ReadonlySet<NodeStatus> = new Set<NodeStatus>(['ok', 'failed', 'cached'])
 
-/** Standing ruling 2: the panel's `RunNodeStatus` has a `skipped` treatment; `NodeStatus` also has
- *  `cached`, which the panel type does not, so `cached` narrows to `ok` — the only settled-success
- *  word the panel has. Everything else passes through unchanged. */
+/**
+ * Standing ruling 2 said the panel's `RunNodeStatus` had no `cached`, so this narrowed `cached` to
+ * `ok` — the only settled-success word the panel had. Closeout finding 3: that made a future
+ * caching feature light up the canvas and stay invisible in the panel, so `RunNodeStatus` now
+ * mirrors core's `NodeStatus` exactly and this is the identity. It stays as an annotated assignment
+ * rather than an untyped pass-through: if core ever adds a status the panel has no treatment for,
+ * this is the line that must fail to compile instead of collapsing it into a neighbour.
+ */
 function toPanelStatus(status: NodeStatus): RunNodeStatus {
-  return status === 'cached' ? 'ok' : status
+  return status
 }
 
 export function toRunNodeTimings(
