@@ -1,0 +1,38 @@
+/*
+ * `3C` Modal D — Cancel run. `09-modals.md` §5.
+ *
+ * No header band, so the title row is part of the body and this file carries the title's own type
+ * rather than reading `ModalShell`'s.
+ */
+
+.titleRow {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 9px;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--jbk-size-13);
+  font-weight: var(--jbk-weight-semibold);
+  letter-spacing: var(--jbk-tracking-title);
+  color: var(--jbk-text-primary);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.elapsed {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-10);
+  color: var(--jbk-text-type-annotation);
+}
+
+/* §5 — `1.6`, looser than the `1.55` every other body uses. */
+.message {
+  font-size: var(--jbk-size-11-5);
+  line-height: 1.6;
+  color: var(--jbk-text-inactive-list-item);
+}

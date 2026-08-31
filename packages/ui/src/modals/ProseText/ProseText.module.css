@@ -1,0 +1,14 @@
+/*
+ * An identifier set inline in body copy. `09-modals.md` §2: *"Identifiers inside the prose are set
+ * in mono at the surrounding size and colour — no separate colour."* §5 is the one exception, and
+ * `.monoLifted` is it.
+ */
+
+.mono {
+  font-family: var(--jbk-font-mono);
+}
+
+.monoLifted {
+  font-family: var(--jbk-font-mono);
+  color: var(--jbk-text-active-field-label);
+}

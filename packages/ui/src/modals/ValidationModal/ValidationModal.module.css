@@ -1,0 +1,138 @@
+/*
+ * `3C` Modal A — Validation. `09-modals.md` §2.
+ *
+ * Error and warning are one block drawn on two ramps: the warm one and the neutral one. Every
+ * pair below is that, and nothing else varies.
+ */
+
+/* §2 — the header count badges. The warning has a border and no fill: one step quieter. */
+.badge {
+  display: flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: var(--jbk-radius-badge);
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-9-5);
+}
+
+.badgeError {
+  border: 1px solid var(--jbk-primitive-failed-border);
+  background: var(--jbk-primitive-failed-fill);
+  color: var(--jbk-status-error-tag);
+}
+
+.badgeWarning {
+  border: 1px solid var(--jbk-modal-warning-badge-border);
+  color: var(--jbk-status-warning-tag);
+}
+
+/* §2 — a finding card. Its radius is `6`, not the `5` the run panel's error blocks use. */
+.finding {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 6px;
+  padding: 11px 12px;
+  border-radius: var(--jbk-modal-finding-radius);
+}
+
+.findingError {
+  border: 1px solid var(--jbk-modal-error-finding-border);
+  background: var(--jbk-surface-failed-error-well);
+}
+
+.findingWarning {
+  border: 1px solid var(--jbk-border-node-header-divider);
+  background: var(--jbk-surface-input-well);
+}
+
+.codeRow {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.codeError,
+.codeWarning {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-10-5);
+}
+
+.codeError {
+  color: var(--jbk-status-error-tag);
+}
+
+.codeWarning {
+  color: var(--jbk-status-warning-tag);
+}
+
+.sourceError,
+.sourceWarning {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-9-5);
+}
+
+.sourceError {
+  color: var(--jbk-text-failed-meta);
+}
+
+.sourceWarning {
+  color: var(--jbk-text-type-annotation);
+}
+
+.messageError,
+.messageWarning {
+  font-size: var(--jbk-size-11-5);
+  line-height: 1.55;
+}
+
+.messageError {
+  color: var(--jbk-status-error-body);
+}
+
+.messageWarning {
+  color: var(--jbk-text-inactive-list-item);
+}
+
+/* §2 — inline text links, not buttons: sans 11px, gap 14, a 2px lift off the sentence. */
+.actionRow {
+  display: flex;
+  gap: 14px;
+  padding-top: 2px;
+}
+
+.action {
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: var(--jbk-font-ui);
+  font-size: var(--jbk-size-11);
+  cursor: pointer;
+}
+
+.actionAccent {
+  color: var(--jbk-accent);
+}
+
+/* Foundations §6.4 lists both hovers as instant swaps with no transition. */
+.actionAccent:hover {
+  color: var(--jbk-accent-hover);
+}
+
+.actionMuted {
+  color: var(--jbk-text-muted);
+}
+
+.actionMuted:hover {
+  color: var(--jbk-text-active-field-label);
+}
+
+/*
+ * §1.5 gives the `Copy report` button `gap:7px` between its icon and its label. The button itself
+ * is `primitives/Button`, which this must not restyle, so the gap rides on the icon.
+ */

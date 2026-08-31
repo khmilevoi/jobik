@@ -1,0 +1,22 @@
+/*
+ * `modalTokens.ts`, as custom properties — the same treatment `tokens.css` gives `tokens.ts`.
+ * Every `modals/*.module.css` reads this file instead of restating a value, and
+ * `modalTokens.css.test.ts` proves the two agree in both directions.
+ *
+ * `modalColors` and `modalMetrics` share no key, so one flat `--jbk-modal-*` prefix is enough.
+ * Every metric is a pixel length.
+ *
+ * Scoped to `[data-jobik-studio]`, for the same reason `tokens.css` is: the package must never
+ * restyle a host application.
+ */
+
+[data-jobik-studio] {
+  /* modalColors — 09-modals.md §1.1, §1.2, §2 */
+  --jbk-modal-backdrop: rgba(5, 5, 6, 0.72);
+  --jbk-modal-card-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+  --jbk-modal-error-finding-border: #2a1f1e;
+  --jbk-modal-warning-badge-border: #2a2721;
+
+  /* modalMetrics — 09-modals.md §2 */
+  --jbk-modal-finding-radius: 6px;
+}

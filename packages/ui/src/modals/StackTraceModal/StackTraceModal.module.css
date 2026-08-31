@@ -1,0 +1,153 @@
+/*
+ * `3C` Modal C — Stack trace. `09-modals.md` §4.
+ *
+ * Three blocks: the error summary on the warm ramp, the frame list on the neutral one, and a
+ * `110px 1fr` context grid with no chrome at all.
+ */
+
+/* §4 — the only modal with a leading dot. Square, not round: `radii.kindDot`. */
+.failedDot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--jbk-radius-kind-dot);
+  background: var(--jbk-status-failed);
+}
+
+/* §4 — the settled copy confirmation, drawn as a chip rather than a button. */
+.copied {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--jbk-primitive-ok-border);
+  border-radius: var(--jbk-radius-small);
+  background: var(--jbk-primitive-ok-fill);
+  font-size: var(--jbk-size-11);
+  color: var(--jbk-status-ok-label);
+}
+
+/* Its idle state, borrowed from `08-buttons.md` §2.2 — the 24 × 24 icon-only ghost. */
+.copy {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--jbk-border-control);
+  border-radius: var(--jbk-radius-small);
+  background: none;
+  color: var(--jbk-text-inactive-list-item);
+  cursor: pointer;
+}
+
+/* Foundations §6.4 lists this hover as an instant swap with no transition. */
+.copy:hover {
+  border-color: var(--jbk-primitive-hover-border-icon);
+  background: var(--jbk-primitive-hover-fill-icon);
+  color: var(--jbk-text-primary);
+}
+
+/* §4.1 — the error summary block. Same warm ramp as a Validation error finding. */
+.errorBlock {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 5px;
+  padding: 11px 12px;
+  border: 1px solid var(--jbk-modal-error-finding-border);
+  border-radius: var(--jbk-modal-finding-radius);
+  background: var(--jbk-surface-failed-error-well);
+}
+
+.errorClass {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-11);
+  color: var(--jbk-status-error-tag);
+}
+
+.errorMessage {
+  font-size: var(--jbk-size-11-5);
+  line-height: 1.55;
+  color: var(--jbk-status-error-body);
+}
+
+/* §4.2 — the frame list. */
+.frameList {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  padding: 12px;
+  border: 1px solid var(--jbk-border-node-header-divider);
+  border-radius: var(--jbk-modal-finding-radius);
+  background: var(--jbk-surface-input-well);
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-10-5);
+  line-height: 1.75;
+  color: var(--jbk-text-inactive-list-item);
+}
+
+.gutter {
+  color: var(--jbk-text-faintest);
+}
+
+/* The source location is bracketed by the frame text and lifted one step out of it. */
+.frameSource {
+  color: var(--jbk-text-active-field-label);
+}
+
+.disclosureRow {
+  padding-top: 6px;
+}
+
+.disclosure {
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-10-5);
+  color: var(--jbk-accent);
+  cursor: pointer;
+}
+
+.disclosure:hover {
+  color: var(--jbk-accent-hover);
+}
+
+/*
+ * §4.3 — the context grid. The same `110px 1fr` the output viewer's typed values use, but
+ * `gap:7px 14px` instead of `8px 14px`.
+ */
+.metaGrid {
+  display: grid;
+  flex: none;
+  grid-template-columns: 110px 1fr;
+  gap: 7px 14px;
+  font-size: var(--jbk-size-11-5);
+}
+
+.metaLabel {
+  font-family: var(--jbk-font-mono);
+  color: var(--jbk-text-muted);
+}
+
+.metaValueLifted,
+.metaValueMuted {
+  font-family: var(--jbk-font-mono);
+}
+
+.metaValueLifted {
+  color: var(--jbk-text-active-field-label);
+}
+
+.metaValueMuted {
+  color: var(--jbk-text-inactive-list-item);
+}
+
+/*
+ * §1.5 gives a ghost secondary with an icon `gap:7px`. The button itself is `primitives/Button`,
+ * which this must not restyle, so the gap rides on the icon.
+ */

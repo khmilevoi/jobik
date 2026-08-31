@@ -1,0 +1,96 @@
+/*
+ * `3C` Modal B — Download output. `09-modals.md` §3.
+ *
+ * Three controls the design draws exactly once each — the checkbox, the segmented control and the
+ * toggle — plus the 46 px file row that holds the first of them.
+ */
+
+/* §3 — the file list. `gap:1px` is the whole separation between rows; there is no rule. */
+.fileList {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.fileRow {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  height: 46px;
+  padding: 0 8px;
+  border-radius: var(--jbk-radius-control);
+  cursor: pointer;
+}
+
+/* An unselected row has no fill at all. */
+.fileRowSelected {
+  background: var(--jbk-surface-docked-control);
+}
+
+.thumb {
+  flex: none;
+  width: 30px;
+}
+
+.fileName {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-11);
+}
+
+.fileNameOn {
+  color: var(--jbk-text-active-identifier);
+}
+
+.fileNameOff {
+  color: var(--jbk-text-inactive-list-item);
+}
+
+.fileMeta {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-9-5);
+}
+
+.fileMetaOn {
+  color: var(--jbk-text-type-annotation);
+}
+
+.fileMetaOff {
+  color: var(--jbk-text-section-label);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.divider {
+  flex: none;
+  height: 1px;
+  background: var(--jbk-border-inline-hairline);
+}
+
+/* §3 — the `Format` and `Bundle as zip` rows. */
+.row {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.rowLabel {
+  font-size: var(--jbk-size-11-5);
+  color: var(--jbk-text-field-label);
+}
+
+.bundleLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.zipName {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-9-5);
+  color: var(--jbk-text-section-label);
+}

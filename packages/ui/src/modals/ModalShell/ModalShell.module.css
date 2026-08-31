@@ -1,0 +1,180 @@
+/*
+ * The `3C` modal chrome — `09-modals.md` §1.
+ *
+ * The scrim is the `<dialog>` element itself rather than `::backdrop`: see the component's
+ * docblock. `.scrim:not([open])` restores the UA rule our own `display:flex` would otherwise
+ * override, so a dialog that has not been opened yet paints nothing.
+ */
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: var(--jbk-modal-backdrop);
+  font-family: var(--jbk-font-ui);
+}
+
+.scrim:not([open]) {
+  display: none;
+}
+
+/* The UA paints its own scrim behind a modal dialog; ours is the element, so this clears it. */
+.scrim::backdrop {
+  background: transparent;
+}
+
+/*
+ * §1.2. `overflow:hidden` is what lets the header and footer bleed to the card edge.
+ *
+ * `max-height` is not a design value — the artboard draws each card at its natural height on an
+ * unbounded stage. It is here so a long finding list cannot grow past the viewport; the body is
+ * the part that scrolls, and it inherits the global scrollbar treatment.
+ */
+.card {
+  display: flex;
+  flex-direction: column;
+  max-height: 100%;
+  overflow: hidden;
+  border: 1px solid var(--jbk-border-control);
+  border-radius: var(--jbk-radius-panel);
+  background: var(--jbk-surface-top-bar);
+  box-shadow: var(--jbk-modal-card-shadow);
+}
+
+.width400 {
+  width: 400px;
+}
+
+.width520 {
+  width: 520px;
+}
+
+.width560 {
+  width: 560px;
+}
+
+.width640 {
+  width: 640px;
+}
+
+/* §1.3 — the 46 px header band. */
+.header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 12px;
+  height: 46px;
+  padding: 0 10px 0 16px;
+  border-bottom: 1px solid var(--jbk-border-shell-divider);
+}
+
+.lead {
+  display: flex;
+  flex: none;
+  align-items: center;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--jbk-size-13);
+  font-weight: var(--jbk-weight-semibold);
+  letter-spacing: var(--jbk-tracking-title);
+  color: var(--jbk-text-primary);
+}
+
+.context {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-10);
+  color: var(--jbk-text-type-annotation);
+}
+
+.spacer {
+  flex: 1;
+}
+
+/* §1.3 — borderless, unlike the output dock's close, which has a `#232629` border. */
+.close {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: var(--jbk-radius-small);
+  background: none;
+  color: var(--jbk-text-inactive-list-item);
+  cursor: pointer;
+}
+
+/*
+ * Foundations §6.4 lists this hover as an instant swap with no transition, so none is written.
+ * `#141618` is `borders.panelHeaderDivider`; the design reuses the value as a fill here, and
+ * re-declaring it in `modalTokens.ts` would put the same colour in two places.
+ */
+.close:hover {
+  background: var(--jbk-border-panel-header-divider);
+  color: var(--jbk-text-primary);
+}
+
+/* §1.4 — the body. `min-height:0` is what lets it, rather than the card, take the overflow. */
+.body,
+.bodyHeadless {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.body {
+  padding: 14px 16px;
+}
+
+/* The headerless confirm is the design's only `18px 18px 14px` body. */
+.bodyHeadless {
+  padding: 18px 18px 14px;
+}
+
+.gap9 {
+  gap: 9px;
+}
+
+.gap10 {
+  gap: 10px;
+}
+
+.gap12 {
+  gap: 12px;
+}
+
+.gap14 {
+  gap: 14px;
+}
+
+/* §1.5 — the 56 px footer. Its buttons are 32 px, one notch shorter than a 34 px panel button. */
+.footer {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  height: 56px;
+  padding: 0 16px;
+  border-top: 1px solid var(--jbk-border-shell-divider);
+  background: var(--jbk-surface-panel);
+}
+
+.hint {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-9-5);
+  color: var(--jbk-text-faintest);
+}

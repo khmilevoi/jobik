@@ -1,0 +1,51 @@
+/*
+ * Artboard `3F` — Switch flow. The `520px` sibling of `CancelRunModal`.
+ *
+ * Headerless, so the title row is part of the body and this file carries the title's own type
+ * rather than reading `ModalShell`'s — exactly as `CancelRunModal.module.css` does.
+ */
+
+.titleRow {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 9px;
+}
+
+/*
+ * Rule 04 — the unsaved body's status mark is the top bar's own unsaved dot, at the 5px the
+ * `Studio — default` artboard draws it, and it does not move.
+ */
+.dot {
+  flex: none;
+  width: 5px;
+  height: 5px;
+  border-radius: var(--jbk-radius-round);
+  background: var(--jbk-status-unsaved);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--jbk-size-13);
+  font-weight: var(--jbk-weight-semibold);
+  letter-spacing: var(--jbk-tracking-title);
+  color: var(--jbk-text-primary);
+}
+
+.spacer {
+  flex: 1;
+}
+
+/* `4 unsaved changes` / `run #221 · 1.3s` — the same mono read-out Cancel run puts its elapsed in. */
+.meta {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-10);
+  color: var(--jbk-text-type-annotation);
+}
+
+/* `1.6`, the looser line-height the headerless confirm uses for its body sentence. */
+.message {
+  font-size: var(--jbk-size-11-5);
+  line-height: 1.6;
+  color: var(--jbk-text-inactive-list-item);
+}
