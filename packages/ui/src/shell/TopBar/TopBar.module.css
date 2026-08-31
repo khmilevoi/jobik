@@ -78,16 +78,15 @@
 }
 
 /*
- * Known drift, deliberately not fixed here (see shell brief): the design has since moved this
- * opacity onto `Validate`/`Save` individually rather than the whole cluster. Migrated as-is.
+ * The design dims `Validate` and `Save` individually rather than the cluster: the running chip
+ * heads this same cluster and stays at full strength while the two buttons recede.
  */
 .actions {
   display: flex;
   align-items: center;
   gap: 8px;
-  opacity: 1;
 }
 
-.actionsRunning {
+.dimmedWhileRunning {
   opacity: 0.45;
 }

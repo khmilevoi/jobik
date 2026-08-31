@@ -59,7 +59,9 @@ describe('TopBar', () => {
       />,
     )
     expect(screen.queryByText('flow.ts')).not.toBeInTheDocument()
-    expect(screen.getByTestId('running-chip')).toBeInTheDocument()
+    // The design seats the chip at the head of the right-hand cluster, not mid-bar.
+    const chip = screen.getByTestId('running-chip')
+    expect(screen.getByTestId('studio-top-bar-actions')).toContainElement(chip)
   })
 
   it('disables the actions while a run is in progress', async () => {

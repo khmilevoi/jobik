@@ -11,7 +11,8 @@ export interface TopBarProps {
   /** Dims and disables `Validate` and `Save`. */
   readonly running?: boolean
   /**
-   * The centre slot the running chip occupies. P4 owns the slot; the chip's own markup is not in
+   * The running chip. The design puts it at the head of the right-hand action cluster, ahead of
+   * the docked run control and the two buttons. P4 owns the slot; the chip's own markup is not in
    * any plan's scope yet and is reported as a gap.
    */
   readonly runningChip?: ReactNode
@@ -52,19 +53,27 @@ export function TopBar(props: TopBarProps) {
 
       {compact ? null : dirtyIndicator}
 
-      {runningChip}
-
       <div className={s.spacer} />
 
-      <div
-        data-testid="studio-top-bar-actions"
-        className={cx(s.actions, running && s.actionsRunning)}
-      >
+      <div data-testid="studio-top-bar-actions" className={s.actions}>
+        {runningChip}
         {dockedRight}
-        <Button variant="quiet" size="lg" onClick={props.onValidate} disabled={running}>
+        <Button
+          variant="quiet"
+          size="lg"
+          onClick={props.onValidate}
+          disabled={running}
+          className={cx(running && s.dimmedWhileRunning)}
+        >
           Validate
         </Button>
-        <Button variant="outlined" size="lg" onClick={props.onSave} disabled={running}>
+        <Button
+          variant="outlined"
+          size="lg"
+          onClick={props.onSave}
+          disabled={running}
+          className={cx(running && s.dimmedWhileRunning)}
+        >
           Save
         </Button>
       </div>
