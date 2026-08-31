@@ -27,6 +27,19 @@ export type StringControlDescriptor = {
   readonly pattern?: string
   readonly minLength?: number
   readonly maxLength?: number
+  /**
+   * The field wants a multi-line editor rather than a single-line one.
+   *
+   * Declared by the flow author as `z.string().meta({ multiline: true })`; Zod carries `.meta()`
+   * straight into `z.toJSONSchema` output, so it arrives here as a plain schema key.
+   *
+   * It exists because the Studio's design draws one `string` field as a line and another as an
+   * area, and nothing else in the schema distinguishes them. Deriving it from the *value* — a
+   * newline, a length threshold — is what the editor did before, and it cannot be right on first
+   * render, when the draft is empty. A presentation the author states is a signal; a presentation
+   * guessed from content is not.
+   */
+  readonly multiline?: boolean
 }
 
 export type NumberControlDescriptor = {

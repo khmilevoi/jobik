@@ -24,6 +24,24 @@ describe('deriveInputControls() — native controls', () => {
     ])
   })
 
+  it('carries a declared multiline presentation, and only when it is `true`', () => {
+    const fields = fieldsOf(
+      z.object({
+        markdown: z.string().meta({ multiline: true }),
+        title: z.string(),
+        // `.meta()` is an open bag: anything that is not exactly `true` is the author's own
+        // metadata and must not turn into a control flag.
+        summary: z.string().meta({ multiline: 'yes', owner: 'docs' }),
+      }),
+    )
+
+    expect(fields.map((field) => field.control)).toStrictEqual([
+      { kind: 'string', multiline: true },
+      { kind: 'string' },
+      { kind: 'string' },
+    ])
+  })
+
   it('carries a string format', () => {
     expect(fieldsOf(z.object({ site: z.url() }))[0]?.control).toStrictEqual({
       kind: 'string',

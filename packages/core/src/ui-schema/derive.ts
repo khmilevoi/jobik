@@ -135,6 +135,7 @@ function stringControl(fragment: JsonSchemaFragment): ControlDescriptor {
     pattern?: string
     minLength?: number
     maxLength?: number
+    multiline?: boolean
   } = { kind: 'string' }
 
   const format = fragment.format
@@ -145,6 +146,9 @@ function stringControl(fragment: JsonSchemaFragment): ControlDescriptor {
   if (typeof minLength === 'number') control.minLength = minLength
   const maxLength = fragment.maxLength
   if (typeof maxLength === 'number') control.maxLength = maxLength
+  // `z.string().meta({ multiline: true })`. Only `true` is carried: `.meta()` is an open bag and
+  // anything else there is the author's own metadata, not an instruction to this module.
+  if (fragment.multiline === true) control.multiline = true
   return control
 }
 
