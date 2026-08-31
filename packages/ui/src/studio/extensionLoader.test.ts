@@ -1,9 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { defineFlowUi } from '../output/index.js'
 import {
-  BUNDLE_EXTERNALS,
   FlowUiLoadError,
-  findBareSpecifiers,
   loadFlowUi,
   rewriteBareSpecifiers,
   shimSourceFor,
@@ -16,57 +14,6 @@ const BUNDLE = [
   `const RenderedImage = () => jsx("div", {});`,
   `export default defineFlowUi({ nodes: { render: { Output: RenderedImage } } });`,
 ].join('\n')
-
-describe('BUNDLE_EXTERNALS', () => {
-  it('names every specifier the server marks external, plus the JSX runtimes', () => {
-    expect([...BUNDLE_EXTERNALS]).toEqual([
-      '@jobik/core',
-      '@jobik/ui',
-      'react',
-      'react-dom',
-      'react-dom/client',
-      'react/jsx-dev-runtime',
-      'react/jsx-runtime',
-    ])
-  })
-})
-
-describe('findBareSpecifiers', () => {
-  it('finds static imports in either quote style and ignores relative ones', () => {
-    expect(findBareSpecifiers(BUNDLE)).toEqual(['react/jsx-runtime', '@jobik/ui'])
-  })
-
-  it('finds a dynamic import', () => {
-    expect(findBareSpecifiers(`const m = await import("@jobik/core")`)).toEqual(['@jobik/core'])
-  })
-
-  it('finds a re-export', () => {
-    expect(findBareSpecifiers(`export { x } from 'react'`)).toEqual(['react'])
-  })
-})
-
-describe('findBareSpecifiers ignores comments and unrelated string literals', () => {
-  it('ignores a specifier-shaped mention inside a // line comment', () => {
-    expect(findBareSpecifiers('// import "react" is external')).toEqual([])
-  })
-
-  it('ignores a specifier-shaped mention nested in a string literal, quotes and all', () => {
-    expect(findBareSpecifiers(`const msg = "please import 'lodash' manually"`)).toEqual([])
-  })
-
-  it('ignores a specifier-shaped mention inside a /* */ block comment', () => {
-    expect(findBareSpecifiers('/* import "react" is external */')).toEqual([])
-  })
-
-  it('ignores a specifier-shaped mention inside a template literal', () => {
-    expect(findBareSpecifiers('const msg = `please import "lodash" manually`')).toEqual([])
-  })
-
-  it('still finds a genuine import on the line after a comment mentioning a specifier', () => {
-    const source = ['// see also "react" for context', `import { x } from 'react'`].join('\n')
-    expect(findBareSpecifiers(source)).toEqual(['react'])
-  })
-})
 
 describe('rewriteBareSpecifiers', () => {
   it('replaces each bare specifier with its resolved URL and leaves relative ones alone', () => {

@@ -14,8 +14,14 @@ import type { RunOutputField } from '../run/index.js'
  * output loop skips any field that has a descriptor, so only the asset loop emits it.
  *
  * The bytes stay on the server behind `GET /api/assets/:assetId`; this module never builds that
- * URL. `thumbnail` and `onOpen` are React values `StudioApp` fills after calling this — Ruling R2
- * drops the `assetUrl` parameter this module never used to construct either of them.
+ * URL. `thumbnail` is a React value `StudioApp` fills after calling this — Ruling R2 drops the
+ * `assetUrl` parameter this module never used to construct it.
+ *
+ * R37: `field` can be QUALIFIED (`render.image`) whenever two nodes share a field name, so a caller
+ * can never recover the owning node id by searching `node.assets` for the (possibly qualified)
+ * label — that lookup silently fails and `Open` does nothing. `onOpenAsset`, when supplied, is
+ * invoked with the real `node.nodeId` from inside this function's own per-node loop, which already
+ * knows it; the caller never has to guess it back out of a label.
  */
 
 export function isUrlValue(value: unknown): value is string {
@@ -29,6 +35,8 @@ function textOf(value: unknown): string {
 
 export function toOutputFields(args: {
   nodes: readonly WireNodeReportPayload[]
+  /** Builds the asset field's `onOpen`, given the owning node's real id. */
+  onOpenAsset?: (nodeId: string) => () => void
 }): readonly RunOutputField[] {
   const names = new Map<string, number>()
   for (const node of args.nodes) {
@@ -60,7 +68,7 @@ export function toOutputFields(args: {
         field: label(node.nodeId, field),
         asset: descriptor,
         thumbnail: undefined,
-        onOpen: undefined,
+        onOpen: args.onOpenAsset === undefined ? undefined : args.onOpenAsset(node.nodeId),
       })
     }
   }

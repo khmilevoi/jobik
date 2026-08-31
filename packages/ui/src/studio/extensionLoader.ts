@@ -27,17 +27,6 @@ export class FlowUiLoadError extends errore.createTaggedError({
   }
 }
 
-/** Every specifier the server's bundler externalises, plus the JSX runtimes it emits. */
-export const BUNDLE_EXTERNALS: readonly string[] = [
-  '@jobik/core',
-  '@jobik/ui',
-  'react',
-  'react-dom',
-  'react-dom/client',
-  'react/jsx-dev-runtime',
-  'react/jsx-runtime',
-]
-
 export type ExternalModules = Readonly<Record<string, Readonly<Record<string, unknown>>>>
 
 /**
@@ -69,9 +58,8 @@ interface SpecifierOccurrence {
  * only reported as a specifier when the code text immediately before it (skipping whitespace) ends
  * with `from` or `import(`. Any other quoted run — including one whose content happens to contain
  * text shaped like an import statement, e.g. `"please import 'lodash' manually"` — is consumed as
- * that one token and never re-scanned for a nested match. `findBareSpecifiers` and
- * `rewriteBareSpecifiers` both call this, so detection and rewriting can never disagree about what
- * counts as code.
+ * that one token and never re-scanned for a nested match. `rewriteBareSpecifiers` is this scan's
+ * one caller.
  *
  * LIMITATION — regex literals are not tracked. A `/` that opens a regex literal (e.g.
  * `/from "x"/`) is read as ordinary code rather than as a regex boundary, so a `//`- or `/*`-shaped
@@ -135,16 +123,6 @@ function scanSpecifierOccurrences(source: string): readonly SpecifierOccurrence[
 
 function isBare(specifier: string): boolean {
   return !specifier.startsWith('.') && !specifier.startsWith('/') && !specifier.includes('://')
-}
-
-export function findBareSpecifiers(source: string): readonly string[] {
-  const found: string[] = []
-  for (const occurrence of scanSpecifierOccurrences(source)) {
-    if (isBare(occurrence.specifier) && !found.includes(occurrence.specifier)) {
-      found.push(occurrence.specifier)
-    }
-  }
-  return found
 }
 
 export function rewriteBareSpecifiers(

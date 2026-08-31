@@ -156,3 +156,50 @@ export function SaveConflictChip(props: SaveConflictChipProps) {
     </div>
   )
 }
+
+export interface SaveErrorChipProps {
+  /** The server's own words — `WireErrorPayload.message`, rendered exactly as it arrived. */
+  readonly message: string
+}
+
+/**
+ * R36: every non-409 save failure — a 500, a `FlowWriteError`, a transport failure — used to
+ * produce `saveState.kind === 'error'` and render nothing, so Save silently did nothing visible and
+ * the user believed the file was written. `## Verification` names save failures explicitly.
+ *
+ * No artboard draws a failed-save treatment (checked against `Jobik Studio.dc.html`), so this
+ * invents no colour and no new layout: it reuses `SaveConflictChip`'s exact chrome above — a
+ * conflict IS an unsaved state, and so is this — and swaps only the dot colour, to
+ * `statusColors.failed` (already in `tokens.ts`, the same tone the run panel's own failed state
+ * uses) so a failed save reads as a failure rather than merely unsaved.
+ */
+export function SaveErrorChip(props: SaveErrorChipProps) {
+  return (
+    <div
+      data-testid="studio-save-error-chip"
+      style={{
+        ...chipShell,
+        gap: px(8),
+        padding: '0 10px',
+        border: `1px solid ${borders.secondaryButton}`,
+        background: 'none',
+      }}
+    >
+      <div
+        style={{
+          width: px(5),
+          height: px(5),
+          borderRadius: radii.round,
+          background: statusColors.failed,
+          flex: 'none',
+        }}
+      />
+      <div
+        data-testid="studio-save-error-message"
+        style={{ fontSize: px(11.5), color: textColors.controlLabel }}
+      >
+        {props.message}
+      </div>
+    </div>
+  )
+}

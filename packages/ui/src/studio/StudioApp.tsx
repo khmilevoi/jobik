@@ -5,7 +5,7 @@ import type { JobikClient } from '../client/index.js'
 import { createJobikClient } from '../client/index.js'
 import { OutputViewer, resolveOutputComponent } from '../output/index.js'
 import type { RunOutputField, RunPanelState } from '../run/index.js'
-import { RunPanel } from '../run/index.js'
+import { RunPanel, validateRunInputs } from '../run/index.js'
 import { surfaces } from '../tokens.js'
 import { toOutputFields } from './assets.js'
 import type { ExternalModules } from './extensionLoader.js'
@@ -19,7 +19,7 @@ import {
   toInventory,
 } from './graphModel.js'
 import { runInputPresentation, toRunInputSchema } from './inputSchema.js'
-import { RunningChip, SaveConflictChip } from './RunningChip.js'
+import { RunningChip, SaveConflictChip, SaveErrorChip } from './RunningChip.js'
 import {
   toNodeOverlays,
   toRunErrorDetail,
@@ -61,6 +61,11 @@ export interface StudioAppProps {
 const IDLE_NOTE =
   'Inputs are typed from the flow declaration. Only downstream nodes of the selected entry point run.'
 
+// R38: `Run panel — states`, the running card's own note. `IDLE_NOTE` above has its counterpart;
+// this one was simply never wired up.
+const RUNNING_NOTE =
+  'Streaming output as each node settles. Inputs are locked for the duration of the run.'
+
 export function StudioApp(props: StudioAppProps) {
   const client = useMemo(
     () => props.client ?? createJobikClient({ baseUrl: props.baseUrl ?? '' }),
@@ -84,13 +89,30 @@ export function StudioApp(props: StudioAppProps) {
     [descriptor, studio.startId],
   )
 
-  // R7: `Cmd/Ctrl+Enter`, the docked run button and a failed panel's `Re-run` all fire the run with
-  // whatever the input draft currently holds — never a fresh, empty input. One local, three call
-  // sites, so none of them can drift from the other two.
-  const runInputValues = useCallback(
-    () => Object.fromEntries(Object.entries(studio.inputDraft).filter(([, value]) => value !== '')),
-    [studio.inputDraft],
-  )
+  // R7: `Cmd/Ctrl+Enter`, the docked run button (which the top bar also renders once the dock is
+  // collapsed) and a failed panel's `Re-run` all fire the run with whatever the input draft
+  // currently holds — never a fresh, empty input. One local, three call sites, so none of them can
+  // drift from the other two.
+  //
+  // R35: this used to hand-roll collection as `Object.entries(draft).filter(v !== '')`, which can
+  // only ever produce strings — a `number` field crossed the wire as `"1024"`, a `json` field as its
+  // raw unparsed text, a `literal` as `String(value)`, and an unconnected `asset` field was not
+  // dropped at all. `RunIdleView`'s own Run button was already correct because it calls the merged
+  // `validateRunInputs` (`packages/ui/src/run/validate.ts`); these three sites now route through the
+  // exact same helper, so a run started from any of the five affordances sends the same values.
+  const runInputValues = useCallback((): Record<string, unknown> | undefined => {
+    if (startNode === undefined) return undefined
+    const values = validateRunInputs({
+      input: toRunInputSchema(startNode.input),
+      fields: startNode.input.fields,
+      draft: studio.inputDraft,
+    })
+    // No panel is shown at any of these three call sites to render a `z.ZodError` or `SyntaxError`
+    // in — `RunIdleView`'s own control is the only place `onInvalid` has anywhere to go — so an
+    // invalid draft here simply does not start a run, exactly as an unwired invalid draft did
+    // before this fix.
+    return values instanceof Error ? undefined : values
+  }, [startNode, studio.inputDraft])
 
   // Every run start closes whatever output the viewer still has open. Without this, the viewer
   // only appears to close because `lastReport` goes briefly `undefined`; if the next report
@@ -102,6 +124,14 @@ export function StudioApp(props: StudioAppProps) {
     },
     [studio.run, closeViewer],
   )
+
+  // R35: the one place `runInputValues()`'s result is actually turned into a run. Used by the
+  // top-bar/docked Run control, `⌘↵` and a failed panel's `Re-run` — never by `RunIdleView`'s own
+  // button, which already calls `startRun` with `validateRunInputs`'s own result directly.
+  const runFromDraft = useCallback(() => {
+    const values = runInputValues()
+    if (values !== undefined) startRun(values)
+  }, [runInputValues, startRun])
 
   const overlays = useMemo<ReadonlyMap<string, NodeOverlay> | undefined>(() => {
     if (session === undefined) return undefined
@@ -155,16 +185,17 @@ export function StudioApp(props: StudioAppProps) {
     const report = studio.lastReport
     if (report === undefined) return []
     // R2: `toOutputFields` takes no `assetUrl` — it never built one. `thumbnail` stays `undefined`
-    // (the striped placeholder); only `onOpen` is filled here.
-    return toOutputFields({ nodes: report.nodes }).map((field) =>
-      field.kind === 'asset'
-        ? {
-            ...field,
-            onOpen: () =>
-              setViewerNodeId(report.nodes.find((node) => field.field in node.assets)?.nodeId),
-          }
-        : field,
-    )
+    // (the striped placeholder).
+    //
+    // R37: `field.field` can be QUALIFIED (`render.image`) whenever two nodes share a field name, so
+    // recovering the owning node by searching `node.assets` for that (possibly qualified) label —
+    // as this used to do — silently fails whenever qualification actually fires, and `Open` does
+    // nothing. `onOpenAsset` is called from inside `toOutputFields`'s own per-node loop, which
+    // already has the real `node.nodeId` in hand and never has to guess it back out of a label.
+    return toOutputFields({
+      nodes: report.nodes,
+      onOpenAsset: (nodeId) => () => setViewerNodeId(nodeId),
+    })
   }, [studio.lastReport])
 
   const runPanelState = useMemo<RunPanelState | undefined>(() => {
@@ -183,6 +214,7 @@ export function StudioApp(props: StudioAppProps) {
         completedNodes: completed,
         totalNodes: total,
         progress: total > 0 ? completed / total : 0,
+        note: RUNNING_NOTE,
         nodes: toRunNodeTimings(session, order),
         log: toRunLog(session),
         partialOutput: true,
@@ -218,7 +250,7 @@ export function StudioApp(props: StudioAppProps) {
               .join('\n'),
           )
         },
-        onRerun: () => startRun(runInputValues()),
+        onRerun: runFromDraft,
       }
     }
 
@@ -264,7 +296,7 @@ export function StudioApp(props: StudioAppProps) {
     studio.setInputField,
     startRun,
     outputs,
-    runInputValues,
+    runFromDraft,
   ])
 
   // `### Run panel`: P11 renders `⌘↵` and `esc` and binds neither.
@@ -274,7 +306,7 @@ export function StudioApp(props: StudioAppProps) {
       if (meta && event.key === 'Enter') {
         event.preventDefault()
         if (!running && startNode !== undefined) {
-          startRun(runInputValues())
+          runFromDraft()
         }
         return
       }
@@ -298,16 +330,7 @@ export function StudioApp(props: StudioAppProps) {
 
     globalThis.addEventListener('keydown', onKeyDown)
     return () => globalThis.removeEventListener('keydown', onKeyDown)
-  }, [
-    running,
-    startNode,
-    startRun,
-    studio.save,
-    studio.cancel,
-    runInputValues,
-    viewerNodeId,
-    closeViewer,
-  ])
+  }, [running, startNode, studio.save, studio.cancel, runFromDraft, viewerNodeId, closeViewer])
 
   const openViewerNode = useMemo(
     () => studio.lastReport?.nodes.find((node) => node.nodeId === viewerNodeId),
@@ -392,9 +415,16 @@ export function StudioApp(props: StudioAppProps) {
     </div>
   )
 
+  // R36: `saveState.kind === 'error'` covers every non-409 save failure — a 500, a
+  // `FlowWriteError`, a transport failure — and used to render nothing, so Save silently did
+  // nothing visible while the user believed the file was written. No artboard draws this state
+  // (checked against `Jobik Studio.dc.html`), so it reuses `SaveConflictChip`'s exact chrome and
+  // shows `.error.message` verbatim — the server's own words, never re-humanised.
   const runningChip =
     studio.saveState.kind === 'conflict' ? (
       <SaveConflictChip onReload={studio.reloadFromDisk} onCopyDraft={studio.copyDraft} />
+    ) : studio.saveState.kind === 'error' ? (
+      <SaveErrorChip message={studio.saveState.error.message} />
     ) : running && studio.startId !== undefined ? (
       <RunningChip
         startId={studio.startId}
@@ -442,7 +472,7 @@ export function StudioApp(props: StudioAppProps) {
       {...(runPanelState === undefined ? {} : { runPanel: <RunPanel state={runPanelState} /> })}
       onValidate={studio.validate}
       onSave={studio.save}
-      onRun={() => startRun(runInputValues())}
+      onRun={runFromDraft}
     />
   )
 }

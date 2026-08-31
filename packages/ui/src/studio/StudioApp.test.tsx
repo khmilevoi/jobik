@@ -310,6 +310,144 @@ describe('running from the panel', () => {
       'Unsupported colour profile',
     )
   })
+
+  it('shows the running panel note transcribed from the artboard', async () => {
+    let release = () => {}
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    mount(
+      stubClient({
+        startRun: async () =>
+          (async function* () {
+            yield { type: 'run-accepted', runToken: 'tok' } as RunStreamEvent
+            await gate
+            yield { type: 'run-settled', report: REPORT } as RunStreamEvent
+          })(),
+      }),
+    )
+
+    await waitFor(() => expect(screen.getByTestId('run-input-title')).toBeInTheDocument())
+    await userEvent.type(screen.getByTestId('run-input-title'), 'A post')
+    await userEvent.click(screen.getByTestId('run-start-button'))
+
+    await waitFor(() =>
+      expect(screen.getByTestId('run-panel-note').textContent).toBe(
+        'Streaming output as each node settles. Inputs are locked for the duration of the run.',
+      ),
+    )
+
+    release()
+  })
+
+  // R38: `## Verification` names the live log; nothing streamed a `node-log` event through
+  // `StudioApp` before this.
+  it('streams a node-log event into the running panel', async () => {
+    let release = () => {}
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    mount(
+      stubClient({
+        startRun: async () =>
+          (async function* () {
+            yield { type: 'run-accepted', runToken: 'tok' } as RunStreamEvent
+            yield {
+              type: 'node-log',
+              line: { nodeId: 'render', message: 'layout pass complete', at: 0 },
+            } as RunStreamEvent
+            await gate
+            yield { type: 'run-settled', report: REPORT } as RunStreamEvent
+          })(),
+      }),
+    )
+
+    await waitFor(() => expect(screen.getByTestId('run-input-title')).toBeInTheDocument())
+    await userEvent.type(screen.getByTestId('run-input-title'), 'A post')
+    await userEvent.click(screen.getByTestId('run-start-button'))
+
+    await waitFor(() =>
+      expect(screen.getByTestId('run-log-line-0').textContent).toContain(
+        'render layout pass complete',
+      ),
+    )
+
+    release()
+  })
+})
+
+// R35: the top-bar/docked Run control, `⌘↵` and a failed panel's `Re-run` used to hand-roll input
+// collection as `Object.entries(draft).filter(v !== '')`, which can only ever produce strings. A
+// `number` field crossed the wire as `"1024"`, a `json` field as its raw unparsed text. Every other
+// fixture in this file is string-only, which is exactly why nothing caught it: this fixture is not.
+describe('R35: a run started outside the idle panel button sends schema-valid values', () => {
+  const NUMERIC_DESCRIPTOR = {
+    id: 'publication',
+    name: 'publication',
+    documentFile: 'flow.jobik.json',
+    startIds: ['start1'],
+    nodes: [
+      {
+        id: 'start1',
+        kind: 'start' as const,
+        title: 'start',
+        input: {
+          nodeId: 'start1',
+          fields: [
+            {
+              field: 'count',
+              required: true,
+              annotation: 'number',
+              control: { kind: 'number' as const, integer: false },
+            },
+            {
+              field: 'payload',
+              required: true,
+              annotation: 'unknown',
+              control: { kind: 'json' as const, schema: {} },
+            },
+          ],
+        },
+        output: { nodeId: 'start1', fields: [] },
+      },
+    ],
+  }
+
+  const NUMERIC_DOCUMENT = {
+    format: 'jobik.flow',
+    version: 1,
+    connections: [],
+    literals: {},
+    layout: { start1: { x: 56, y: 248 } },
+  } as unknown as FlowDocument
+
+  it('sends a real number and parsed JSON to the client through ⌘↵, not raw draft strings', async () => {
+    const startRun = vi.fn(async (_args: { flowId: string; startId: string; input: unknown }) =>
+      streamOf([{ type: 'run-accepted', runToken: 'tok' }]),
+    )
+    mount(
+      stubClient({
+        loadFlow: async () => ({
+          descriptor: NUMERIC_DESCRIPTOR,
+          document: NUMERIC_DOCUMENT,
+          revision: 'rev-1',
+        }),
+        startRun,
+      }),
+    )
+
+    await waitFor(() => expect(screen.getByTestId('run-input-count')).toBeInTheDocument())
+    await userEvent.type(screen.getByTestId('run-input-count'), '1024')
+    // `{` is `userEvent.type`'s own key-descriptor syntax; `{{` types it literally. A bare `}`
+    // outside an unclosed `{` needs no escaping.
+    await userEvent.type(screen.getByTestId('run-input-payload'), '{{"a":1}')
+
+    await userEvent.keyboard('{Control>}{Enter}{/Control}')
+
+    await waitFor(() => expect(startRun).toHaveBeenCalledTimes(1))
+    const args = startRun.mock.calls[0]?.[0] as { input: Record<string, unknown> }
+    expect(args.input).toEqual({ count: 1024, payload: { a: 1 } })
+  })
 })
 
 // R32: `runPanelState` reads `session.failure` — the surface every run failure now arrives on,
@@ -389,6 +527,29 @@ describe('saving', () => {
     await waitFor(() => expect(screen.getByTestId('studio-conflict-chip')).toBeInTheDocument())
     expect(screen.getByTestId('studio-conflict-reload')).toBeInTheDocument()
     expect(screen.getByTestId('studio-conflict-copy')).toBeInTheDocument()
+    expect(save).toHaveBeenCalledTimes(1)
+  })
+
+  // R36: every non-409 save failure produced `saveState.kind === 'error'` and rendered nothing —
+  // Save silently did nothing visible and the user believed the file was written. `## Verification`
+  // names save failures explicitly.
+  it('renders the server’s own message on a non-conflict save failure', async () => {
+    const save = vi.fn(
+      async () =>
+        new JobikServerError({
+          reason: 'disk is full',
+          status: 500,
+          payload: { _tag: 'FlowWriteError', message: 'disk is full' },
+        }),
+    )
+    mount(stubClient({ save }))
+
+    await waitFor(() => expect(screen.getByTestId('studio-top-bar')).toBeInTheDocument())
+    await userEvent.click(screen.getByText('Save').closest('button') as HTMLElement)
+
+    await waitFor(() => expect(screen.getByTestId('studio-save-error-chip')).toBeInTheDocument())
+    // Never re-humanised: exactly the server's own `.payload.message`.
+    expect(screen.getByTestId('studio-save-error-message').textContent).toBe('disk is full')
     expect(save).toHaveBeenCalledTimes(1)
   })
 })
@@ -479,11 +640,32 @@ describe('the output viewer', () => {
     expect(screen.getByTestId('output-viewer')).toBeInTheDocument()
   })
 
+  // R38: this used to assert only that the viewer stayed open, which passes even against an empty
+  // `onDownload` — the exact vacuous-test class this plan kept shipping. `URL.createObjectURL` is
+  // stubbed rather than relied on natively, so the assertion is deterministic regardless of jsdom's
+  // own support for it.
   it('wires Download to a real download, not to closing', async () => {
-    await openViewer()
-    await userEvent.click(screen.getByText('Download'))
+    const objectUrl = 'blob:mock-download-url'
+    const createObjectURL = vi.fn((_blob: Blob) => objectUrl)
+    const revokeObjectURL = vi.fn((_url: string) => {})
+    const originalCreate = globalThis.URL.createObjectURL
+    const originalRevoke = globalThis.URL.revokeObjectURL
+    globalThis.URL.createObjectURL = createObjectURL as typeof globalThis.URL.createObjectURL
+    globalThis.URL.revokeObjectURL = revokeObjectURL as typeof globalThis.URL.revokeObjectURL
 
-    expect(screen.getByTestId('output-viewer')).toBeInTheDocument()
+    try {
+      await openViewer()
+      await userEvent.click(screen.getByText('Download'))
+
+      expect(createObjectURL).toHaveBeenCalledTimes(1)
+      const blob = createObjectURL.mock.calls[0]?.[0] as Blob
+      expect(blob.type).toBe('application/json')
+      expect(revokeObjectURL).toHaveBeenCalledWith(objectUrl)
+      expect(screen.getByTestId('output-viewer')).toBeInTheDocument()
+    } finally {
+      globalThis.URL.createObjectURL = originalCreate
+      globalThis.URL.revokeObjectURL = originalRevoke
+    }
   })
 
   it('closes on Escape, the artboard drawing no close control of its own', async () => {
@@ -491,5 +673,56 @@ describe('the output viewer', () => {
     await userEvent.keyboard('{Escape}')
 
     expect(screen.queryByTestId('output-viewer')).toBeNull()
+  })
+
+  // R37: `assets.ts:41-42` qualifies a duplicated field name to `${nodeId}.${field}`. `onOpen` used
+  // to look the (possibly qualified) label up with `field.field in node.assets`, which can never
+  // match once qualification actually fires — `render`'s own `assets` map only ever holds the
+  // BARE key `image`. `Open` silently did nothing whenever an asset field collided by name with any
+  // other node's output field.
+  it('opens the right node when an asset field name collides with another node’s output field', async () => {
+    const qualifiedReport: WireRunReportPayload = {
+      ...REPORT,
+      nodes: [
+        ...REPORT.nodes,
+        {
+          nodeId: 'publish',
+          status: 'ok' as const,
+          elapsedMs: 50,
+          // Also named `image`, but as a plain string output — never an asset — so the two fields
+          // collide by name across nodes and both get qualified to `render.image` / `publish.image`.
+          output: { image: 'not a binary field, just a string that happens to share the name' },
+          assets: {},
+          error: null,
+        },
+      ],
+    }
+
+    mount(
+      stubClient({
+        startRun: async () =>
+          streamOf([
+            { type: 'run-accepted', runToken: 'tok' },
+            { type: 'run-settled', report: qualifiedReport },
+          ]),
+      }),
+    )
+
+    await waitFor(() => expect(screen.getByTestId('run-input-title')).toBeInTheDocument())
+    await userEvent.type(screen.getByTestId('run-input-title'), 'A post')
+    await userEvent.click(screen.getByTestId('run-start-button'))
+
+    // Qualified: `render.image` (the asset) and `publish.image` (the string output).
+    await waitFor(() =>
+      expect(screen.getByTestId('run-output-open-render.image')).toBeInTheDocument(),
+    )
+    await userEvent.click(screen.getByTestId('run-output-open-render.image'))
+
+    await waitFor(() => expect(screen.getByTestId('output-viewer')).toBeInTheDocument())
+    // Opened `render` (the asset descriptor's own id), never `publish` (the string).
+    expect(screen.getByTestId('output-viewer-panel').textContent).toContain('asset-1')
+    expect(screen.getByTestId('output-viewer-panel').textContent).not.toContain(
+      'not a binary field',
+    )
   })
 })

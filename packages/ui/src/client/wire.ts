@@ -115,12 +115,6 @@ export type RunStreamEvent =
   | { readonly type: 'run-settled'; readonly report: WireRunReportPayload }
   | { readonly type: 'run-failed'; readonly error: WireErrorPayload }
 
-export type RunTerminalEvent = Extract<RunStreamEvent, { type: 'run-settled' | 'run-failed' }>
-
-export function isRunTerminalEvent(event: RunStreamEvent): event is RunTerminalEvent {
-  return event.type === 'run-settled' || event.type === 'run-failed'
-}
-
 export type RevisionConflictPayload = WireErrorPayload & {
   readonly _tag: 'FlowRevisionConflictError'
   readonly expectedRevision: string

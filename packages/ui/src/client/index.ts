@@ -10,7 +10,6 @@ export type {
   LoadedFlowPayload,
   RevisionConflictPayload,
   RunStreamEvent,
-  RunTerminalEvent,
   SafeFlowDescriptorPayload,
   SafeNodeDescriptorPayload,
   SavePayload,
@@ -19,4 +18,4 @@ export type {
   WireNodeReportPayload,
   WireRunReportPayload,
 } from './wire.js'
-export { isRevisionConflictPayload, isRunTerminalEvent, wireErrorFrames } from './wire.js'
+export { isRevisionConflictPayload, wireErrorFrames } from './wire.js'

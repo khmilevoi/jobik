@@ -18,7 +18,7 @@ import type {
   WireErrorPayload,
   WireRunReportPayload,
 } from './wire.js'
-import { isRevisionConflictPayload, isRunTerminalEvent, wireErrorFrames } from './wire.js'
+import { isRevisionConflictPayload, wireErrorFrames } from './wire.js'
 
 describe('the browser mirror of the server wire types', () => {
   it('accepts every shape the server can send for an error', () => {
@@ -46,39 +46,6 @@ describe('the browser mirror of the server wire types', () => {
   it('mirrors the FlowRevisionConflictError from the wire error taxonomy', () => {
     type FlowRevisionConflictWireError = Extract<WireError, { _tag: 'FlowRevisionConflictError' }>
     expectTypeOf<FlowRevisionConflictWireError>().toExtend<RevisionConflictPayload>()
-  })
-})
-
-describe('isRunTerminalEvent', () => {
-  it('is true for the two terminal lines and false for the rest', () => {
-    expect(
-      isRunTerminalEvent({
-        type: 'run-failed',
-        error: { _tag: null, message: 'x' },
-      }),
-    ).toBe(true)
-    expect(
-      isRunTerminalEvent({
-        type: 'run-settled',
-        report: {
-          flowName: 'publication',
-          startId: 'start1',
-          runNumber: 1,
-          status: 'ok',
-          elapsedMs: 10,
-          nodes: [],
-          logs: [],
-          error: null,
-        },
-      }),
-    ).toBe(true)
-    expect(isRunTerminalEvent({ type: 'run-accepted', runToken: 't' })).toBe(false)
-    expect(
-      isRunTerminalEvent({
-        type: 'node-log',
-        line: { nodeId: 'a', message: 'm', at: 0 },
-      }),
-    ).toBe(false)
   })
 })
 

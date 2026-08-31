@@ -1,5 +1,5 @@
 import type { AssetDescriptor } from '@jobik/core'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { WireNodeReportPayload } from '../client/index.js'
 import { isUrlValue, toOutputFields } from './assets.js'
 
@@ -137,6 +137,41 @@ describe('toOutputFields', () => {
     })
 
     expect(fields[0]).toEqual({ kind: 'text', field: 'count', value: '3' })
+  })
+
+  // R37: `field` can be QUALIFIED (`render.image`) once two nodes share a name, so a caller can
+  // never recover the owning node id by searching a node's own `assets` map for that label —
+  // `onOpenAsset` is called from inside this function's own per-node loop instead, which already
+  // has the real `node.nodeId` in hand.
+  it('builds onOpen from the real owning node id, not from the (possibly qualified) field label', () => {
+    const onOpenAsset = vi.fn((nodeId: string) => () => nodeId)
+
+    const fields = toOutputFields({
+      nodes: [
+        {
+          nodeId: 'render',
+          status: 'ok',
+          elapsedMs: 1,
+          output: {},
+          assets: { image: IMAGE_ASSET },
+          error: null,
+        },
+        {
+          nodeId: 'publish',
+          status: 'ok',
+          elapsedMs: 1,
+          output: { image: 'a string that collides with render’s asset field name' },
+          assets: {},
+          error: null,
+        },
+      ],
+      onOpenAsset,
+    })
+
+    const asset = fields.find((field) => field.kind === 'asset')
+    expect(asset?.field).toBe('render.image')
+    expect(onOpenAsset).toHaveBeenCalledWith('render')
+    expect(asset?.kind === 'asset' && asset.onOpen?.()).toBe('render')
   })
 })
 
