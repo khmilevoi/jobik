@@ -120,8 +120,11 @@ describe('POST /api/flows/:id/validate', () => {
 
   it('400s a body that is not JSON or has no document', async () => {
     const { server } = await startOverCopy()
+    // The header is required: without it the request is refused by the media-type gate (415)
+    // before the body is ever read, which is a different failure — see `contentTypeGate.test.ts`.
     const notJson = await fetch(`${server.url}/api/flows/${publicationFixture.flowName}/validate`, {
       method: 'POST',
+      headers: { 'content-type': 'application/json' },
       body: 'nope',
     })
     expect(notJson.status).toBe(400)

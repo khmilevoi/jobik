@@ -47,6 +47,20 @@ function startRun(server: JobikServer, flowId: string, body: unknown): Promise<R
 }
 
 /**
+ * A cancel request the media-type gate accepts.
+ *
+ * The route takes no body, but every state-changing request must still declare `application/json`
+ * — that is what keeps it un-forgeable from a cross-origin page, and `contentTypeGate.test.ts`
+ * covers the refusal. `JobikClient.cancelRun` sends the same header.
+ */
+function cancel(server: JobikServer, runToken: string): Promise<Response> {
+  return fetch(`${server.url}/api/runs/${encodeURIComponent(runToken)}/cancel`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+  })
+}
+
+/**
  * Poll `inFlightRunCount()` until it reaches `target`, bounded so a stuck abort fails the
  * assertion below rather than hanging the test until the suite's own timeout.
  */
@@ -238,9 +252,7 @@ describe('POST /api/runs/:token/cancel', () => {
     expect(first.value?.type).toBe('run-accepted')
     if (first.value?.type !== 'run-accepted') return
 
-    const cancelled = await fetch(`${server.url}/api/runs/${first.value.runToken}/cancel`, {
-      method: 'POST',
-    })
+    const cancelled = await cancel(server, first.value.runToken)
     expect(cancelled.status).toBe(200)
     expect(await cancelled.json()).toEqual({ cancelled: true })
 
@@ -254,7 +266,7 @@ describe('POST /api/runs/:token/cancel', () => {
 
   it('404s an unknown token', async () => {
     const { server } = await serveProbe('logging')
-    const response = await fetch(`${server.url}/api/runs/not-a-token/cancel`, { method: 'POST' })
+    const response = await cancel(server, 'not-a-token')
     expect(response.status).toBe(404)
     expect(await response.json()).toEqual({
       error: { _tag: null, message: WIRE_MESSAGES.notFound },
@@ -268,9 +280,7 @@ describe('POST /api/runs/:token/cancel', () => {
     const accepted = events[0]
     expect(accepted.type).toBe('run-accepted')
     if (accepted.type !== 'run-accepted') return
-    const cancelled = await fetch(`${server.url}/api/runs/${accepted.runToken}/cancel`, {
-      method: 'POST',
-    })
+    const cancelled = await cancel(server, accepted.runToken)
     expect(cancelled.status).toBe(404)
   })
 })

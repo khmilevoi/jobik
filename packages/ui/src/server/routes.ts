@@ -3,7 +3,6 @@ import type { FlowRegistry } from './discovery.js'
 import { listFlows, loadFlow, saveFlow, validateDraft } from './flowService.js'
 import {
   isJobikError,
-  toWireError,
   toWireErrorBody,
   untaggedWireErrorBody,
   WIRE_MESSAGES,
@@ -25,6 +24,26 @@ import {
 
 /** 4 MiB. A flow document is graph composition, never payload; anything larger is a mistake. */
 const MAX_REQUEST_BYTES = 4 * 1024 * 1024
+
+/**
+ * The methods that reach a handler without declaring a media type. Everything else is
+ * state-changing and must be preflighted — see `requireJsonRequest` below.
+ */
+const BODY_FREE_METHODS: ReadonlySet<string> = new Set(['GET', 'HEAD'])
+
+/**
+ * Whether the request declares a JSON body.
+ *
+ * `application/json`, with or without parameters (`; charset=utf-8`), case-insensitively. That is
+ * every form a legitimate client sends and nothing else: no `+json` suffix matching, no parameter
+ * parsing, no wildcard. A stricter test than needed is the safe direction for a gate whose whole
+ * job is to be un-forgeable from a cross-origin page.
+ */
+function declaresJsonBody(request: IncomingMessage): boolean {
+  const declared = request.headers['content-type']
+  if (declared === undefined) return false
+  return declared.split(';', 1)[0].trim().toLowerCase() === 'application/json'
+}
 
 export type JobikRouteContext = {
   readonly request: IncomingMessage
@@ -153,10 +172,17 @@ export const jobikFlowRoutes: readonly JobikRoute[] = [
       const result = validateDraft({ flow: discovered, draft: body.document })
       // A draft that does not validate is a RESULT, not a transport failure: the editor validates
       // after every edit and must not read a 4xx as a broken connection.
+      //
+      // The projection goes through `toWireErrorBody`, which gates on `isJobikError`, rather than
+      // through the bare `toWireError` the closeout wire audit flagged here: `DraftValidation.error`
+      // is typed `jobik.JobikError`, so the exhaustive switch is a type-level guarantee only. An
+      // untyped error reaching a bare `toWireError` falls off the end of the switch and returns
+      // `undefined`, which `JSON.stringify` drops — a silently fieldless failure. The gate turns
+      // that into the untagged constant the rest of the surface already sends.
       sendJson(
         context.response,
         200,
-        result.valid ? { valid: true } : { valid: false, error: toWireError(result.error) },
+        result.valid ? { valid: true } : { valid: false, ...toWireErrorBody(result.error) },
       )
     },
   },
@@ -191,13 +217,22 @@ export const jobikFlowRoutes: readonly JobikRoute[] = [
 
 type RouteMatch = { readonly route: JobikRoute; readonly params: Record<string, string> }
 
-/** Exact segment count, `:name` captures one decoded segment. No wildcards, no optional segments. */
+/**
+ * Exact segment count, `:name` captures one decoded segment. No optional segments.
+ *
+ * One wildcard form exists: a pattern whose LAST segment is `*` matches every pathname under the
+ * segments before it, at any depth, and captures nothing — a wildcard route reads `context.url`
+ * itself. It is the static-asset shape (`studioAssets.ts`) and no API route uses it.
+ */
 function matchPattern(pattern: string, pathname: string): Record<string, string> | undefined {
   const expected = pattern.split('/')
   const actual = pathname.split('/')
-  if (expected.length !== actual.length) return undefined
+  const prefix = expected.at(-1) === '*' ? expected.length - 1 : undefined
+  if (prefix === undefined ? expected.length !== actual.length : actual.length < prefix) {
+    return undefined
+  }
   const params: Record<string, string> = {}
-  for (let index = 0; index < expected.length; index += 1) {
+  for (let index = 0; index < (prefix ?? expected.length); index += 1) {
     const segment = expected[index]
     if (segment.startsWith(':')) {
       params[segment.slice(1)] = decodeURIComponent(actual[index])
@@ -217,7 +252,9 @@ function findRoute(
   for (const route of routes) {
     const params = matchPattern(route.pattern, pathname)
     if (params === undefined) continue
-    pathMatched = true
+    // A wildcard matches every path, so it must not turn an unknown path into a 405: only a
+    // literal pattern is evidence that this path exists under some other method.
+    if (!route.pattern.endsWith('/*')) pathMatched = true
     if (route.method === method) return { route, params }
   }
   return pathMatched ? 'method-not-allowed' : undefined
@@ -254,6 +291,28 @@ export function createJobikRequestListener(args: {
     }
     if (match === 'method-not-allowed') {
       sendWireError(response, 405, untaggedWireErrorBody(WIRE_MESSAGES.methodNotAllowed))
+      return
+    }
+
+    // The cross-origin side-effect gate, and the reason this server needs no CSRF token.
+    //
+    // Same-origin policy hides the RESPONSE, never the EFFECT. A `POST` whose `content-type` is
+    // one of the three CORS-simple values — `text/plain`, `application/x-www-form-urlencoded`,
+    // `multipart/form-data` — is sent by the browser with no preflight at all, so a page on any
+    // origin could make this server save a document or start a run and simply not read the reply.
+    // Binding to `127.0.0.1` does not answer that: the attacker's page runs in the victim's own
+    // browser, which is on `127.0.0.1` too.
+    //
+    // `application/json` is not a CORS-simple value, so demanding it makes the browser preflight
+    // every state-changing request, and this server answers no `OPTIONS` — the preflight fails and
+    // the request is never sent. The gate is over the METHOD, not over the presence of a body:
+    // `POST /api/runs/:token/cancel` carries no body and is state-changing all the same.
+    //
+    // It sits AFTER route matching so an unknown path is still a 404 and a wrong method still a
+    // 405 — the gate answers for routes that exist, not for the shape of the URL. 415 is the
+    // status; `WIRE_MESSAGES` is a closed set with no media-type constant, so `badBody` carries it.
+    if (!BODY_FREE_METHODS.has(match.route.method) && !declaresJsonBody(request)) {
+      sendWireError(response, 415, untaggedWireErrorBody(WIRE_MESSAGES.badBody))
       return
     }
 

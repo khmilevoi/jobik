@@ -3,10 +3,16 @@
   "version": "0.1.0",
   "type": "module",
   "files": [
+    "bin",
     "dist"
   ],
+  "bin": {
+    "jobik-studio": "./bin/jobik-studio.mjs"
+  },
   "scripts": {
     "build": "tsdown && vite build",
+    "build:studio": "vite build",
+    "dev:studio": "vite",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --config ../../vitest.config.ts packages/ui/"
   },
