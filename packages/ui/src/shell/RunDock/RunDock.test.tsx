@@ -81,3 +81,50 @@ describe('RunDock — the run number', () => {
     expect(screen.getByTestId('studio-dock-body').childElementCount).toBe(0)
   })
 })
+
+/**
+ * `2A` heads the dock `● Completed` / `#221 · 2.4s`: the header carries the run's state,
+ * not only its number. `Run panel — states` gives the failed form the same shape on a tinted bar.
+ */
+describe('RunDock — the run state', () => {
+  it('keeps `Run <entry>` while no state has settled', () => {
+    render(<RunDock entryNodeId="start1" onCollapse={() => {}} runMeta="#219" />)
+    expect(screen.getByTestId('studio-dock-header').textContent).toContain('start1')
+    expect(screen.queryByTestId('studio-dock-status')).toBeNull()
+  })
+
+  it('heads a completed run with its state word and the run meta', () => {
+    render(
+      <RunDock
+        entryNodeId="start1"
+        onCollapse={() => {}}
+        runStatus="completed"
+        runMeta="#221 · 2.4s"
+      />,
+    )
+    expect(screen.getByTestId('studio-dock-status').textContent).toBe('Completed')
+    expect(screen.getByTestId('studio-dock-status-dot')).toBeInTheDocument()
+    expect(screen.getByTestId('studio-dock-run-meta').textContent).toBe('#221 · 2.4s')
+    expect(screen.getByTestId('studio-dock-header').textContent).not.toContain('start1')
+  })
+
+  it('heads a failed run `Run failed`', () => {
+    render(
+      <RunDock
+        entryNodeId="start1"
+        onCollapse={() => {}}
+        runStatus="failed"
+        runMeta="#220 · 0.8s"
+        runMetaTone="failed"
+      />,
+    )
+    expect(screen.getByTestId('studio-dock-status').textContent).toBe('Run failed')
+    expect(screen.queryByRole('button', { name: 'Collapse run panel' })).toBeNull()
+  })
+
+  it('drops the chevron for a state that arrived without a run number', () => {
+    render(<RunDock entryNodeId="start1" onCollapse={() => {}} runStatus="completed" />)
+    expect(screen.queryByTestId('studio-dock-run-meta')).toBeNull()
+    expect(screen.getByTestId('studio-dock-status').textContent).toBe('Completed')
+  })
+})

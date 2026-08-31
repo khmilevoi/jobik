@@ -36,13 +36,54 @@
   padding: 20px 10px 6px 14px;
 }
 
+/*
+ * A button, because the row selects the flow it names — the same construction `.runRow` below
+ * already uses, and for the same reason. It used to draw nothing under the pointer either, on the
+ * grounds that `Studio — default` draws no hover; `3E` is the artboard that supersedes that, and
+ * its first note says why. The row *is* the flow switch, and a switch that answers nothing reads
+ * as a static list, so the whole 30px row now takes a fill. `border: none` is load-bearing rather
+ * than tidiness: the UA's own border otherwise fights `.flowRowActive`'s `1px solid` and shifts
+ * the active row.
+ *
+ * The pointer cursor `3E` puts on the row is already there: `globalStyles.css` gives every button
+ * inside the frame `cursor: pointer`, so restating it here would be a second source for it.
+ */
 .flowRow {
   justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: none;
+  text-align: left;
+}
+
+/*
+ * `3E` candidate A — a fill step, and nothing else. Hover grows no border, because the active row
+ * already owns a 1px hairline and a second one would shift the label the moment the pointer
+ * arrived; nothing inside the row changes either, so the target stays the full row. `#101214` is
+ * the fill `3A`'s h34 ghost panel button already hovers to — `3E` names it as such — so it is read
+ * from `primitives` rather than restated, the same read `run/RunChrome` makes. No transition and
+ * no keyframe: hover is not work in progress, so the fill is simply present or it is not.
+ *
+ * Candidate B, lifting the label from `#8d949a` to `#c3c9ce`, is drawn on the artboard and
+ * rejected there — it shrinks the affordance to a 12.5px label and leaves the active row, already
+ * at `#e8eaec`, with no headroom to answer at all.
+ */
+.flowRow:hover {
+  background: var(--jbk-primitive-hover-fill-panel);
 }
 
 .flowRowActive {
   background: var(--jbk-surface-active-list-row);
   border: 1px solid var(--jbk-border-active-list-row);
+}
+
+/*
+ * `3E`'s `Active + hover` cell: one step above the resting active fill, so the selected row stays
+ * ahead of a hovered one. It must sit after `.flowRow:hover` — the two selectors have the same
+ * specificity, so source order is the only thing deciding which fill a hovered active row takes.
+ */
+.flowRowActive:hover {
+  background: var(--jbk-shell-active-flow-row-hover);
 }
 
 .flowName {
@@ -69,8 +110,13 @@
   gap: 9px;
 }
 
+/*
+ * `Studio — default` gives the selected node row a fill and no border; `2A` gives it both. The
+ * bordered form is the fuller statement, and it matches the selected flow row above.
+ */
 .nodeRowSelected {
   background: var(--jbk-surface-active-node-row);
+  border: 1px solid var(--jbk-border-active-list-row);
 }
 
 .nodeDot {
@@ -93,6 +139,11 @@
 
 .dotCached {
   background: var(--jbk-kind-dot-cached);
+}
+
+/* `2A`: a node that has already run keeps the `ok` tone until the next run moves it. */
+.dotOk {
+  background: var(--jbk-status-ok);
 }
 
 .nodeId {
@@ -133,4 +184,58 @@
 .inventoryKind {
   font-size: var(--jbk-size-11);
   color: var(--jbk-text-section-label);
+}
+
+/*
+ * `2A`'s `Run history` rows. 28px like an inventory row, `gap:9px`, and a button because the row
+ * selects the run it names — the design draws no hover, focus or active state for it, so the
+ * stylesheet strips the browser's button chrome and states nothing else.
+ *
+ * `3E` does not reach here. It is titled `Flow rows`, its matrix draws flow rows only, and its
+ * argument is about the flow switch specifically; extending its fills to a run row would be
+ * inventing a state the design has not drawn. Left as it is, deliberately.
+ */
+.runRow {
+  height: var(--jbk-layout-inventory-row-height);
+  gap: 9px;
+  width: 100%;
+  background: none;
+  border: none;
+  text-align: left;
+}
+
+.runRowSelected {
+  background: var(--jbk-surface-active-node-row);
+}
+
+.runLabel {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-11);
+  color: var(--jbk-text-inactive-list-item);
+}
+
+.runLabelSelected {
+  color: var(--jbk-text-active-identifier);
+}
+
+.runSpacer {
+  flex: 1;
+}
+
+.runMeta {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-9-5);
+}
+
+/* The run being viewed carries its duration in the `ok` tone; older ones recede. */
+.runMetaCurrent {
+  color: var(--jbk-status-ok);
+}
+
+.runMetaPast {
+  color: var(--jbk-text-section-label);
+}
+
+.runMetaFailed {
+  color: var(--jbk-status-failed);
 }

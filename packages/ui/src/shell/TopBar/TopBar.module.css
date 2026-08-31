@@ -9,7 +9,11 @@
   border-bottom: 1px solid var(--jbk-border-shell-divider);
 }
 
-.barCompact {
+/*
+ * `Studio — default` is the one artboard at `gap:16px`; `2A`, `panels collapsed` and
+ * `run in progress` all tighten to `14px` once anything else joins the bar.
+ */
+.barDense {
   gap: 14px;
 }
 
@@ -51,24 +55,34 @@
   color: var(--jbk-text-active-identifier);
 }
 
-.dirty {
+.saveState {
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
-.dirtyMarginLeft {
+/* `Studio — default` (and `2A`) sit the group 2px off the badge before it. */
+.saveStateInset {
   margin-left: 2px;
 }
 
-.dirtyDot {
+.saveStateDot {
   width: 5px;
   height: 5px;
   border-radius: var(--jbk-radius-round);
+}
+
+/* `Studio — default`: `Unsaved changes`. */
+.dotUnsaved {
   background: var(--jbk-status-unsaved);
 }
 
-.dirtyLabel {
+/* `2A`: `Saved`, on the same `#6f9c82` an `ok` node carries. */
+.dotSaved {
+  background: var(--jbk-status-ok);
+}
+
+.saveStateLabel {
   font-size: var(--jbk-size-11);
   color: var(--jbk-text-chevron);
 }
@@ -85,8 +99,4 @@
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.dimmedWhileRunning {
-  opacity: 0.45;
 }

@@ -1,4 +1,10 @@
 // biome-ignore-all assist/source/organizeImports: barrels are append-only
+
+// The directory's own custom properties; every `shell/**` stylesheet reads them. Imported here for
+// the same reason `run/index.ts` imports its own: it is what puts the file in the module graph, so
+// a bundler emits it. `shellTokens.css.test.ts` keeps it in step with `shellTokens.ts`.
+import './shellTokens.css'
+
 export type { DockedRunControlProps } from './DockedControls/DockedControls.js'
 export { DockedFlowsControl, DockedRunControl } from './DockedControls/DockedControls.js'
 export type {
@@ -19,3 +25,19 @@ export { TopBar } from './TopBar/TopBar.js'
 
 // --- closeout finding 8-A: the run number in the docked header ---
 export type { RunDockMetaTone } from './RunDock/RunDock.js'
+
+// --- design sync: `2A` (`Studio — full page, output open`) ---
+export type { RunHistoryEntry, SidebarNodeDotTone } from './FlowsSidebar/FlowsSidebar.js'
+export type { RunDockStatus } from './RunDock/RunDock.js'
+export { shellColors } from './shellTokens.js'
+
+// --- design sync: `3D` (`Validate — press, then valid or invalid`) ---
+export type {
+  ProblemRow,
+  ProblemsStripProps,
+  ProblemSeverity,
+} from './ProblemsStrip/ProblemsStrip.js'
+export { problemCountLabel, ProblemsStrip } from './ProblemsStrip/ProblemsStrip.js'
+export type { StatusStripProps } from './StatusStrip/StatusStrip.js'
+export { checkedAgo, StatusStrip } from './StatusStrip/StatusStrip.js'
+export type { TopBarValidateState } from './TopBar/TopBar.js'

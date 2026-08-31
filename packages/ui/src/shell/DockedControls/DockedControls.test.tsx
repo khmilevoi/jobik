@@ -42,4 +42,15 @@ describe('DockedRunControl', () => {
     render(<DockedRunControl entryNodeId="start1" onExpand={() => {}} />)
     expect(screen.getByText('start1')).toBeInTheDocument()
   })
+
+  /** `2A`: the same pill in the bar with the dock open, where there is nothing to expand. */
+  it('leaves the label inert when there is nothing to expand', async () => {
+    const onRun = vi.fn()
+    render(<DockedRunControl entryNodeId="start1" onRun={onRun} />)
+    expect(screen.queryByRole('button', { name: 'Expand run panel' })).toBeNull()
+    expect(screen.getByTestId('studio-run-control-label')).toHaveTextContent('Run start1')
+    expect(screen.getAllByRole('button')).toHaveLength(1)
+    await userEvent.click(screen.getByRole('button', { name: 'Run' }))
+    expect(onRun).toHaveBeenCalledTimes(1)
+  })
 })

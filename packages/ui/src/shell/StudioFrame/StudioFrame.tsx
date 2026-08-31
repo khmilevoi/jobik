@@ -14,6 +14,15 @@ export interface StudioFrameProps {
   readonly canvas: ReactNode
   /** Omitted entirely when the right dock is collapsed. */
   readonly right?: ReactNode
+  /**
+   * `3D` — the status or problems strip, under the three columns and across the full width.
+   *
+   * That is where §3D.3 puts it: both demo boards are a reduced Studio whose strip is the last
+   * child of the frame's own column, spanning everything, below the canvas and beside nothing.
+   * It is absent until a check has produced a result, which is why the other artboards draw no
+   * strip at all — see `StatusStrip`.
+   */
+  readonly status?: ReactNode
 }
 
 export function StudioFrame(props: StudioFrameProps) {
@@ -27,6 +36,7 @@ export function StudioFrame(props: StudioFrameProps) {
         {props.canvas}
         {props.right}
       </div>
+      {props.status}
     </div>
   )
 }

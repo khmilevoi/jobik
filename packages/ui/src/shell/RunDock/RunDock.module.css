@@ -40,6 +40,36 @@
   border-bottom: 1px solid var(--jbk-border-panel-header-divider);
 }
 
+/*
+ * `Run panel — states` failed (796): the failed header alone is tinted, and the tint cascades to
+ * the title. The three colours come from `shellTokens.css`, which duplicates `run/`'s so the dock
+ * never needs a run-panel stylesheet on the page to draw a failed run.
+ */
+.headerFailed {
+  background: var(--jbk-shell-failed-header-wash);
+  border-bottom-color: var(--jbk-shell-failed-frame);
+}
+
+/* `2A` and `Run panel — states`: the 6x6 square state dot left of the state word. */
+.statusDot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--jbk-radius-kind-dot);
+}
+
+.statusDotOk {
+  background: var(--jbk-status-ok);
+}
+
+.statusDotFailed {
+  background: var(--jbk-status-failed);
+}
+
+/* `Run panel — states` failed (799): `Run failed` is one step warmer than `Completed`. */
+.titleFailed {
+  color: var(--jbk-shell-failed-title);
+}
+
 .meta {
   font-family: var(--jbk-font-mono);
   font-size: var(--jbk-size-10);

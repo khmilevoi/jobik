@@ -1,0 +1,23 @@
+/*
+ * `shellTokens.ts`, as custom properties — the same treatment `tokens.css` gives `tokens.ts`.
+ * Every stylesheet under `shell` reads this file instead of restating a value, and
+ * `shellTokens.css.test.ts` proves the two agree in both directions.
+ *
+ * NAMING — `--jbk-shell-<key>`, the key in kebab-case (`failedHeaderWash` ->
+ * `failed-header-wash`), matching the group prefix every other directory token module uses.
+ *
+ * Scoped to `[data-jobik-studio]`, for the same reason `tokens.css` is: the package must never
+ * restyle a host application.
+ */
+
+[data-jobik-studio] {
+  /* shellColors — `Run panel — states` failed, design 795–799 */
+  --jbk-shell-failed-frame: #241b1a;
+  --jbk-shell-failed-header-wash: rgba(201, 106, 92, 0.05);
+  --jbk-shell-failed-title: #f0e6e4;
+
+  /* shellColors — `3D` §3D.3, the status and problems strips */
+
+  /* shellColors — `3E`, the selected flow row under the pointer */
+  --jbk-shell-active-flow-row-hover: #16181a;
+}

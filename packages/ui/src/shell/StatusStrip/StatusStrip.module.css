@@ -1,0 +1,43 @@
+/*
+ * `3D` §3D.3 — the valid board's status strip: 32 px, on the top bar's own surface, under the same
+ * hairline that divides the shell everywhere else.
+ */
+
+.strip {
+  height: 32px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  border-top: 1px solid var(--jbk-border-shell-divider);
+  background: var(--jbk-surface-top-bar);
+}
+
+.dot {
+  width: 5px;
+  height: 5px;
+  border-radius: var(--jbk-radius-round);
+  background: var(--jbk-status-ok);
+}
+
+.label {
+  font-size: var(--jbk-size-11-5);
+  color: var(--jbk-status-ok-label);
+}
+
+.meta {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-10);
+  color: var(--jbk-text-section-label);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.shortcut {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-9-5);
+  color: var(--jbk-text-faintest);
+}

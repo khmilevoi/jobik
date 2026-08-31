@@ -1,0 +1,105 @@
+/*
+ * `3D` §3D.3 — the problems strip, which takes the status strip's place at the bottom of the shell.
+ *
+ * Its top rule is the failure hairline rather than the shell's own `#17191c`, and its header is
+ * divided from the rows by the inline hairline every other list in the Studio uses. The rows are a
+ * plain column: no scroll container of its own, because the artboard draws three rows and states
+ * no maximum — see the report.
+ */
+
+.strip {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--jbk-shell-failed-frame);
+  background: var(--jbk-surface-top-bar);
+}
+
+.header {
+  height: 32px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--jbk-border-inline-hairline);
+}
+
+.dot {
+  width: 5px;
+  height: 5px;
+  border-radius: var(--jbk-radius-round);
+  background: var(--jbk-status-failed);
+}
+
+.count {
+  font-size: var(--jbk-size-11-5);
+  color: var(--jbk-status-error-tag);
+}
+
+.spacer {
+  flex: 1;
+}
+
+/* The accent inline link, and the instantaneous `style-hover` swap every one of them takes. */
+.openReport {
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: var(--jbk-font-ui);
+  font-size: var(--jbk-size-11);
+  color: var(--jbk-accent);
+}
+
+.openReport:hover {
+  color: var(--jbk-accent-hover);
+}
+
+.row {
+  height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+}
+
+/* Only the first row carries a fill — the problem currently being read. */
+.rowSelected {
+  background: var(--jbk-surface-failed-node-card);
+}
+
+.code {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-10);
+}
+
+.codeError {
+  color: var(--jbk-status-failed);
+}
+
+.codeErrorSelected {
+  color: var(--jbk-status-error-tag);
+}
+
+.codeWarning {
+  color: var(--jbk-status-warning-tag);
+}
+
+.message {
+  font-size: var(--jbk-size-11);
+  color: var(--jbk-text-inactive-list-item);
+}
+
+.messageSelected {
+  color: var(--jbk-status-error-body);
+}
+
+.source {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-9-5);
+  color: var(--jbk-text-type-annotation);
+}
+
+.sourceSelected {
+  color: var(--jbk-text-failed-meta);
+}
