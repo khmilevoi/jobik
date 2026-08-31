@@ -7,7 +7,7 @@ import {
   FlowMigrationError,
   FlowSchemaError,
   UnsupportedFlowVersionError,
-} from '../errors.js'
+} from '#errors.js'
 import type { FlowMigration } from './migrate.js'
 import { readFlowDocument } from './read.js'
 import { readFlowRevision, revisionOf } from './revision.js'

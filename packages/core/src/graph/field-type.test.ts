@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import * as z from 'zod'
-import { asset } from '../asset.js'
+import { asset } from '#asset.js'
 import { areFieldTypesCompatible, fieldTypeOf, isRequiredField } from './field-type.js'
 
 describe('fieldTypeOf()', () => {

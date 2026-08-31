@@ -1,12 +1,8 @@
 import { describe, expect, expectTypeOf, it } from 'vitest'
-import type {
-  SafeFlowDescriptor,
-  SafeFlowSummary,
-  SafeNodeDescriptor,
-} from '../server/descriptor.js'
-import type { LoadedFlow, SavedFlow } from '../server/flowService.js'
-import type { AuthoredWireError, RunWireEvent, WireRunReport } from '../server/runWire.js'
-import type { UntaggedWireError, WireError } from '../server/wireError.js'
+import type { SafeFlowDescriptor, SafeFlowSummary, SafeNodeDescriptor } from '#server/descriptor.js'
+import type { LoadedFlow, SavedFlow } from '#server/flowService.js'
+import type { AuthoredWireError, RunWireEvent, WireRunReport } from '#server/runWire.js'
+import type { UntaggedWireError, WireError } from '#server/wireError.js'
 import type {
   FlowListItem,
   LoadedFlowPayload,

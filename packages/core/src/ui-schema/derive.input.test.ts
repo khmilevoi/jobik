@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import * as z from 'zod'
-import { asset } from '../asset.js'
-import { JobUiSchemaError } from '../errors.js'
+import { asset } from '#asset.js'
+import { JobUiSchemaError } from '#errors.js'
 import { deriveInputControls } from './derive.js'
 
 const derive = (input: z.ZodObject) => deriveInputControls({ nodeId: 'render', input })

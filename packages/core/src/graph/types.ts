@@ -1,5 +1,5 @@
-import type { FieldRef } from '../errors.js'
-import type { AnyDefinition } from '../node.js'
+import type { FieldRef } from '#errors.js'
+import type { AnyDefinition } from '#node.js'
 
 /** One incoming connection, seen from the consuming node: which of its input fields, fed by what. */
 export type GraphInputEdge = { readonly field: string; readonly from: FieldRef }

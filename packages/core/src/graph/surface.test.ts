@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import * as jobik from '../index.js'
+import * as jobik from '#index.js'
 import { branchDocument, branchFlow, okOrThrow } from './fixtures.js'
 
 describe('@jobik/core graph surface', () => {

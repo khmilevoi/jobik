@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { okOrThrow, publicationDocument, publicationFlow } from '../graph/fixtures.js'
-import { resolveRunGraph } from '../graph/run-graph.js'
-import { validateFlowGraph } from '../graph/validate.js'
+import { okOrThrow, publicationDocument, publicationFlow } from '#graph/fixtures.js'
+import { resolveRunGraph } from '#graph/run-graph.js'
+import { validateFlowGraph } from '#graph/validate.js'
 import { readAsset } from './assets.js'
 import { executeRunGraph } from './execute.js'
 

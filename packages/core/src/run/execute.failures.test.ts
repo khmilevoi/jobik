@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { NodeExecutionError, UpstreamFailedError } from '../errors.js'
-import { errorOrThrow } from '../graph/fixtures.js'
+import { NodeExecutionError, UpstreamFailedError } from '#errors.js'
+import { errorOrThrow } from '#graph/fixtures.js'
 import { executeRunGraph } from './execute.js'
 import {
   badOutput,

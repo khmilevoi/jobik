@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import * as z from 'zod'
-import { asset } from '../asset.js'
+import { asset } from '#asset.js'
 import { collectAssets, readAsset, registerAsset } from './assets.js'
 
 describe('registerAsset()', () => {

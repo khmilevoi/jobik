@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import * as z from 'zod'
-import { type AssetDescriptor, asset } from '../asset.js'
+import { type AssetDescriptor, asset } from '#asset.js'
 import {
   assetExtensionKey,
   assetJsonSchema,

@@ -1,4 +1,4 @@
-import { StartNotFoundError } from '../errors.js'
+import { StartNotFoundError } from '#errors.js'
 import type { GraphNode, RunGraph, ValidatedFlowGraph } from './types.js'
 
 /**

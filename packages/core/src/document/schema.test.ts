@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { FieldRef } from '../errors.js'
+import type { FieldRef } from '#errors.js'
 import {
   CURRENT_FLOW_VERSION,
   FLOW_DOCUMENT_FORMAT,

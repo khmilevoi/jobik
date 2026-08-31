@@ -1,5 +1,5 @@
 import * as z from 'zod'
-import { assetMetaOf } from '../asset.js'
+import { assetMetaOf } from '#asset.js'
 
 /**
  * How this plan classifies one field schema, for the single purpose of deciding whether a

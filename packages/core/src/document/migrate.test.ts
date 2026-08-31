@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { FlowMigrationError, UnsupportedFlowVersionError } from '../errors.js'
+import { FlowMigrationError, UnsupportedFlowVersionError } from '#errors.js'
 import { type FlowMigration, flowMigrations, migrateFlowDocument } from './migrate.js'
 import { CURRENT_FLOW_VERSION, type FlowDocumentEnvelope } from './schema.js'
 

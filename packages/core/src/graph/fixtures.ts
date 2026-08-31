@@ -1,13 +1,9 @@
 import path from 'node:path'
 import * as z from 'zod'
-import { asset } from '../asset.js'
-import {
-  CURRENT_FLOW_VERSION,
-  FLOW_DOCUMENT_FORMAT,
-  type FlowDocument,
-} from '../document/schema.js'
-import { flow } from '../flow.js'
-import { node, start } from '../node.js'
+import { asset } from '#asset.js'
+import { CURRENT_FLOW_VERSION, FLOW_DOCUMENT_FORMAT, type FlowDocument } from '#document/schema.js'
+import { flow } from '#flow.js'
+import { node, start } from '#node.js'
 
 /**
  * Test-only flows, documents and narrowing helpers for the `graph/` test files.

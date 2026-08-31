@@ -1,6 +1,6 @@
 import * as fs from 'node:fs/promises'
-import type { FlowMigrationError, UnsupportedFlowVersionError } from '../errors.js'
-import { FlowFileReadError, FlowSchemaError } from '../errors.js'
+import type { FlowMigrationError, UnsupportedFlowVersionError } from '#errors.js'
+import { FlowFileReadError, FlowSchemaError } from '#errors.js'
 import type { FlowMigration } from './migrate.js'
 import { parseFlowDocument } from './parse.js'
 import { revisionOf } from './revision.js'

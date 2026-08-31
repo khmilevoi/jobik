@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type * as z from 'zod'
-import { type AssetDescriptor, assetMetaOf } from '../asset.js'
+import { type AssetDescriptor, assetMetaOf } from '#asset.js'
 
 /**
  * The in-process asset store.

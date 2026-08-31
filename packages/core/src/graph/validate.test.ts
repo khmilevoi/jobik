@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ConnectionError } from '../errors.js'
+import { ConnectionError } from '#errors.js'
 import {
   branchDocument,
   branchFlow,

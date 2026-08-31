@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import * as fs from 'node:fs/promises'
-import { FlowFileReadError } from '../errors.js'
+import { FlowFileReadError } from '#errors.js'
 
 /**
  * The document revision: a sha256 hex digest of the exact bytes of a document, never of the parsed

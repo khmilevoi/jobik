@@ -1,4 +1,4 @@
-import type { AssetDescriptor } from '../asset.js'
+import type { AssetDescriptor } from '#asset.js'
 import type {
   ConnectionError,
   FlowFileReadError,
@@ -8,7 +8,7 @@ import type {
   RunInputError,
   StartNotFoundError,
   UnsupportedFlowVersionError,
-} from '../errors.js'
+} from '#errors.js'
 
 /**
  * What a run produces: the closed per-node status vocabulary, the structured report, and the

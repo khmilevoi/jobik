@@ -1,5 +1,5 @@
-import type { FlowMigrationError, UnsupportedFlowVersionError } from '../errors.js'
-import { FlowSchemaError } from '../errors.js'
+import type { FlowMigrationError, UnsupportedFlowVersionError } from '#errors.js'
+import { FlowSchemaError } from '#errors.js'
 import { type FlowMigration, migrateFlowDocument } from './migrate.js'
 import {
   type FlowDocument,

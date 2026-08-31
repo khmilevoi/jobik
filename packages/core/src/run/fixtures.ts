@@ -1,10 +1,10 @@
 import * as errore from 'errore'
 import * as z from 'zod'
-import { flow } from '../flow.js'
-import { flowDocument, flowPath, okOrThrow } from '../graph/fixtures.js'
-import { resolveRunGraph } from '../graph/run-graph.js'
-import { validateFlowGraph } from '../graph/validate.js'
-import { type AnyNodeDefinition, node, start } from '../node.js'
+import { flow } from '#flow.js'
+import { flowDocument, flowPath, okOrThrow } from '#graph/fixtures.js'
+import { resolveRunGraph } from '#graph/run-graph.js'
+import { validateFlowGraph } from '#graph/validate.js'
+import { type AnyNodeDefinition, node, start } from '#node.js'
 
 /**
  * Test-only flows for the `run/` test files: one handler per way a node can fail, and the two flow

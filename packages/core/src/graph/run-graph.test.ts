@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { StartNotFoundError } from '../errors.js'
+import { StartNotFoundError } from '#errors.js'
 import {
   branchDocument,
   branchFlow,

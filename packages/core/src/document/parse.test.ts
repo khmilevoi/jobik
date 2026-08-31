@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { FlowMigrationError, FlowSchemaError, UnsupportedFlowVersionError } from '../errors.js'
+import { FlowMigrationError, FlowSchemaError, UnsupportedFlowVersionError } from '#errors.js'
 import type { FlowMigration } from './migrate.js'
 import { parseFlowDocument } from './parse.js'
 

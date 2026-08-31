@@ -1,5 +1,5 @@
 import * as z from 'zod'
-import type { SchemaIssue } from '../errors.js'
+import type { SchemaIssue } from '#errors.js'
 
 /** The `format` marker that identifies a Jobik flow document. */
 export const FLOW_DOCUMENT_FORMAT = 'jobik.flow'

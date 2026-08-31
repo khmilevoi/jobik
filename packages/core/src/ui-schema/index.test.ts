@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import * as z from 'zod'
-import * as jobik from '../index.js'
+import * as jobik from '#index.js'
 
 describe('@jobik/core namespace — editor schema surface', () => {
   it('exposes the two derive functions and the callback factory', () => {

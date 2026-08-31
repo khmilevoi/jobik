@@ -3,9 +3,9 @@ import os from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import * as z from 'zod'
-import { serializeFlowDocument } from '../document/schema.js'
-import { ConnectionError, FlowFileReadError, RunInputError, StartNotFoundError } from '../errors.js'
-import { flow } from '../flow.js'
+import { serializeFlowDocument } from '#document/schema.js'
+import { ConnectionError, FlowFileReadError, RunInputError, StartNotFoundError } from '#errors.js'
+import { flow } from '#flow.js'
 import {
   errorOrThrow,
   flowDocument,
@@ -13,9 +13,9 @@ import {
   publicationInput,
   publish,
   render,
-} from '../graph/fixtures.js'
-import * as jobik from '../index.js'
-import { start } from '../node.js'
+} from '#graph/fixtures.js'
+import * as jobik from '#index.js'
+import { start } from '#node.js'
 import { throwingSchema } from './fixtures.js'
 import type { RunEvent, RunReport } from './types.js'
 

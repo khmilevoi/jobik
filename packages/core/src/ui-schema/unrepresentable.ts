@@ -1,5 +1,5 @@
 import type * as z from 'zod'
-import { type AssetMeta, assetMetaOf } from '../asset.js'
+import { type AssetMeta, assetMetaOf } from '#asset.js'
 import type { JsonSchemaFragment, JsonValue } from './descriptor.js'
 
 /**

@@ -1,5 +1,5 @@
 import * as z from 'zod'
-import { JobUiSchemaError } from '../errors.js'
+import { JobUiSchemaError } from '#errors.js'
 import type {
   ControlDescriptor,
   InputFieldDescriptor,

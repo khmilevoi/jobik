@@ -1,5 +1,5 @@
 import * as z from 'zod'
-import { FlowMigrationError, UnsupportedFlowVersionError } from '../errors.js'
+import { FlowMigrationError, UnsupportedFlowVersionError } from '#errors.js'
 import { CURRENT_FLOW_VERSION, FLOW_DOCUMENT_FORMAT, type FlowDocumentEnvelope } from './schema.js'
 
 /**
