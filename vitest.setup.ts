@@ -63,3 +63,18 @@ if (typeof document !== 'undefined') {
     value: () => ({ x: 0, y: 0, width: 0, height: 0 }) as DOMRect,
   })
 }
+
+// Testing Library keeps its own clock. `testTimeout` bounds the whole test and `hookTimeout` the
+// setup, but `waitFor`/`findBy*` expire on a 1000ms default *inside* a test that still has 19
+// seconds left — which is why `StudioApp.e2e.test.tsx` failed on four different assertions across
+// six gate runs and passed every one of them on a re-run. That file drives a real HTTP server, a
+// real flow load and a Vite extension build, so a second is not enough while three other packages
+// build beside it.
+//
+// This belongs here rather than in `vitest.config.ts`: `asyncUtilTimeout` is Testing Library's
+// option, not Vitest's, and `ProjectConfig` rejects it. The import is dynamic and guarded so the
+// `core` and `example` projects, which run under `node`, never load a DOM library.
+if (typeof document !== 'undefined') {
+  const { configure } = await import('@testing-library/react')
+  configure({ asyncUtilTimeout: 5000 })
+}

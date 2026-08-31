@@ -7,8 +7,8 @@
     "node": ">=24"
   },
   "scripts": {
-    "dev": "pnpm --filter @jobik/ui run build:studio && node packages/ui/scripts/dev.mjs",
-    "dev:server": "node packages/ui/scripts/dev.mjs",
+    "dev": "pnpm --filter @jobik/ui run build:studio && node packages/ui/scripts/dev.mjs --config examples/showcase/jobik.config.ts",
+    "dev:server": "node packages/ui/scripts/dev.mjs --config examples/showcase/jobik.config.ts",
     "dev:studio": "pnpm --filter @jobik/ui run dev:studio",
     "build": "turbo run build",
     "test": "turbo run test",
@@ -27,6 +27,7 @@
     "@testing-library/jest-dom": "7.0.1",
     "@testing-library/react": "16.3.3",
     "@testing-library/user-event": "14.6.1",
+    "@tsdown/css": "0.22.14",
     "@types/node": "26.4.0",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.5",
