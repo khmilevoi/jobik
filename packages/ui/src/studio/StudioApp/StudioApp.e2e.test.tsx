@@ -112,7 +112,9 @@ describe('the Studio over the publication example', () => {
       expect(screen.getByTestId('studio-flow-row-publication')).toBeInTheDocument(),
     )
     expect(screen.getByTestId('studio-top-bar').textContent).toContain('publication')
-    expect(screen.getByTestId('studio-top-bar').textContent).toContain('flow.jobik.json')
+    // The showcase flows declare no `.meta({ source })`, so the badge falls back to the binding
+    // entrypoint's own name — the real file, not the document.
+    expect(screen.getByTestId('studio-top-bar').textContent).toContain('index.ts')
 
     await waitFor(() => expect(screen.getByTestId('node-card-start1')).toBeInTheDocument())
     expect(screen.getByTestId('node-card-render')).toBeInTheDocument()

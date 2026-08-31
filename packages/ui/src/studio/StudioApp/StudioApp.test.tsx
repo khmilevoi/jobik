@@ -23,6 +23,7 @@ const DESCRIPTOR = {
   id: 'publication',
   name: 'publication',
   documentFile: 'flow.jobik.json',
+  sourceFile: 'flow.ts',
   startIds: ['start1'],
   nodes: [
     {
@@ -125,13 +126,16 @@ function mount(client: JobikClient) {
 }
 
 describe('the loaded Studio', () => {
-  it('names the flow and its document file in the top bar', async () => {
+  it('names the flow and the file it is authored in in the top bar', async () => {
     mount(stubClient())
 
     await waitFor(() =>
       expect(screen.getByTestId('studio-top-bar').textContent).toContain('publication'),
     )
-    expect(screen.getByTestId('studio-top-bar').textContent).toContain('flow.jobik.json')
+    // The badge is the authoring source, never the document: `3C`'s findings cite `flow.ts:41`,
+    // so the badge and the findings have to name the same file.
+    expect(screen.getByTestId('studio-top-bar').textContent).toContain('flow.ts')
+    expect(screen.getByTestId('studio-top-bar').textContent).not.toContain('flow.jobik.json')
   })
 
   it('lists the flow, its nodes and its inventory in the sidebar', async () => {
@@ -471,6 +475,7 @@ describe('R35: a run started outside the idle panel button sends schema-valid va
     id: 'publication',
     name: 'publication',
     documentFile: 'flow.jobik.json',
+    sourceFile: 'flow.ts',
     startIds: ['start1'],
     nodes: [
       {
@@ -1119,6 +1124,7 @@ const POKEDEX_DESCRIPTOR = {
   id: 'pokedex',
   name: 'pokedex',
   documentFile: 'flow.jobik.json',
+  sourceFile: 'flow.ts',
   startIds: ['byName', 'byNumber'],
   nodes: [
     {
@@ -1547,5 +1553,213 @@ describe('choosing a start', () => {
       startId: 'byNumber',
       input: { number: 25 },
     })
+  })
+})
+
+describe('`3B` — retrying a failed node', () => {
+  const FAILED_REPORT = {
+    ...REPORT,
+    runNumber: 220,
+    status: 'failed' as const,
+    nodes: [
+      REPORT.nodes[0],
+      {
+        nodeId: 'render',
+        status: 'failed' as const,
+        elapsedMs: 800,
+        output: null,
+        assets: {},
+        error: {
+          _tag: 'ImageRenderError',
+          message: 'Unsupported colour profile in the inlined asset.',
+          authored: true,
+        },
+      },
+    ],
+  } as unknown as WireRunReportPayload
+
+  const failedStream = () =>
+    streamOf([
+      { type: 'run-accepted', runToken: 'tok' },
+      { type: 'run-settled', report: FAILED_REPORT },
+    ])
+
+  async function runUntilFailed(client: JobikClient) {
+    mount(client)
+    await waitFor(() => expect(screen.getByTestId('run-input-title')).toBeInTheDocument())
+    await userEvent.type(screen.getByTestId('run-input-title'), 'A post')
+    await userEvent.click(screen.getByTestId('run-start-button'))
+    await waitFor(() =>
+      expect(
+        within(screen.getByTestId('node-card-render')).getByTestId('node-state-failed'),
+      ).toBeInTheDocument(),
+    )
+  }
+
+  /** A first run that fails, then a second that never settles — so the retry stays in flight. */
+  function retryableClient() {
+    const startRun = vi.fn(async () => {
+      if (startRun.mock.calls.length > 1) {
+        return (async function* () {
+          yield { type: 'run-accepted', runToken: 'tok-2' } as RunStreamEvent
+          await new Promise<void>(() => {})
+        })()
+      }
+      return failedStream()
+    })
+    return { client: stubClient({ startRun }), startRun }
+  }
+
+  it('starts a run and puts the card into the retrying state', async () => {
+    const { client, startRun } = retryableClient()
+    await runUntilFailed(client)
+
+    await userEvent.click(within(screen.getByTestId('node-card-render')).getByTestId('node-retry'))
+
+    // The engine has no per-node re-execution, so `Retry node` starts the same run `Re-run` does.
+    await waitFor(() => expect(startRun).toHaveBeenCalledTimes(2))
+
+    // `3B`: the header swaps its dot for the spinner and the status word becomes `retrying`.
+    await waitFor(() =>
+      expect(
+        within(screen.getByTestId('node-card-render')).getByTestId('node-spinner'),
+      ).toBeInTheDocument(),
+    )
+    const card = screen.getByTestId('node-card-render')
+    expect(within(card).getByTestId('node-status').textContent).toBe('retrying')
+    expect(within(card).queryByTestId('node-kind-dot')).toBeNull()
+  })
+
+  it('keeps the failure it is retrying from on screen, with both actions dimmed', async () => {
+    const { client } = retryableClient()
+    await runUntilFailed(client)
+
+    await userEvent.click(within(screen.getByTestId('node-card-render')).getByTestId('node-retry'))
+
+    await waitFor(() =>
+      expect(
+        within(screen.getByTestId('node-card-render')).getByTestId('node-spinner'),
+      ).toBeInTheDocument(),
+    )
+    // The error well survives the retry: the card still says what it is retrying *from*.
+    const card = screen.getByTestId('node-card-render')
+    expect(within(card).getByTestId('node-error-name').textContent).toBe('ImageRenderError')
+    expect(within(card).getByTestId('node-error-message').textContent).toContain(
+      'Unsupported colour profile',
+    )
+    expect(within(card).getByTestId('node-retry')).toBeDisabled()
+    expect(within(card).getByTestId('node-view-trace')).toBeDisabled()
+  })
+
+  it('leaves the retry behind once the run it started has settled', async () => {
+    const startRun = vi.fn(async () => failedStream())
+    await runUntilFailed(stubClient({ startRun }))
+
+    await userEvent.click(within(screen.getByTestId('node-card-render')).getByTestId('node-retry'))
+
+    await waitFor(() => expect(startRun).toHaveBeenCalledTimes(2))
+    // The second run failed too, so the card is back to a plain `failed` — not still retrying.
+    await waitFor(() =>
+      expect(
+        within(screen.getByTestId('node-card-render')).getByTestId('node-retry'),
+      ).toBeEnabled(),
+    )
+    expect(within(screen.getByTestId('node-card-render')).queryByTestId('node-spinner')).toBeNull()
+  })
+})
+
+describe('`2A` — run history as a navigator', () => {
+  const SECOND_REPORT = { ...REPORT, runNumber: 220, elapsedMs: 1100 }
+
+  /** Two runs that settle: `#219`, then `#220`. */
+  function twoRunClient() {
+    const startRun = vi.fn(async () =>
+      streamOf([
+        { type: 'run-accepted', runToken: 'tok' },
+        {
+          type: 'run-settled',
+          report: startRun.mock.calls.length > 1 ? SECOND_REPORT : REPORT,
+        },
+      ]),
+    )
+    return stubClient({ startRun })
+  }
+
+  async function runTwice() {
+    mount(twoRunClient())
+    await waitFor(() => expect(screen.getByTestId('run-input-title')).toBeInTheDocument())
+    await userEvent.type(screen.getByTestId('run-input-title'), 'A post')
+    await userEvent.click(screen.getByTestId('run-start-button'))
+    await waitFor(() => expect(screen.getByTestId('studio-run-row-219')).toBeInTheDocument())
+    await userEvent.click(screen.getByTestId('run-rerun-button'))
+    await waitFor(() => expect(screen.getByTestId('studio-run-row-220')).toBeInTheDocument())
+  }
+
+  it('marks the newest run until a row is picked', async () => {
+    await runTwice()
+    await waitFor(() =>
+      expect(screen.getByTestId('studio-dock-run-meta').textContent).toBe('#220 · 1.1s'),
+    )
+  })
+
+  it('brings an earlier run back onto the dock and the canvas', async () => {
+    await runTwice()
+
+    await userEvent.click(screen.getByTestId('studio-run-row-219'))
+
+    await waitFor(() =>
+      expect(screen.getByTestId('studio-dock-run-meta').textContent).toBe('#219 · 2.4s'),
+    )
+    // The canvas is that run's too: `#219` settled both nodes, so both still read `ok`.
+    expect(
+      within(screen.getByTestId('node-card-render')).getByTestId('node-status').textContent,
+    ).toContain('ok')
+  })
+
+  it('goes back to the newest run when its own row is picked again', async () => {
+    await runTwice()
+
+    await userEvent.click(screen.getByTestId('studio-run-row-219'))
+    await waitFor(() =>
+      expect(screen.getByTestId('studio-dock-run-meta').textContent).toBe('#219 · 2.4s'),
+    )
+
+    await userEvent.click(screen.getByTestId('studio-run-row-220'))
+    await waitFor(() =>
+      expect(screen.getByTestId('studio-dock-run-meta').textContent).toBe('#220 · 1.1s'),
+    )
+  })
+
+  it('hands the rows no select handler while a run is in flight', async () => {
+    let release = () => {}
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const startRun = vi.fn(async () => {
+      if (startRun.mock.calls.length > 1) {
+        return (async function* () {
+          yield { type: 'run-accepted', runToken: 'tok-2' } as RunStreamEvent
+          await gate
+        })()
+      }
+      return streamOf([
+        { type: 'run-accepted', runToken: 'tok' },
+        { type: 'run-settled', report: REPORT },
+      ])
+    })
+    mount(stubClient({ startRun }))
+    await waitFor(() => expect(screen.getByTestId('run-input-title')).toBeInTheDocument())
+    await userEvent.type(screen.getByTestId('run-input-title'), 'A post')
+    await userEvent.click(screen.getByTestId('run-start-button'))
+    await waitFor(() => expect(screen.getByTestId('studio-run-row-219')).toBeInTheDocument())
+
+    await userEvent.click(screen.getByTestId('run-rerun-button'))
+    await waitFor(() => expect(screen.getByTestId('studio-running-cancel')).toBeInTheDocument())
+
+    // The live run has no row of its own, so a row that took the canvas over would strand the
+    // user with no way back to what is actually happening.
+    await userEvent.click(screen.getByTestId('studio-run-row-219'))
+    expect(screen.queryByTestId('studio-dock-status')).toBeNull()
+    release()
   })
 })

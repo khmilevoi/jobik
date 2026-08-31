@@ -10,8 +10,10 @@ import type { DiscoveredFlow } from './discovery.js'
  * never crosses is a handler, a Zod schema, an absolute filesystem path or a secret — the
  * `BoundFlow` on the Node side holds all four, and none of them is read here.
  *
- * `documentFile` is a basename, never a directory: the design's top bar shows the flow name beside
- * a mono file badge, and a file name discloses nothing about the filesystem it lives on.
+ * `documentFile` and `sourceFile` are basenames, never directories: the design's top bar shows the
+ * flow name beside a mono file badge, and a file name discloses nothing about the filesystem it
+ * lives on. The two are different files — the JSON document a flow is bound to, and the module it
+ * is authored in — and the badge shows the second.
  */
 
 /** One row of the design's `Flows` list. Structurally identical to P4's `FlowSummary`. */
@@ -35,6 +37,15 @@ export type SafeFlowDescriptor = {
   readonly name: string
   /** The document's file name only, e.g. `flow.jobik.json`. Never its directory. */
   readonly documentFile: string
+  /**
+   * The file the flow is *authored* in, e.g. `flow.ts`. Basename only, never a directory.
+   *
+   * This is the badge the design's top bar prints, and the file `3C`'s validation findings cite —
+   * a TypeScript source, not the JSON document. It reads the author's own `.meta({ source })`
+   * declaration and falls back to the binding entrypoint's own file name, which is the closest
+   * true answer when nothing was declared.
+   */
+  readonly sourceFile: string
   /** Every node, in the order the flow builder attached it. */
   readonly nodes: readonly SafeNodeDescriptor[]
   /** The ids of the starts, in the same order. */
@@ -77,6 +88,9 @@ export function describeFlow(
     id: discovered.id,
     name: discovered.flow.name,
     documentFile: path.basename(discovered.documentPath),
+    // `?.` although `BoundFlow.meta` is the builder's own doing: this module is loaded off disk
+    // and is untrusted, so `meta` may simply not be there.
+    sourceFile: path.basename(discovered.flow.meta?.source ?? discovered.bindingPath),
     nodes,
     startIds,
   }

@@ -265,5 +265,9 @@ Changesets. Node >= 24, ESM only.
 - TypeScript, ESM, `import.meta.filename` for path resolution. Absolute paths only in bindings.
 - `@jobik/core` is namespace-imported: `import * as jobik from '@jobik/core'`. It exports `start`, `node`, `flow`, and the tagged error classes at top level — no `jobik` object export, no default export. The `jobik.` prefix is the import alias, not something the package owns. `@jobik/ui` and `@jobik/ui/server` keep named imports for their single define-functions.
 - Zod v4 is the schema system and a peer dependency of `@jobik/core`.
+- `flow().meta({ … })` is the open bag for anything a surface needs and the graph cannot say. It is
+  inert at run time. Its one field today is `source` — pass `import.meta.filename`, absolute — and
+  it is what the Studio's top-bar badge prints; leave it out and the badge falls back to the
+  binding entrypoint's own file name.
 - Errors use `errore` (`import * as errore from 'errore'`): expected failures are returned as `T | Error`, never thrown. See the `errore` skill.
 - The editor is React Flow based, desktop-first, dark only, and styled with CSS Modules — see *Styling*.

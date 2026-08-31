@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { EdgeShape } from '#canvas/index.js'
 import { FlowCanvas, MetadataRow } from '#canvas/index.js'
@@ -39,6 +40,7 @@ import {
   toRunStack,
   toRunSummary,
 } from '#studio/runPresenter.js'
+import type { RunSession } from '#studio/runSession.js'
 import { completedNodeCount } from '#studio/runSession.js'
 import { Studio } from '#studio/Studio/Studio.js'
 import { useStudioSession } from '#studio/useStudioSession.js'
@@ -75,6 +77,13 @@ export interface StudioAppProps {
 const IDLE_NOTE =
   'Inputs are typed from the flow declaration. Only downstream nodes of the selected entry point run.'
 
+/** `3B`'s retry, as `StudioApp` holds it: which card, and the failure still shown on it. */
+type RetryState = {
+  readonly nodeId: string
+  readonly errorName: string
+  readonly message: ReactNode
+}
+
 // R38: `Run panel — states`, the running card's own note. `IDLE_NOTE` above has its counterpart;
 // this one was simply never wired up.
 const RUNNING_NOTE =
@@ -97,15 +106,39 @@ export function StudioApp(props: StudioAppProps) {
 
   /**
    * `2A`'s `Run history` — `#221 2.4s`, `#220 failed`, `#219 2.4s` — from the runs this browser
-   * session has actually made.
+   * session has actually made, and a navigator between them rather than only a record.
    *
-   * It is a record, not a navigator: **no row carries an `onSelectRun`**, because v1 has no
-   * endpoint that returns an earlier run's report and nothing client-side keeps one. Restoring
-   * `#219` would mean re-deriving the canvas overlays, the run panel and the dock from a report the
-   * app no longer has. Every value shown is real — the server's own run number, the status it
-   * settled with, and its elapsed — and the selected row is the run currently on screen.
+   * The whole settled `RunSession` is kept, not a summary of one. Restoring `#219` means
+   * re-deriving the canvas overlays, the run panel, the output dock and the viewer's log, and every
+   * one of those is already a projection of a session — so keeping the session is the whole feature
+   * and nothing has to be re-fetched. It is not: v1 has no endpoint that returns an earlier run's
+   * report, so this lives exactly as long as the tab does. A reload empties it, as it always did.
+   *
+   * Every value shown is still real — the server's own run number, the status it settled with, its
+   * elapsed. A run that never settled (a rejected start, a dropped stream) has no report and no
+   * number, so it never joins.
    */
-  const [runHistory, setRunHistory] = useState<readonly RunHistoryEntry[]>([])
+  const [archive, setArchive] = useState<readonly RunSession[]>([])
+
+  /**
+   * The row the sidebar marks, and the run every read-only surface projects. `undefined` means the
+   * newest — which is the run on screen, and the only behaviour there was before a row could be
+   * picked at all.
+   */
+  const [selectedRunId, setSelectedRunId] = useState<string | undefined>(undefined)
+
+  /**
+   * `3B` — the node whose `Retry node` was pressed, kept together with the failure it is retrying
+   * *from*.
+   *
+   * The engine runs a whole flow from a start; there is no re-execution of a single node. So
+   * `Retry node` starts exactly the run `Re-run` starts, and this is what lets the card say so:
+   * for as long as that run is in flight the retried card keeps the error well it had, both footer
+   * buttons dimmed, under `3B`'s header — the spinner in place of the dot and `retrying` in the
+   * accent. The error is carried here rather than looked up because the run that produced it is
+   * gone from `session` the moment the new one replaces it.
+   */
+  const [retry, setRetry] = useState<RetryState | undefined>(undefined)
 
   /**
    * `3C`: cancelling asks first. Every affordance that used to call `cancel()` — the run panel's
@@ -216,7 +249,9 @@ export function StudioApp(props: StudioAppProps) {
   const switchTo = useCallback(
     (nextFlowId: string) => {
       setViewerNodeId(undefined)
-      setRunHistory([])
+      setArchive([])
+      setSelectedRunId(undefined)
+      setRetry(undefined)
       setCancelPrompt(false)
       setPendingFlowId(undefined)
       setSaveAndSwitchTo(undefined)
@@ -277,7 +312,7 @@ export function StudioApp(props: StudioAppProps) {
   }, [startNode, studio.inputDraft])
 
   // Every run start closes whatever output the viewer still has open. Without this, the viewer
-  // only appears to close because `lastReport` goes briefly `undefined`; if the next report
+  // only appears to close because `viewedReport` goes briefly `undefined`; if the next report
   // contains a node with the same id as `viewerNodeId`, it silently reopens with no user action.
   const startRun = useCallback(
     (values: Record<string, unknown>) => {
@@ -286,6 +321,10 @@ export function StudioApp(props: StudioAppProps) {
       // including `RunIdleView`'s own button, whose chrome `run/` owns.
       if (runBlocked) return
       closeViewer()
+      // A new run takes the surfaces over: the archived run a row had selected is no longer what
+      // the canvas shows, and whatever `3B` was saying about the last failure is finished with.
+      setSelectedRunId(undefined)
+      setRetry(undefined)
       studio.run(values)
     },
     [studio.run, closeViewer, runBlocked],
@@ -299,42 +338,124 @@ export function StudioApp(props: StudioAppProps) {
     if (values !== undefined) startRun(values)
   }, [runInputValues, startRun])
 
-  // Append each run to the history as it settles, newest first, exactly once per run number.
-  const settledReport = session?.report
+  /**
+   * `3B` — what `Retry node` on a failed card does.
+   *
+   * `setRetry` runs *after* `startRun`, which clears it: React batches the whole click into one
+   * commit, so the card is never painted in between with the flag half-applied.
+   */
+  const retryNode = useCallback(
+    (target: RetryState) => {
+      // A run already in flight is the run; and `3D` blocks every start while an error stands, so
+      // a press that cannot start a run must not leave the card claiming one did.
+      if (running || runBlocked) return
+      const values = runInputValues()
+      if (values === undefined) return
+      startRun(values)
+      setRetry(target)
+    },
+    [running, runBlocked, runInputValues, startRun],
+  )
+
+  // The retry is over with the run that carried it: past that, the node's own settled state is the
+  // truth and `3B` has nothing left to say.
   useEffect(() => {
-    if (settledReport === undefined) return
-    setRunHistory((previous) => {
-      const id = String(settledReport.runNumber)
-      if (previous.some((entry) => entry.id === id)) return previous
-      return [
-        {
-          id,
-          label: `#${settledReport.runNumber}`,
-          status: settledReport.status === 'ok' ? 'ok' : 'failed',
-          ...(settledReport.status === 'ok'
-            ? { elapsed: formatElapsed(settledReport.elapsedMs) }
-            : {}),
-        },
-        ...previous,
-      ]
-    })
-  }, [settledReport])
+    if (!running) setRetry(undefined)
+  }, [running])
+
+  // Every run joins the archive as it settles, newest first, exactly once per run number.
+  useEffect(() => {
+    const report = session?.report
+    if (session === undefined || report === undefined) return
+    setArchive((previous) =>
+      previous.some((entry) => entry.report?.runNumber === report.runNumber)
+        ? previous
+        : [session, ...previous],
+    )
+  }, [session])
+
+  const runHistory = useMemo<readonly RunHistoryEntry[]>(
+    () =>
+      archive.flatMap((entry) => {
+        const report = entry.report
+        if (report === undefined) return []
+        return [
+          {
+            id: String(report.runNumber),
+            label: `#${report.runNumber}`,
+            status: report.status === 'ok' ? ('ok' as const) : ('failed' as const),
+            ...(report.status === 'ok' ? { elapsed: formatElapsed(report.elapsedMs) } : {}),
+          },
+        ]
+      }),
+    [archive],
+  )
+
+  /**
+   * The run every read-only surface projects — the canvas overlays, the run panel, the output dock
+   * and the viewer's log.
+   *
+   * A picked row wins, but only while nothing is in flight. A live run owns the canvas and is the
+   * one run with no row of its own, so letting a row take over mid-flight would strand the user
+   * with no way back to what is actually happening; `startRun` drops the selection for the same
+   * reason.
+   */
+  const viewedSession = useMemo(() => {
+    if (running || selectedRunId === undefined) return session
+    return archive.find((entry) => String(entry.report?.runNumber) === selectedRunId) ?? session
+  }, [running, selectedRunId, archive, session])
+
+  const viewedReport = viewedSession?.report
+
+  const selectRun = useCallback((runId: string) => {
+    // The open output belongs to the run that produced it; it does not carry over to another one.
+    setViewerNodeId(undefined)
+    setSelectedRunId(runId)
+  }, [])
 
   const overlays = useMemo<ReadonlyMap<string, NodeOverlay> | undefined>(() => {
-    if (session === undefined) return undefined
+    if (viewedSession === undefined) return undefined
 
-    const base = toNodeOverlays(session)
+    const base = toNodeOverlays(viewedSession)
     const enriched = new Map<string, NodeOverlay>()
     // Closeout finding 1, queued: a node is blocked on an upstream that has not produced yet, so
     // anything already settled is not what it waits on. `waitingOnField` reads the rest off the
     // document's own connection list.
     const settledNodeIds = new Set(
-      [...session.nodes]
+      [...viewedSession.nodes]
         .filter(([, record]) => record.status !== 'queued' && record.status !== 'running')
         .map(([nodeId]) => nodeId),
     )
 
     for (const [nodeId, overlay] of base) {
+      /**
+       * `3B` — the retried card, for as long as the run that retries it is in flight.
+       *
+       * It outranks every branch below: the node is being re-run, and what the card has to say is
+       * that, not that it is queued behind an upstream. It keeps the error well of the run it is
+       * retrying from, so the card still says what it is retrying *from*, and both footer actions
+       * dim.
+       *
+       * There is no `elapsed` here, and that is the same ruling the running card already lives
+       * under: nothing on the wire reports a per-node clock, and the run's own clock ticks every
+       * 100ms — feeding it in would rebuild the canvas node array ten times a second and reset an
+       * in-flight drag. The run clock is in the dock header, where one tick costs nothing.
+       */
+      if (running && retry?.nodeId === nodeId && !settledNodeIds.has(nodeId)) {
+        enriched.set(nodeId, {
+          ...overlay,
+          state: 'retrying',
+          status: 'retrying',
+          detail: {
+            kind: 'failed',
+            errorName: retry.errorName,
+            message: retry.message,
+            retrying: true,
+          },
+        })
+        continue
+      }
+
       // `Node states` queued (design 671–676): the `Waiting on render.image` line and the three
       // flat placeholder bars, which nothing under `studio/` used to build. `overlay.status` is
       // the RAW node status, so a `skipped` node — which shares the queued CARD treatment — never
@@ -347,7 +468,25 @@ export function StudioApp(props: StudioAppProps) {
         }
       }
 
-      const report = session.report?.nodes.find((node) => node.nodeId === nodeId)
+      // `Node states` failed: the two footer actions. `Retry node` re-runs the flow, because that
+      // is the only re-execution the engine has — see `retryNode`. `View trace` has nowhere to go
+      // yet: `StackTraceModal` exists and is feedable from the wire, but nothing assembles its
+      // props, so the button is deliberately left without a handler rather than given one that
+      // lies.
+      if (overlay.detail?.kind === 'failed') {
+        const failure = overlay.detail
+        enriched.set(nodeId, {
+          ...overlay,
+          detail: {
+            ...failure,
+            onRetry: () =>
+              retryNode({ nodeId, errorName: failure.errorName, message: failure.message }),
+          },
+        })
+        continue
+      }
+
+      const report = viewedSession.report?.nodes.find((node) => node.nodeId === nodeId)
       if (overlay.state !== 'ok' || report === null || report === undefined) {
         enriched.set(nodeId, overlay)
         continue
@@ -394,7 +533,7 @@ export function StudioApp(props: StudioAppProps) {
     }
 
     return enriched
-  }, [session, extension, assetUrl, document, descriptor])
+  }, [viewedSession, running, retry, retryNode, extension, assetUrl, document, descriptor])
 
   // Ruling 1: keyed on the model INPUTS (descriptor, document, selection, overlays), never on the
   // previous `nodes`/`edges` output. `FlowCanvas` syncs from these two arrays by identity alone.
@@ -438,30 +577,34 @@ export function StudioApp(props: StudioAppProps) {
       }
     }
 
-    // R9: guarded on `session !== undefined` rather than fabricated. A settled run — streamed or
-    // rejected outright — always leaves `session` populated by the time `running` goes back to
-    // `false`; nothing here invents a `RunSession` shape to satisfy the compiler.
+    // R9: guarded on a session rather than fabricated. A settled run — streamed or rejected
+    // outright — always leaves one populated by the time `running` goes back to `false`; nothing
+    // here invents a `RunSession` shape to satisfy the compiler.
+    //
+    // From here down the panel reads the VIEWED run, which is the live one unless a `Run history`
+    // row picked an earlier one.
     if (
-      session !== undefined &&
-      (session.failure !== undefined || session.report?.status !== 'ok')
+      viewedSession !== undefined &&
+      (viewedSession.failure !== undefined || viewedSession.report?.status !== 'ok')
     ) {
-      const error = toRunErrorDetail(session)
+      const failed = viewedSession
+      const error = toRunErrorDetail(failed)
       const payload =
-        session.failure ??
-        session.report?.error ??
-        [...session.nodes.values()].find((node) => node.error !== null)?.error ??
+        failed.failure ??
+        failed.report?.error ??
+        [...failed.nodes.values()].find((node) => node.error !== null)?.error ??
         undefined
       const stack = payload === undefined ? undefined : toRunStack(payload)
       return {
         kind: 'failed',
-        runNumber: session.runNumber ?? 0,
-        elapsed: formatElapsed(session.report?.elapsedMs ?? 0),
+        runNumber: failed.runNumber ?? 0,
+        elapsed: formatElapsed(failed.report?.elapsedMs ?? 0),
         error,
-        nodes: toRunNodeTimings(session, order),
+        nodes: toRunNodeTimings(failed, order),
         ...(stack === undefined ? {} : { stack }),
         onCopyLog: () => {
           void globalThis.navigator?.clipboard?.writeText(
-            toRunLog(session)
+            toRunLog(failed)
               .lines.map((line) => `${line.time} ${line.text}`)
               .join('\n'),
           )
@@ -470,11 +613,7 @@ export function StudioApp(props: StudioAppProps) {
       }
     }
 
-    if (
-      studio.lastReport !== undefined &&
-      studio.lastReport.status === 'ok' &&
-      session !== undefined
-    ) {
+    if (viewedReport !== undefined && viewedReport.status === 'ok' && viewedSession !== undefined) {
       // `2A`, the newest artboard, draws the completed panel as: node timings, the inputs still
       // shown and still editable, `Re-run start1 ⌘↵`, then `Log` / `tail`. The run's OUTPUTS are
       // not here — they are in the bottom output dock, which `canvas`'s `inspect` opens. So
@@ -482,9 +621,9 @@ export function StudioApp(props: StudioAppProps) {
       // `Run panel — states` section as well and the panel would say everything twice.
       return {
         kind: 'completed',
-        runNumber: studio.lastReport.runNumber,
-        elapsed: formatElapsed(studio.lastReport.elapsedMs),
-        nodes: toRunNodeTimings(session, order),
+        runNumber: viewedReport.runNumber,
+        elapsed: formatElapsed(viewedReport.elapsedMs),
+        nodes: toRunNodeTimings(viewedSession, order),
         entryNodeId: studio.startId,
         inputs: {
           descriptor: startNode.input,
@@ -492,7 +631,7 @@ export function StudioApp(props: StudioAppProps) {
           presentation: runInputPresentation(startNode.input, studio.inputDraft),
           onDraftChange: studio.setInputField,
         },
-        log: { ...toRunLog(session), followLabel: 'tail' },
+        log: { ...toRunLog(viewedSession), followLabel: 'tail' },
         onRerun: runFromDraft,
       }
     }
@@ -514,7 +653,7 @@ export function StudioApp(props: StudioAppProps) {
       // The same predicate the docked control and the top-bar pill read, not a second one: two
       // places deciding whether this is runnable would drift.
       blocked: runBlocked,
-      ...(studio.lastReport === undefined ? {} : { lastRun: toRunSummary(studio.lastReport) }),
+      ...(viewedReport === undefined ? {} : { lastRun: toRunSummary(viewedReport) }),
     }
     // Depend on the specific `studio` fields this memo actually reads, not on `studio` itself —
     // `useStudioSession` returns a fresh object every render, so depending on it defeats the memo
@@ -524,10 +663,11 @@ export function StudioApp(props: StudioAppProps) {
     startNode,
     running,
     session,
+    viewedSession,
+    viewedReport,
     studio.startId,
     studio.elapsedMs,
     askToCancel,
-    studio.lastReport,
     studio.inputDraft,
     studio.setInputField,
     studio.selectStart,
@@ -622,8 +762,8 @@ export function StudioApp(props: StudioAppProps) {
   ])
 
   const openViewerNode = useMemo(
-    () => studio.lastReport?.nodes.find((node) => node.nodeId === viewerNodeId),
-    [studio.lastReport, viewerNodeId],
+    () => viewedReport?.nodes.find((node) => node.nodeId === viewerNodeId),
+    [viewedReport, viewerNodeId],
   )
 
   const onNodeLayoutChange = studio.moveNode
@@ -649,7 +789,7 @@ export function StudioApp(props: StudioAppProps) {
       nodeId: openViewerNode.nodeId,
       fileCount: fields.length,
       ...(field === undefined ? {} : { field }),
-      ...(studio.lastReport === undefined ? {} : { runNumber: studio.lastReport.runNumber }),
+      ...(viewedReport === undefined ? {} : { runNumber: viewedReport.runNumber }),
     }
     return {
       context: formatOutputContext({
@@ -658,41 +798,41 @@ export function StudioApp(props: StudioAppProps) {
       }),
       summary: formatOutputSummary(args),
     }
-  }, [openViewerNode, descriptor, studio.lastReport])
+  }, [openViewerNode, descriptor, viewedReport])
 
   const viewerLogs = useMemo(
     () =>
-      session === undefined
+      viewedSession === undefined
         ? []
-        : toRunLog(session).lines.map((line) => ({ time: line.time, message: line.text })),
-    [session],
+        : toRunLog(viewedSession).lines.map((line) => ({ time: line.time, message: line.text })),
+    [viewedSession],
   )
 
   // R33: `Copy all` and `Download` were both wired to `closeViewer` — neither did what it said,
   // and closing the viewer required pressing a button labelled "Copy all". Both now act on the
-  // same payload the `Raw` tab already renders (`raw={studio.lastReport}` below).
+  // same payload the `Raw` tab already renders (`raw={viewedReport}` below).
   const onCopyAllOutput = useCallback(() => {
-    if (studio.lastReport === undefined) return
-    void globalThis.navigator?.clipboard?.writeText(JSON.stringify(studio.lastReport, null, 2))
-  }, [studio.lastReport])
+    if (viewedReport === undefined) return
+    void globalThis.navigator?.clipboard?.writeText(JSON.stringify(viewedReport, null, 2))
+  }, [viewedReport])
 
   const onDownloadOutput = useCallback(() => {
-    if (studio.lastReport === undefined || openViewerNode === undefined) return
+    if (viewedReport === undefined || openViewerNode === undefined) return
     try {
-      const blob = new Blob([JSON.stringify(studio.lastReport, null, 2)], {
+      const blob = new Blob([JSON.stringify(viewedReport, null, 2)], {
         type: 'application/json',
       })
       const url = globalThis.URL.createObjectURL(blob)
       const link = globalThis.document.createElement('a')
       link.href = url
-      link.download = `${openViewerNode.nodeId}-run-${studio.lastReport.runNumber}.json`
+      link.download = `${openViewerNode.nodeId}-run-${viewedReport.runNumber}.json`
       link.click()
       globalThis.URL.revokeObjectURL(url)
     } catch {
       // No Blob/URL.createObjectURL support in this environment. `Copy all` is the fallback;
       // there is nothing more useful to do client-side.
     }
-  }, [studio.lastReport, openViewerNode])
+  }, [viewedReport, openViewerNode])
 
   // `FlowCanvas`'s `startNodeId` stays singular on purpose, and stays correct now that a flow may
   // declare several starts: it means "the selected entry point" — the node whose outgoing edges
@@ -720,7 +860,7 @@ export function StudioApp(props: StudioAppProps) {
           {...(extension === undefined ? {} : { descriptor: extension })}
           assetUrl={assetUrl}
           {...(outputDockStrings === undefined ? {} : outputDockStrings)}
-          raw={studio.lastReport}
+          raw={viewedReport}
           logs={viewerLogs}
           onCopyAll={onCopyAllOutput}
           onDownload={onDownloadOutput}
@@ -921,6 +1061,9 @@ export function StudioApp(props: StudioAppProps) {
    * frame between the flow changing and the sequence being reset — falls back to `idle` rather
    * than printing `0 errors`.
    */
+  /** The row the sidebar marks: what a click picked, or the newest run when nothing did. */
+  const activeRunId = selectedRunId ?? runHistory[0]?.id
+
   const validateState = useMemo<TopBarValidateState>(() => {
     if (validateAction.state === 'invalid') {
       return errorCount > 0 ? { state: 'invalid', errorCount } : { state: 'idle' }
@@ -935,7 +1078,7 @@ export function StudioApp(props: StudioAppProps) {
         flows={flowSummaries}
         {...(loaded && studio.flowId !== undefined ? { activeFlowId: studio.flowId } : {})}
         onSelectFlow={selectFlow}
-        {...(descriptor === undefined ? {} : { flowFile: descriptor.documentFile })}
+        {...(descriptor === undefined ? {} : { flowFile: descriptor.sourceFile })}
         dirty={draft?.dirty ?? false}
         nodes={flowNodeSummaries}
         {...(studio.selectedNodeId === undefined ? {} : { selectedNodeId: studio.selectedNodeId })}
@@ -951,7 +1094,12 @@ export function StudioApp(props: StudioAppProps) {
           ? {}
           : {
               runs: runHistory,
-              ...(runHistory[0] === undefined ? {} : { selectedRunId: runHistory[0].id }),
+              ...(activeRunId === undefined ? {} : { selectedRunId: activeRunId }),
+              // While a run streams, the canvas and the panel belong to it: it has no row of its
+              // own yet, so a row that took the surfaces over would strand the user with no way
+              // back to the run actually happening. Without `onSelectRun` the sidebar draws the
+              // plain read-only listing every artboard shows, which is exactly right for that.
+              ...(running ? {} : { onSelectRun: selectRun }),
             })}
         validate={validateState}
         runBlocked={runBlocked}
@@ -964,12 +1112,13 @@ export function StudioApp(props: StudioAppProps) {
       {/*
         `3C`'s `Validation`. It opens only on a rejected document: the wire answers
         `{ valid: true }` with no findings, and no artboard draws an all-clear dialog, so a passing
-        check stays as quiet as it was before. `flowFile` is the document's own name, which is what
-        the top bar's badge already shows.
+        check stays as quiet as it was before. Its context line is `publication · flow.ts` — the
+        module the flow is authored in, the same badge the top bar shows, and the file `3C`'s own
+        findings cite.
       */}
       {reportOpen && validationFindings !== undefined ? (
         <ValidationModal
-          context={`${descriptor?.name ?? ''} · ${descriptor?.documentFile ?? ''}`}
+          context={`${descriptor?.name ?? ''} · ${descriptor?.sourceFile ?? ''}`}
           findings={validationFindings}
           onRevalidate={requestValidate}
           onDismiss={closeReport}

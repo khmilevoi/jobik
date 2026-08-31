@@ -37,6 +37,23 @@ describe('describeFlow', () => {
     expect(descriptor.documentFile).toBe('flow.jobik.json')
   })
 
+  it('falls back to the binding entrypoint for the source file', async () => {
+    const descriptor = describeFlow(await committedFlow())
+    if (descriptor instanceof Error) throw descriptor
+    expect(descriptor.sourceFile).toBe('index.ts')
+  })
+
+  it('prefers the source the flow declared, and carries only its basename', async () => {
+    const discovered = await committedFlow()
+    const declared: DiscoveredFlow = {
+      ...discovered,
+      flow: { ...discovered.flow, meta: { source: path.resolve('/authored/elsewhere/flow.ts') } },
+    }
+    const descriptor = describeFlow(declared)
+    if (descriptor instanceof Error) throw descriptor
+    expect(descriptor.sourceFile).toBe('flow.ts')
+  })
+
   it('lists the starts', async () => {
     const descriptor = describeFlow(await committedFlow())
     if (descriptor instanceof Error) throw descriptor

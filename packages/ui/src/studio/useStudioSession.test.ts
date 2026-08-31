@@ -17,6 +17,7 @@ const DESCRIPTOR = {
   id: 'publication',
   name: 'publication',
   documentFile: 'flow.jobik.json',
+  sourceFile: 'flow.ts',
   startIds: ['start1'],
   nodes: [
     {
@@ -1025,6 +1026,7 @@ const TWO_START_DESCRIPTOR = {
   id: 'pokedex',
   name: 'pokedex',
   documentFile: 'flow.jobik.json',
+  sourceFile: 'flow.ts',
   startIds: ['byName', 'byNumber'],
   nodes: [
     {

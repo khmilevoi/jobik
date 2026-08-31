@@ -57,6 +57,8 @@ export type SafeFlowDescriptorPayload = {
   readonly name: string
   /** The document's file name only, e.g. `flow.jobik.json`. Never its directory. */
   readonly documentFile: string
+  /** The file the flow is authored in, e.g. `flow.ts` — the top bar's badge. Basename only. */
+  readonly sourceFile: string
   readonly nodes: readonly SafeNodeDescriptorPayload[]
   readonly startIds: readonly string[]
 }

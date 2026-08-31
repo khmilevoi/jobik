@@ -15,6 +15,7 @@ const DESCRIPTOR: SafeFlowDescriptorPayload = {
   id: 'publication',
   name: 'publication',
   documentFile: 'flow.jobik.json',
+  sourceFile: 'flow.ts',
   startIds: ['start1'],
   nodes: [
     {
