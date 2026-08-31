@@ -60,6 +60,25 @@ export function defineFlowUi(descriptor: FlowUiDescriptor): FlowUiDescriptor {
   return descriptor
 }
 
+/**
+ * React's own markers for the wrapper component types `React.forwardRef`, `React.memo` and
+ * `React.lazy` produce. Each wraps a render function in a plain object rather than being a
+ * function itself, so `typeof x === 'function'` is not enough to recognise them — but they carry
+ * a real `$$typeof` symbol identifying what they are, and that is what this checks rather than
+ * guessing from shape or a string tag a caller could forge.
+ */
+const REACT_FORWARD_REF_TYPE = Symbol.for('react.forward_ref')
+const REACT_MEMO_TYPE = Symbol.for('react.memo')
+const REACT_LAZY_TYPE = Symbol.for('react.lazy')
+
+/** Whether React can mount `value` as a component: a plain function, or one of the wrapper types. */
+function isRenderableComponent(value: unknown): value is FlowUiOutputComponent {
+  if (typeof value === 'function') return true
+  if (value === null || typeof value !== 'object') return false
+  const type = (value as { $$typeof?: unknown }).$$typeof
+  return type === REACT_FORWARD_REF_TYPE || type === REACT_MEMO_TYPE || type === REACT_LAZY_TYPE
+}
+
 /** Whether an arbitrary module's default export is safe for the loader to mount. */
 export function isFlowUiDescriptor(value: unknown): value is FlowUiDescriptor {
   if (value === null || typeof value !== 'object') return false
@@ -69,7 +88,7 @@ export function isFlowUiDescriptor(value: unknown): value is FlowUiDescriptor {
     (entry) =>
       entry !== null &&
       typeof entry === 'object' &&
-      typeof (entry as { Output?: unknown }).Output === 'function',
+      isRenderableComponent((entry as { Output?: unknown }).Output),
   )
 }
 

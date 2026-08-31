@@ -1,3 +1,4 @@
+import { forwardRef, lazy, memo } from 'react'
 import { describe, expect, it } from 'vitest'
 import type { OutputComponentProps } from './flowUi.js'
 import { defineFlowUi, isAssetDescriptor, isFlowUiDescriptor } from './flowUi.js'
@@ -31,6 +32,36 @@ describe('isFlowUiDescriptor', () => {
     expect(isFlowUiDescriptor({ nodes: { render: { Output: 'nope' } } })).toBe(false)
     expect(isFlowUiDescriptor({ nodes: [] })).toBe(false)
     expect(isFlowUiDescriptor({ nodes: [{ Output: RenderedImage }] })).toBe(false)
+  })
+
+  it('accepts every component shape React can actually render', () => {
+    expect(isFlowUiDescriptor({ nodes: { render: { Output: memo(RenderedImage) } } })).toBe(true)
+    expect(
+      isFlowUiDescriptor({
+        nodes: {
+          render: {
+            Output: forwardRef<HTMLDivElement, OutputComponentProps>((props, ref) => (
+              <div ref={ref}>{props.nodeId}</div>
+            )),
+          },
+        },
+      }),
+    ).toBe(true)
+    expect(
+      isFlowUiDescriptor({
+        nodes: { render: { Output: lazy(() => Promise.resolve({ default: RenderedImage })) } },
+      }),
+    ).toBe(true)
+  })
+
+  it('still rejects a plain object or a string wearing a component-shaped disguise', () => {
+    expect(isFlowUiDescriptor({ nodes: { render: { Output: {} } } })).toBe(false)
+    expect(isFlowUiDescriptor({ nodes: { render: { Output: { $$typeof: 'react.memo' } } } })).toBe(
+      false,
+    )
+    expect(isFlowUiDescriptor({ nodes: { render: { Output: { render: RenderedImage } } } })).toBe(
+      false,
+    )
   })
 })
 
