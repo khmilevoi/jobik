@@ -1,0 +1,8 @@
+.badge {
+  padding: 2px 5px;
+  border: 1px solid var(--jbk-border-inset);
+  border-radius: var(--jbk-radius-badge);
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-10);
+  color: var(--jbk-text-badge);
+}

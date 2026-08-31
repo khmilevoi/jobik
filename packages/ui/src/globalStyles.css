@@ -1,0 +1,59 @@
+/*
+ * The Studio's global stylesheet: the box-sizing reset and the four motion loops.
+ *
+ * This file is the source of truth. `globalStyles.tsx` mirrors it into `STUDIO_GLOBAL_CSS` for the
+ * `<style>` element the barrel has always exported, and `globalStyles.test.tsx` fails when the two
+ * drift. Both delivery paths stay because both have a caller: the stylesheet is what a bundler
+ * emits into `dist/index.css`, and the `<style>` element is what a host that cannot import CSS
+ * still gets by rendering `<StudioStyles />`. The rules are identical, so applying them twice
+ * changes nothing.
+ *
+ * The keyframe names are load-bearing: the `motion` tokens name `jspin`, `jdash`, `jshim` and
+ * `jpulse`, so renaming one here silently stops an animation.
+ */
+
+[data-jobik-studio],
+[data-jobik-studio] *,
+[data-jobik-studio] *::before,
+[data-jobik-studio] *::after {
+  box-sizing: border-box;
+}
+
+[data-jobik-studio] button {
+  font-family: inherit;
+  margin: 0;
+  cursor: pointer;
+}
+
+@keyframes jspin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes jdash {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
+@keyframes jshim {
+  0% {
+    background-position: 130% 0;
+  }
+
+  100% {
+    background-position: -30% 0;
+  }
+}
+
+@keyframes jpulse {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}

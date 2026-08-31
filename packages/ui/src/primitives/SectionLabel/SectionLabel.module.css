@@ -1,0 +1,13 @@
+/*
+ * `--jbk-section-label-color` is the override point behind the `color` prop: the panel header
+ * passes `textColors.panelHeaderLabel` and everything else takes the section-label step. A caller
+ * supplies a value the component cannot know, so it arrives as a custom property on `style`
+ * rather than as a class.
+ */
+.sectionLabel {
+  text-transform: uppercase;
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-9-5);
+  letter-spacing: var(--jbk-tracking-section-label);
+  color: var(--jbk-section-label-color, var(--jbk-text-section-label));
+}

@@ -1,0 +1,96 @@
+/*
+ * The seven (variant, size) cells the artboards contain, one class each.
+ *
+ * They are not a variant axis crossed with a size axis: `quiet:lg` has no height while `accent:lg`
+ * is `34px`, and `outlined:lg` pads `6px 14px` where `quiet:lg` pads `6px 12px`. Factoring that
+ * into two independent groups would invent metrics for the cells the design does not draw, so the
+ * cell stays the unit — exactly as `Record<string, CSSProperties>` had it — and the parts that
+ * genuinely are shared are grouped selectors.
+ */
+
+.button {
+  display: flex;
+  align-items: center;
+  background: none;
+  font-family: var(--jbk-font-ui);
+  font-weight: var(--jbk-weight-regular);
+}
+
+.quietSm,
+.quietMd,
+.quietLg {
+  border: 1px solid var(--jbk-border-control);
+  color: var(--jbk-text-control-label);
+}
+
+.outlinedMd,
+.outlinedLg {
+  border: 1px solid var(--jbk-border-save-button);
+  background: var(--jbk-surface-save-fill);
+  color: var(--jbk-text-primary);
+}
+
+.accentXs,
+.accentLg {
+  border: none;
+  background: var(--jbk-accent);
+  color: var(--jbk-accent-on-fill);
+  font-weight: var(--jbk-weight-semibold);
+}
+
+.quietSm {
+  height: 24px;
+  padding: 0 8px;
+  border-radius: var(--jbk-radius-small);
+  font-size: var(--jbk-size-11);
+}
+
+.quietMd {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: var(--jbk-radius-small);
+  font-size: var(--jbk-size-11-5);
+}
+
+.quietLg {
+  padding: 6px 12px;
+  border-radius: var(--jbk-radius-control);
+  font-size: var(--jbk-size-12);
+}
+
+.outlinedMd {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: var(--jbk-radius-small);
+  font-size: var(--jbk-size-11-5);
+}
+
+.outlinedLg {
+  padding: 6px 14px;
+  border-radius: var(--jbk-radius-control);
+  font-size: var(--jbk-size-12);
+  font-weight: var(--jbk-weight-medium);
+}
+
+.accentXs {
+  height: 20px;
+  padding: 0 8px;
+  border-radius: var(--jbk-radius-badge);
+  font-size: var(--jbk-size-11);
+}
+
+.accentLg {
+  height: 34px;
+  justify-content: center;
+  gap: 8px;
+  border-radius: var(--jbk-radius-control);
+  font-size: var(--jbk-size-12-5);
+  letter-spacing: var(--jbk-tracking-wide);
+}
+
+/* The mono keyboard hint the accent/lg cell carries. */
+.hint {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-10);
+  color: var(--jbk-accent-on-fill-muted);
+}

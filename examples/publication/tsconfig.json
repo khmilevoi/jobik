@@ -5,5 +5,5 @@
     "types": ["node"],
     "jsx": "react-jsx"
   },
-  "include": ["**/*.ts", "**/*.tsx"]
+  "include": ["**/*.ts", "**/*.tsx", "../../packages/ui/src/css.d.ts"]
 }

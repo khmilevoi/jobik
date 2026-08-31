@@ -1,0 +1,15 @@
+.well {
+  border-radius: var(--jbk-radius-control);
+}
+
+.control {
+  padding: 9px 10px;
+  border: 1px solid var(--jbk-border-quiet-control);
+  background: var(--jbk-surface-input-well);
+}
+
+.output {
+  padding: 8px;
+  border: 1px solid var(--jbk-border-inset);
+  background: var(--jbk-surface-output-well);
+}

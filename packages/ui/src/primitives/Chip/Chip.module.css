@@ -1,0 +1,26 @@
+/*
+ * `--jbk-chip-gap` is the override point behind the `gap` prop — `7` on the docked flows control,
+ * `8` by default, `9` on the running chip. Three numbers is not a variant axis the design names,
+ * so the prop stays a number and arrives as a custom property.
+ */
+.chip {
+  display: flex;
+  align-items: center;
+  height: var(--jbk-layout-chip-height);
+  padding: 0 10px;
+  gap: var(--jbk-chip-gap, 8px);
+  border: 1px solid var(--jbk-border-quiet-control);
+  border-radius: var(--jbk-radius-control);
+  background: var(--jbk-surface-docked-control);
+  font-family: var(--jbk-font-ui);
+}
+
+.accent {
+  border-color: var(--jbk-accent-chip-border);
+  background: var(--jbk-accent-chip-fill);
+}
+
+/* A trailing control tightens the right padding from `10px` to `4px`. */
+.trailing {
+  padding-right: 4px;
+}

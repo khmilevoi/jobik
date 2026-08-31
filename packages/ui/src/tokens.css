@@ -1,0 +1,159 @@
+/*
+ * Every value in `tokens.ts`, as a custom property. `tokens.ts` stays the TypeScript-side source
+ * for the handful of call sites that still compute a value in JS; this file is what every
+ * `*.module.css` reads. `tokens.css.test.ts` proves the two agree in both directions, so there is
+ * one source of truth and not two.
+ *
+ * NAMING — `--jbk-<group>-<key>`, where `<group>` is fixed per token module and `<key>` is the
+ * exported key in kebab-case (`topBar` -> `top-bar`):
+ *
+ *   surfaces          --jbk-surface-*     borders        --jbk-border-*
+ *   textColors        --jbk-text-*        statusColors   --jbk-status-*
+ *   kindDotColors     --jbk-kind-dot-*    accent         --jbk-accent-*
+ *   accentAlternates  --jbk-accent-alt-N  fontFamilies   --jbk-font-*
+ *   typeScale         --jbk-size-N        fontWeights    --jbk-weight-*
+ *   tracking          --jbk-tracking-*    radii          --jbk-radius-*
+ *   motion            --jbk-motion-*      layout         --jbk-layout-*
+ *
+ * `typeScale` is keyed by its own value with the dot spelled `-`: `12.5px` is `--jbk-size-12-5`.
+ * Numeric `radii` and `layout` tokens carry their `px` here, so `.module.css` never adds a unit.
+ *
+ * Scoped to `[data-jobik-studio]` for the same reason the reset is: the package must never restyle
+ * a host application. `--jbk-accent` reads `var(--accent, …)` — the frame sets `--accent` inline,
+ * and that override point must keep working.
+ */
+
+[data-jobik-studio] {
+  /* surfaces */
+  --jbk-surface-page: #050506;
+  --jbk-surface-shell: #070809;
+  --jbk-surface-panel: #0a0b0d;
+  --jbk-surface-top-bar: #0b0c0e;
+  --jbk-surface-queued-node: #0c0d0f;
+  --jbk-surface-cached-node: #0d0e10;
+  --jbk-surface-node-card: #0f1114;
+  --jbk-surface-input-well: #0c0e10;
+  --jbk-surface-output-well: #0a0b0c;
+  --jbk-surface-image-placeholder: #0d0f11;
+  --jbk-surface-save-fill: #16181a;
+  --jbk-surface-failed-node-card: #100e0e;
+  --jbk-surface-failed-error-well: #0d0b0b;
+  --jbk-surface-active-list-row: #131518;
+  --jbk-surface-active-node-row: #111316;
+  --jbk-surface-docked-control: #0e1012;
+
+  /* borders */
+  --jbk-border-frame: #1a1d20;
+  --jbk-border-shell-divider: #17191c;
+  --jbk-border-panel-header-divider: #141618;
+  --jbk-border-inline-hairline: #16181b;
+  --jbk-border-control: #232629;
+  --jbk-border-quiet-control: #212528;
+  --jbk-border-node-header-divider: #1c1f22;
+  --jbk-border-inset: #1e2124;
+  --jbk-border-save-button: #2c3033;
+  --jbk-border-secondary-button: #2a2e32;
+  --jbk-border-dashed: #23262a;
+  --jbk-border-active-list-row: #202427;
+  --jbk-border-icon-button: #212427;
+
+  /* textColors */
+  --jbk-text-primary: #e8eaec;
+  --jbk-text-node-title: #e2e6e9;
+  --jbk-text-active-identifier: #dfe3e6;
+  --jbk-text-active-field-label: #c3c9ce;
+  --jbk-text-field-label: #aab1b7;
+  --jbk-text-control-label: #aeb5bb;
+  --jbk-text-inactive-list-item: #8d949a;
+  --jbk-text-muted: #79828a;
+  --jbk-text-type-annotation: #5d656c;
+  --jbk-text-section-label: #4e555b;
+  --jbk-text-faintest: #41474c;
+  --jbk-text-panel-header-label: #5b6167;
+  --jbk-text-chevron: #7c848b;
+  --jbk-text-badge: #5c646b;
+  --jbk-text-active-meta: #5f676e;
+
+  /* accent — `--jbk-accent` is `accent.cssVar`, the frame's `--accent` override point */
+  --jbk-accent: var(--accent, #1fd6bd);
+  --jbk-accent-base: #1fd6bd;
+  --jbk-accent-on-fill: #04211d;
+  --jbk-accent-on-fill-muted: rgba(4, 33, 29, 0.6);
+  --jbk-accent-selection-border: rgba(31, 214, 189, 0.42);
+  --jbk-accent-selection-halo: 0 0 0 3px rgba(31, 214, 189, 0.06);
+  --jbk-accent-header-wash: rgba(31, 214, 189, 0.05);
+  --jbk-accent-chip-border: rgba(31, 214, 189, 0.3);
+  --jbk-accent-chip-fill: rgba(31, 214, 189, 0.06);
+  --jbk-accent-alt-1: #28c8d8;
+  --jbk-accent-alt-2: #3ecf8e;
+  --jbk-accent-alt-3: #c8a24a;
+
+  /* statusColors */
+  --jbk-status-ok: #6f9c82;
+  --jbk-status-failed: #c96a5c;
+  --jbk-status-error-tag: #dc8577;
+  --jbk-status-error-body: #a79b98;
+  --jbk-status-unsaved: #8a7d4a;
+
+  /* kindDotColors */
+  --jbk-kind-dot-start: var(--accent, #1fd6bd);
+  --jbk-kind-dot-neutral: #3d4348;
+  --jbk-kind-dot-queued: #2e3337;
+  --jbk-kind-dot-cached: #4a5157;
+
+  /* fontFamilies */
+  --jbk-font-ui: Archivo, Helvetica, sans-serif;
+  --jbk-font-mono: "JetBrains Mono", monospace;
+
+  /* typeScale */
+  --jbk-size-14: 14px;
+  --jbk-size-13: 13px;
+  --jbk-size-12-5: 12.5px;
+  --jbk-size-12: 12px;
+  --jbk-size-11-5: 11.5px;
+  --jbk-size-11: 11px;
+  --jbk-size-10-5: 10.5px;
+  --jbk-size-10: 10px;
+  --jbk-size-9-5: 9.5px;
+
+  /* fontWeights */
+  --jbk-weight-regular: 400;
+  --jbk-weight-medium: 500;
+  --jbk-weight-semibold: 600;
+
+  /* tracking */
+  --jbk-tracking-title: -0.01em;
+  --jbk-tracking-wide: 0.01em;
+  --jbk-tracking-section-label: 0.1em;
+  --jbk-tracking-start-tag: 0.08em;
+
+  /* radii */
+  --jbk-radius-panel: 8px;
+  --jbk-radius-node-card: 7px;
+  --jbk-radius-control: 5px;
+  --jbk-radius-small: 4px;
+  --jbk-radius-badge: 3px;
+  --jbk-radius-kind-dot: 2px;
+  --jbk-radius-round: 50%;
+
+  /* motion — the keyframes live in `globalStyles.css` */
+  --jbk-motion-spinner: jspin 0.7s linear infinite;
+  --jbk-motion-edge-dash: jdash 0.8s linear infinite;
+  --jbk-motion-shimmer: jshim 1.5s linear infinite;
+  --jbk-motion-pulse-slow: jpulse 1.5s ease-in-out infinite;
+  --jbk-motion-pulse-fast: jpulse 1s ease-in-out infinite;
+
+  /* layout */
+  --jbk-layout-top-bar-height: 52px;
+  --jbk-layout-panel-header-height: 38px;
+  --jbk-layout-left-sidebar-width: 248px;
+  --jbk-layout-right-dock-width: 320px;
+  --jbk-layout-node-header-height: 36px;
+  --jbk-layout-section-label-row-height: 22px;
+  --jbk-layout-field-row-height: 30px;
+  --jbk-layout-card-footer-height: 8px;
+  --jbk-layout-list-row-height: 30px;
+  --jbk-layout-inventory-row-height: 28px;
+  --jbk-layout-icon-button-size: 22px;
+  --jbk-layout-chip-height: 28px;
+}

@@ -1,0 +1,5 @@
+.typeAnnotation {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-10);
+  color: var(--jbk-text-type-annotation);
+}
