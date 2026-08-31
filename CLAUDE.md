@@ -11,8 +11,9 @@ v1 is implemented and both packages are at `0.1.0`. `@jobik/core` covers authori
 — and `@jobik/ui/server` serves the whole API. `examples/publication` is the flow every artboard in
 the design shows, and `jobik.config.ts` at the root points the Studio at it. What is *not* finished
 is listed in `.superpowers/waves/2026-08-29-jobik-v1/closeout/DEFERRED.md` (local-only; see *Docs*);
-read it before believing any feature works end to end. The most load-bearing entry is 8-D — see
-*Running the Studio* below.
+read it before believing any feature works end to end. That list is much shorter than it was: most
+of it was worked through on 2026-08-31, and each entry now says so. What remains is either an
+operator decision or a feature, not an oversight.
 
 ## Layout
 
@@ -67,25 +68,43 @@ The gate is `pnpm turbo run lint typecheck test build`. Turbo also runs the root
 
 ## Running the Studio
 
-**The app cannot be started from this repository as it stands.** There is no `dev` script, no `bin`,
-and no route serving the built bundle: `vite build` writes `packages/ui/dist/studio` and nothing
-mounts it. That is finding 8-D in
-`.superpowers/waves/2026-08-29-jobik-v1/closeout/DEFERRED.md`, deferred by the operator; the same
-cause makes `dist/studio` unreachable in the published `@jobik/ui` tarball (finding 11). Do not
-write, or follow, instructions that assume a `pnpm dev`.
+**`pnpm dev`.** It builds the Studio bundle, then serves that bundle and the API from one origin at
+http://127.0.0.1:4318, against the root `jobik.config.ts` — the `examples/publication` flow. This
+closes deferred findings 8-D and 11; instructions elsewhere that say the app cannot be started are
+stale.
 
-What does exist, and is what closeout item 5 hand-wired to drive the app:
+| Script | What it does |
+|---|---|
+| `pnpm dev` | `vite build` the bundle, then serve bundle + API on `127.0.0.1:4318`. The everyday path. |
+| `pnpm dev:server` | The same server, skipping the bundle rebuild. |
+| `pnpm dev:studio` | `vite dev` over `src/studio` with `/api` proxied to `127.0.0.1:4318`. Hot reload for UI work; run `pnpm dev:server` beside it. |
 
-- `jobik.config.ts` — `defineJobikConfig` with the example flow, host `127.0.0.1`, port `4318`.
-- `@jobik/ui/server` exports `loadJobikConfig({ path })`, `startJobikServer({ config, routes })` and
-  `jobikAllRoutes` — enough to stand the API up from a script of your own.
-- `packages/ui/vite.config.ts` — `vite dev` serves `src/studio` and proxies `/api` to
-  `127.0.0.1:4318`; a bundle served by the API server itself would need no proxy.
+Arguments reach the CLI through pnpm: `pnpm dev -- --port 4400`, and likewise `--host`,
+`--config <path>`, `--help`.
+
+The pieces, for when you need to drive it yourself:
+
+- `packages/ui/src/server/studioAssets.ts` — `jobikStudioAssetRoutes` serves `dist/studio` (`GET /`
+  is `index.html`, `assets/*` are immutable, every path is confined to the bundle directory, and
+  `/api/*` is never shadowed). `jobikStudioServerRoutes` is
+  `[...jobikAllRoutes, ...jobikStudioAssetRoutes]` — the whole app. Its wildcard route must stay
+  last in any route array, or nothing after it is reachable. There is deliberately **no SPA
+  fallback**: the Studio has no client-side router, so an unknown path is a 404, not a blank shell.
+- `packages/ui/src/server/cli.ts` — `runJobikCli`, which is also what `@jobik/ui`'s `bin`
+  (`jobik-studio`) runs. That is how a consumer of the published package opens the Studio, and it
+  is the reason `dist/studio` is no longer dead weight in the tarball.
+- `packages/ui/scripts/dev.mjs` — what `pnpm dev` actually executes.
+- The bundle is located relative to the installed package, never to `process.cwd()`. If it has not
+  been built, page requests answer `503` with the command to run and the API keeps working.
 
 One trap that costs a session if you meet it cold: **workspace sources cannot be loaded by plain
 Node.** The barrels import `./config.js` while the in-workspace `exports` maps point at `src/*.ts`,
 and Node's type stripping does not rewrite `.js` to `.ts`, so `import()` of a `src/**/*.ts` entry
-dies with `ERR_MODULE_NOT_FOUND`. Only vitest and a bundler resolve these today.
+dies with `ERR_MODULE_NOT_FOUND` — the root `jobik.config.ts` included, since it imports
+`@jobik/ui/server`. `packages/ui/scripts/dev.mjs` is the answer: a `registerHooks` resolver that
+retries a failed `.js` specifier as `.ts`. It is development-only and does not ship — an installed
+package has no such problem, because its `exports` point at `dist`. Vitest and a bundler resolve
+these on their own.
 
 ## Design lives in Claude Design, not in this repo
 
