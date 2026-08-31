@@ -7,12 +7,23 @@ import type { ComponentType } from 'react'
  * header, inputs, handles, status and error display, and the whole output viewer chrome.
  */
 
-/** Where a flow-local component is being rendered. */
+/**
+ * Where a flow-local component is being rendered.
+ *
+ * **`dock` was added after v1 shipped**, when artboard `2A` fixed the output surface's placement
+ * as a dock along the bottom of the canvas column. The addition is deliberately additive: a
+ * component written against the original two members keeps compiling and keeps rendering, because
+ * it reaches its default branch. A component that wants the dock's own geometry — a 372px primary
+ * column whose frame grows with the dock, and a 14px right-column gap — forwards `props.surface`
+ * straight into `OutputPreview`, which understands all three members.
+ */
 export type OutputSurface =
   /** The node card's inline slot — roughly 140px tall. */
   | 'card'
-  /** The `Preview` tab of the output viewer — full panel width. */
+  /** The `Preview` tab of the standalone output viewer card — full panel width. */
   | 'viewer'
+  /** The `Preview` tab of the `2A` output dock — the viewer's layout, sized to the dock. */
+  | 'dock'
 
 /** One node's settled output as the browser sees it: binary fields are `AssetDescriptor`s. */
 export type OutputValues = Readonly<Record<string, unknown>>

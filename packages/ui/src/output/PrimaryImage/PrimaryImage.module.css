@@ -41,11 +41,20 @@
   color: var(--jbk-text-field-label);
 }
 
-/* design 897–907 — the Preview body's 336px left column. */
-.primary {
-  width: var(--jbk-output-primary-column-width);
+/* design 897–907 — the Preview body's left column, 336px on the standalone card. */
+.primary,
+.primaryDock {
   flex: none;
   display: flex;
   flex-direction: column;
   gap: var(--jbk-output-primary-column-gap);
+}
+
+.primary {
+  width: var(--jbk-output-primary-column-width);
+}
+
+/* `10-output-dock.md` §2.3 — the dock widens the same column to 372px. */
+.primaryDock {
+  width: var(--jbk-output-dock-primary-column-width);
 }

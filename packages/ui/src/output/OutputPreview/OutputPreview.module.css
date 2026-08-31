@@ -1,17 +1,43 @@
-/* design 896–950 — the whole Preview body. */
+/* design 896–950 — the whole Preview body, on the card and in the `2A` dock. */
 
-.preview {
+.preview,
+.previewDock {
   padding: var(--jbk-output-body-padding);
   display: flex;
   gap: var(--jbk-output-body-gap);
 }
 
-.column {
+/*
+ * `10-output-dock.md` §2.3 — the dock's body is `flex:1;min-height:0`, so the primary frame inside
+ * it grows with the dock rather than sitting at a fixed 236px.
+ */
+.previewDock {
+  flex: 1;
+  min-height: 0;
+}
+
+.column,
+.columnDock {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
+}
+
+.column {
   gap: var(--jbk-output-right-column-gap);
+}
+
+/*
+ * The dock's right column opens to 14px and scrolls — `10-output-dock.md` §2.3 draws a scrollbar
+ * beside the typed-value grid. The scrollbar itself is the global one every scroll container in
+ * the Studio inherits; the gutter is reserved so appearing does not shift the grid.
+ */
+.columnDock {
+  gap: var(--jbk-output-dock-right-column-gap);
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 .divider {

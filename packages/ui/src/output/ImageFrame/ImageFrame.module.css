@@ -1,4 +1,7 @@
-/* The bordered media box. Two cells: the 336px-column primary image, and a variant tile. */
+/*
+ * The bordered media box. Three cells: the 336px-column primary image on the standalone card, the
+ * `2A` dock's primary image (same chrome, grows with the dock), and a variant tile.
+ */
 
 .frame {
   position: relative;
@@ -7,12 +10,22 @@
   background: var(--jbk-surface-image-placeholder);
 }
 
-/* design 898–900 */
-.primary {
-  height: var(--jbk-output-primary-image-height);
+/* design 898–900, and `10-output-dock.md` §2.3 — same chrome on both surfaces */
+.primary,
+.primaryFill {
   border: 1px solid var(--jbk-border-control);
   /* the only radius the shared ramp does not carry */
   border-radius: var(--jbk-output-primary-image-radius);
+}
+
+.primary {
+  height: var(--jbk-output-primary-image-height);
+}
+
+/* `10-output-dock.md` §2.3 — `flex:1;min-height:0`, so the frame fills whatever the dock is tall */
+.primaryFill {
+  flex: 1;
+  min-height: 0;
 }
 
 /* design 913–915 */
@@ -20,6 +33,20 @@
   height: var(--jbk-output-variant-height);
   border: 1px solid var(--jbk-border-inset);
   border-radius: var(--jbk-radius-control);
+}
+
+/*
+ * `StripePlaceholder` sizes itself from a pixel height a caller hands it, which a `flex:1` frame
+ * does not have. Stretching it from here is a stopgap: the placeholder wants a fill mode of its
+ * own, and it lives in `canvas/`.
+ */
+.fillMedia {
+  position: absolute;
+  inset: 0;
+}
+
+.fillMedia > div {
+  height: 100%;
 }
 
 .label {

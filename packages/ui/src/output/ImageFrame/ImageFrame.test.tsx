@@ -17,6 +17,13 @@ describe('ImageFrame', () => {
     expect(screen.getByTestId('image-frame-label')).toHaveTextContent('og.png')
   })
 
+  it("keeps the placeholder and the label in the dock's growing frame", () => {
+    render(<ImageFrame variant="primaryFill" label="cover.png" data-testid="frame" />)
+    const frame = screen.getByTestId('frame')
+    expect(screen.getByTestId('image-frame-label')).toHaveTextContent('cover.png')
+    expect(frame.querySelector('svg')).not.toBeNull()
+  })
+
   it('renders the image and no placeholder once a url is known', () => {
     render(<ImageFrame variant="primary" label="cover.png" src="/assets/a1" data-testid="frame" />)
     const image = screen.getByAltText('cover.png')

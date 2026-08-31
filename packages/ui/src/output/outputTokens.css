@@ -14,9 +14,10 @@
  */
 
 [data-jobik-studio] {
-  /* outputColors — design 901, 928 */
+  /* outputColors — design 901, 928; the grab bar is `10-output-dock.md` §2.1 */
   --jbk-output-badge-scrim: rgba(5, 5, 6, 0.72);
   --jbk-output-empty-variant-label: #3f4549;
+  --jbk-output-dock-resize-handle: #1e2226;
 
   /* outputMetrics — the tab bar, design 881–887 */
   --jbk-output-header-height: 40px;
@@ -60,4 +61,17 @@
   /* the `Live log` treatment the Logs tab reuses, design 634–639 */
   --jbk-output-log-gap: 5px;
   --jbk-output-log-line-height: 1.5;
+
+  /* the `2A` output dock — only what it adds or changes; see `10-output-dock.md` */
+  --jbk-output-dock-height: 378px;
+  --jbk-output-dock-collapsed-height: 34px;
+  --jbk-output-dock-handle-height: 7px;
+  --jbk-output-dock-handle-width: 38px;
+  --jbk-output-dock-handle-bar-height: 2px;
+  --jbk-output-dock-handle-radius: 1px;
+  --jbk-output-dock-header-padding-right: 12px;
+  --jbk-output-dock-dismiss-gap: 7px;
+  --jbk-output-dock-primary-column-width: 372px;
+  --jbk-output-dock-right-column-gap: 14px;
+  --jbk-output-dock-strip-gap: 12px;
 }

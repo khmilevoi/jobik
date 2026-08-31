@@ -12,6 +12,8 @@ export const outputColors = {
   badgeScrim: 'rgba(5,5,6,.72)',
   /** design 928 — the `no variant configured` label inside the dashed tile. */
   emptyVariantLabel: '#3f4549',
+  /** `10-output-dock.md` §2.1 — the 38 × 2 grab bar on the dock's resize strip. */
+  dockResizeHandle: '#1e2226',
 } as const
 
 export const outputMetrics = {
@@ -64,4 +66,29 @@ export const outputMetrics = {
   /** design 634–639 — the `Live log` treatment the Logs tab reuses. */
   logGap: 5,
   logLineHeight: 1.5,
+
+  /*
+   * The `2A` output dock — `10-output-dock.md`. Everything the standalone card already fixes is
+   * reused above; these are only the values the dock adds or changes.
+   */
+  /** §1 — the open dock's height, and the only height the design draws. */
+  dockHeight: 378,
+  /** §3 — the collapsed strip. */
+  dockCollapsedHeight: 34,
+  /** §2.1 — the 7px `ns-resize` strip and its 38 × 2 grab bar, radius 1. */
+  dockHandleHeight: 7,
+  dockHandleWidth: 38,
+  dockHandleBarHeight: 2,
+  /** Off the shared radius ramp (`8/7/5/4/3/2`), like the image frame's 6. */
+  dockHandleRadius: 1,
+  /** §2.2 — `padding:0 12px 0 14px`; the tabs keep the card's 14. */
+  dockHeaderPaddingRight: 12,
+  /** §2.2 — the gap inside the dismiss group, between the `esc` hint and the close button. */
+  dockDismissGap: 7,
+  /** §2.3 — the primary column, 372 where the card is 336. */
+  dockPrimaryColumnWidth: 372,
+  /** §2.3 — the right column, 14 where the card is 12. */
+  dockRightColumnGap: 14,
+  /** §3 — the collapsed strip's own gap, and the gap inside its `Show output` button. */
+  dockStripGap: 12,
 } as const

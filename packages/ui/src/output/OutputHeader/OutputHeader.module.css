@@ -1,0 +1,81 @@
+/*
+ * The 40px tab bar shared by the standalone `Output viewer` card and the `2A` output dock —
+ * `06-output-viewer.md` §1.1 and `10-output-dock.md` §2.2 draw the same element twice.
+ *
+ * No rule here declares a transition, and that is deliberate: `01-foundations.md` §6.4 found zero
+ * `transition` declarations in the whole design file, and §6.7 names the tab underline as
+ * something that explicitly does not slide.
+ */
+
+.header {
+  height: var(--jbk-output-header-height);
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--jbk-output-header-gap);
+  border-bottom: 1px solid var(--jbk-border-panel-header-divider);
+  background: var(--jbk-surface-top-bar);
+  font-family: var(--jbk-font-ui);
+}
+
+/* the card pads evenly */
+.headerCard {
+  padding: 0 var(--jbk-output-header-padding-x);
+}
+
+/* the dock's 26px close button sits 12px from the edge; its tabs still start at 14px */
+.headerDock {
+  padding: 0 var(--jbk-output-dock-header-padding-right) 0 var(--jbk-output-header-padding-x);
+}
+
+.tablist {
+  display: flex;
+  align-items: center;
+  gap: var(--jbk-output-tab-gap);
+}
+
+.tab {
+  border: none;
+  background: none;
+  padding: 0;
+  font-family: var(--jbk-font-ui);
+  font-size: var(--jbk-size-12);
+  font-weight: var(--jbk-weight-regular);
+  color: var(--jbk-text-muted);
+  cursor: pointer;
+}
+
+/* `10-output-dock.md` §2.2 — the only hover the header declares, and it is instant. */
+.tab:hover {
+  color: var(--jbk-text-active-field-label);
+}
+
+.tabActive,
+.tabActive:hover {
+  padding: 0 2px 2px;
+  font-weight: var(--jbk-weight-semibold);
+  color: var(--jbk-text-primary);
+  border-bottom: var(--jbk-output-tab-underline-width) solid var(--jbk-accent);
+}
+
+.divider {
+  width: 1px;
+  height: var(--jbk-output-header-divider-height);
+  background: var(--jbk-border-inset);
+}
+
+.monoMeta {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-10);
+  color: var(--jbk-text-type-annotation);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}

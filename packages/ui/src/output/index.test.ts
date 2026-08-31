@@ -6,6 +6,9 @@ describe('the output module surface', () => {
   it('exports everything P14 and a flow extension need', () => {
     for (const name of [
       'OutputViewer',
+      'OutputDock',
+      'OutputHeader',
+      'OutputBody',
       'OutputPreview',
       'PrimaryImage',
       'OutputMetadataRow',
@@ -26,6 +29,8 @@ describe('the output module surface', () => {
       'groupDigits',
       'outputColors',
       'outputMetrics',
+      'outputHeaderMeta',
+      'OUTPUT_TABS',
     ]) {
       expect(output, name).toHaveProperty(name)
     }
@@ -34,6 +39,7 @@ describe('the output module surface', () => {
   it('reaches the package barrel unchanged', () => {
     expect(jobikUi.defineFlowUi).toBe(output.defineFlowUi)
     expect(jobikUi.OutputViewer).toBe(output.OutputViewer)
+    expect(jobikUi.OutputDock).toBe(output.OutputDock)
     expect(jobikUi.isAssetDescriptor).toBe(output.isAssetDescriptor)
   })
 

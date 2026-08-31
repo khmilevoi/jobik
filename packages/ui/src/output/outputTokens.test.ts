@@ -4,11 +4,13 @@ import * as tokens from '#tokens.js'
 import { outputColors, outputMetrics } from './outputTokens.js'
 
 describe('output viewer tokens', () => {
-  it('carries the two colours the Output viewer artboard adds', () => {
-    // design 901 — the `n / m` badge scrim; design 928 — the empty variant label.
+  it('carries the three colours the two output artboards add', () => {
+    // design 901 — the `n / m` badge scrim; design 928 — the empty variant label;
+    // `10-output-dock.md` §2.1 — the dock's 38 × 2 grab bar.
     expect(outputColors).toEqual({
       badgeScrim: 'rgba(5,5,6,.72)',
       emptyVariantLabel: '#3f4549',
+      dockResizeHandle: '#1e2226',
     })
   })
 
@@ -39,5 +41,15 @@ describe('output viewer tokens', () => {
     expect(outputMetrics.typedValuesLabelWidth).toBe(110) // design 938
     expect(outputMetrics.bodyPadding).toBe(18) // design 896
     expect(outputMetrics.rawPadding).toBe(16) // design 963
+  })
+
+  it('fixes the `2A` output dock geometry', () => {
+    expect(outputMetrics.dockHeight).toBe(378) // `10-output-dock.md` §1
+    expect(outputMetrics.dockCollapsedHeight).toBe(34) // §3
+    expect(outputMetrics.dockHandleHeight).toBe(7) // §2.1
+    expect(outputMetrics.dockHandleWidth).toBe(38) // §2.1
+    expect(outputMetrics.dockHeaderPaddingRight).toBe(12) // §2.2 — `padding:0 12px 0 14px`
+    expect(outputMetrics.dockPrimaryColumnWidth).toBe(372) // §2.3 — 336 on the standalone card
+    expect(outputMetrics.dockRightColumnGap).toBe(14) // §2.3 — 12 on the standalone card
   })
 })

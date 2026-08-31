@@ -1,4 +1,5 @@
-import { ImageFrame } from '#output/ImageFrame/ImageFrame.js'
+import type { OutputSurface } from '#output/flowUi.js'
+import { ImageFrame, type ImageFrameVariant } from '#output/ImageFrame/ImageFrame.js'
 import s from './PrimaryImage.module.css'
 
 export interface OutputMetadataRowProps {
@@ -47,10 +48,30 @@ export interface PrimaryImageProps extends OutputPrimarySpec {
   readonly index: number
   /** `3` in `1 / 3` — every image the run produced, the primary included. */
   readonly total: number
+  /**
+   * Which surface the column sits on. `06-output-viewer.md` §4: the standalone card fixes it at
+   * `336 × 236`; the `2A` dock widens it to `372` and lets the frame grow. Default `viewer`.
+   */
+  readonly surface?: OutputSurface
 }
 
-/** design 897–907 — the Preview body's 336px left column. */
+/** The two column widths — `06-output-viewer.md` §1.3 and `10-output-dock.md` §2.3. */
+const columnClass = {
+  card: s.primary,
+  viewer: s.primary,
+  dock: s.primaryDock,
+} satisfies Record<OutputSurface, string>
+
+/** The dock's frame grows with the dock; the card's is fixed at 236px. */
+const frameVariant = {
+  card: 'primary',
+  viewer: 'primary',
+  dock: 'primaryFill',
+} satisfies Record<OutputSurface, ImageFrameVariant>
+
+/** design 897–907 — the Preview body's left column. */
 export function PrimaryImage(props: PrimaryImageProps) {
+  const surface = props.surface ?? 'viewer'
   const badge = (
     <div data-testid="output-primary-badge" className={s.badge}>
       {props.index} / {props.total}
@@ -58,16 +79,19 @@ export function PrimaryImage(props: PrimaryImageProps) {
   )
 
   return (
-    <div data-testid="output-primary" className={s.primary}>
+    <div data-testid="output-primary" className={columnClass[surface]}>
       <ImageFrame
-        variant="primary"
-        src={props.src}
+        variant={frameVariant[surface]}
+        {...(props.src === undefined ? {} : { src: props.src })}
         label={props.label}
         overlay={badge}
         data-testid="output-primary-frame"
       />
       {props.meta === undefined ? null : (
-        <OutputMetadataRow parts={props.meta} trailing={props.metaTrailing} />
+        <OutputMetadataRow
+          parts={props.meta}
+          {...(props.metaTrailing === undefined ? {} : { trailing: props.metaTrailing })}
+        />
       )}
     </div>
   )

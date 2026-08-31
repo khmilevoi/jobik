@@ -1,4 +1,9 @@
-/* design 880–977 — the whole `Output viewer` panel. */
+/*
+ * design 880–977 — the standalone `Output viewer` card's own chrome, and nothing else.
+ *
+ * The 40px header moved to `OutputHeader.module.css` when the `2A` dock started drawing the same
+ * bar, and the tab panel carries no styling on this surface at all.
+ */
 
 .viewer {
   background: var(--jbk-surface-panel);
@@ -8,60 +13,4 @@
   display: flex;
   flex-direction: column;
   font-family: var(--jbk-font-ui);
-}
-
-.header {
-  height: var(--jbk-output-header-height);
-  flex: none;
-  display: flex;
-  align-items: center;
-  gap: var(--jbk-output-header-gap);
-  padding: 0 var(--jbk-output-header-padding-x);
-  border-bottom: 1px solid var(--jbk-border-panel-header-divider);
-  background: var(--jbk-surface-top-bar);
-}
-
-.tablist {
-  display: flex;
-  align-items: center;
-  gap: var(--jbk-output-tab-gap);
-}
-
-.tab {
-  border: none;
-  background: none;
-  padding: 0;
-  font-family: var(--jbk-font-ui);
-  font-size: var(--jbk-size-12);
-  font-weight: var(--jbk-weight-regular);
-  color: var(--jbk-text-muted);
-}
-
-.tabActive {
-  padding: 0 2px 2px;
-  font-weight: var(--jbk-weight-semibold);
-  color: var(--jbk-text-primary);
-  border-bottom: var(--jbk-output-tab-underline-width) solid var(--jbk-accent);
-}
-
-.divider {
-  width: 1px;
-  height: var(--jbk-output-header-divider-height);
-  background: var(--jbk-border-inset);
-}
-
-.monoMeta {
-  font-family: var(--jbk-font-mono);
-  font-size: var(--jbk-size-10);
-  color: var(--jbk-text-type-annotation);
-}
-
-.spacer {
-  flex: 1;
-}
-
-.actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }
