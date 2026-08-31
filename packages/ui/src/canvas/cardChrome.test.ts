@@ -8,10 +8,18 @@ import type { NodeRunState } from './types.js'
  * `cardChrome.module.css`, and `canvasTokens.css.test.ts` is what keeps them honest.
  */
 
-const STATES: readonly NodeRunState[] = ['idle', 'queued', 'running', 'ok', 'failed', 'cached']
+const STATES: readonly NodeRunState[] = [
+  'idle',
+  'queued',
+  'running',
+  'ok',
+  'failed',
+  'cached',
+  'retrying',
+]
 
 describe('resolveCardChrome — the state axis', () => {
-  it('gives every one of the six states its own card treatment', () => {
+  it('gives every one of the seven states its own card treatment', () => {
     const cards = STATES.map((state) => resolveCardChrome({ state }).card)
     expect(new Set(cards).size).toBe(STATES.length)
   })
@@ -23,6 +31,7 @@ describe('resolveCardChrome — the state axis', () => {
     expect(resolveCardChrome({ state: 'cached' }).header).toBe('')
     expect(resolveCardChrome({ state: 'running' }).header).not.toBe('')
     expect(resolveCardChrome({ state: 'failed' }).header).not.toBe('')
+    expect(resolveCardChrome({ state: 'retrying' }).header).not.toBe('')
   })
 })
 
@@ -44,6 +53,15 @@ describe('resolveCardChrome — selection', () => {
   it('keeps the failed treatment when the failed card is also selected', () => {
     expect(resolveCardChrome({ state: 'failed', selected: true })).toEqual(
       resolveCardChrome({ state: 'failed' }),
+    )
+  })
+
+  // `3B` gives the retrying card its own quiet `#241b1a` border rather than the accent selection
+  // one, for the same reason the failed card keeps its own: the border is part of what the state
+  // says, and selection would paint over it.
+  it('keeps the retrying treatment when the retrying card is also selected', () => {
+    expect(resolveCardChrome({ state: 'retrying', selected: true })).toEqual(
+      resolveCardChrome({ state: 'retrying' }),
     )
   })
 

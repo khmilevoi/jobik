@@ -86,13 +86,18 @@ export function NodeStateBody(props: NodeStateBodyProps) {
             {detail.message}
           </div>
         </div>
+        {/*
+          `nodrag` is React Flow's own opt-out class and it is load-bearing on both of these, for
+          the reason `NodeOutputSlot`'s `inspect` already carries it: without it a press reaches
+          the node's drag handler, so pressing `Retry node` starts dragging the card underneath.
+        */}
         <div className={s.actions}>
           <button
             type="button"
             data-testid="node-view-trace"
             onClick={detail.onViewTrace}
             disabled={detail.retrying === true}
-            className={cx(s.action, s.viewTrace, detail.retrying === true && s.dimmed)}
+            className={cx('nodrag', s.action, s.viewTrace, detail.retrying === true && s.dimmed)}
           >
             View trace
           </button>
@@ -101,7 +106,7 @@ export function NodeStateBody(props: NodeStateBodyProps) {
             data-testid="node-retry"
             onClick={detail.onRetry}
             disabled={detail.retrying === true}
-            className={cx(s.action, s.retry, detail.retrying === true && s.dimmed)}
+            className={cx('nodrag', s.action, s.retry, detail.retrying === true && s.dimmed)}
           >
             Retry node
           </button>

@@ -6,10 +6,10 @@
  * title, the status text and the status dot — and a variable is the only way one class can reach
  * all of them without this file and the component stylesheets fighting over the same property.
  *
- * `.highlighted` is written after the six state rules on purpose: selection wins over the state's
- * own border, halo and title, and equal-specificity source order is what makes it. It is never
- * combined with `.failed` — `resolveCardChrome` withholds it — which is how a failed card keeps
- * its own treatment even when selected.
+ * `.highlighted` is written after the seven state rules on purpose: selection wins over the
+ * state's own border, halo and title, and equal-specificity source order is what makes it. It is
+ * never combined with `.failed` or `.retrying` — `resolveCardChrome` withholds it — which is how
+ * either of those cards keeps its own treatment even when selected.
  */
 
 .idle {
@@ -65,6 +65,22 @@
   --jbk-card-header-divider: var(--jbk-canvas-cached-header-divider);
   --jbk-card-title: var(--jbk-canvas-title-cached);
   --jbk-card-status: var(--jbk-text-muted);
+}
+
+/*
+ * `3B`, the retry in flight: the failed card's surface and title under a border of its own —
+ * neither the failure hue nor the accent selection one — with no halo and the accent header wash
+ * one step lighter than a running card's. The status colour is the accent, because what the header
+ * prints there is `retrying · 0.4s`.
+ */
+.retrying {
+  --jbk-card-surface: var(--jbk-surface-failed-node-card);
+  --jbk-card-border: 1px solid var(--jbk-canvas-retrying-border);
+  --jbk-card-halo: none;
+  --jbk-card-header-divider: var(--jbk-canvas-failed-header-divider);
+  --jbk-card-header-wash: var(--jbk-canvas-retrying-header-wash);
+  --jbk-card-title: var(--jbk-canvas-title-failed);
+  --jbk-card-status: var(--jbk-accent);
 }
 
 .highlighted {

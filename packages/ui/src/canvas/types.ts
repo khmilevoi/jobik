@@ -1,9 +1,16 @@
 import type { CSSProperties, ReactNode } from 'react'
 import type { KindDotTone } from '#tokens.js'
 
-/** The six card treatments the artboards fix. `idle` is the default, un-run
- *  card. */
-export type NodeRunState = 'idle' | 'queued' | 'running' | 'ok' | 'failed' | 'cached'
+/**
+ * The seven card treatments the artboards fix. `idle` is the default, un-run card.
+ *
+ * `retrying` is `3B`'s own row and belongs here rather than on an axis of its own: it is a card
+ * *state* — the failed surface and title under a quiet border, an accent header wash, a spinner in
+ * place of the dot — and it displaces the failed treatment rather than layering over it. It never
+ * comes off a run stream: no node status says `retrying`, so only a caller that knows a retry was
+ * asked for can set it.
+ */
+export type NodeRunState = 'idle' | 'queued' | 'running' | 'ok' | 'failed' | 'cached' | 'retrying'
 
 /** P4's four kind dots, plus `status` — the dot painted in the card's own
  *  status colour. */
@@ -126,9 +133,11 @@ export type NodeCardDetail =
       /**
        * `3B` column 2 — the retry is under way. Both footer buttons drop to `opacity:.45` and stop
        * responding: "Retry node dims the moment it is pressed. The node header swaps its dot for
-       * the spinner and the 2 px header bar takes over as the progress read-out." Only the dim
-       * half is implemented here; the header spinner and the 2 px bar are `NodeCardHeader`'s and
-       * nothing produces this flag yet.
+       * the spinner and the 2 px header bar takes over as the progress read-out."
+       *
+       * This is the body's half of that state; the header's half is the card's own
+       * `state: 'retrying'`. A caller sets both together — the error well stays on screen so the
+       * card still says what it is retrying *from*.
        */
       readonly retrying?: boolean
     }

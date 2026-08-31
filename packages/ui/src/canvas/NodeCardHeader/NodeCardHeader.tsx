@@ -50,7 +50,7 @@ export function NodeCardHeader(props: NodeCardHeaderProps) {
 
   return (
     <div data-testid="node-card-header" className={cx(s.header, chrome.header)}>
-      {data.state === 'running' ? (
+      {data.state === 'running' || data.state === 'retrying' ? (
         <Spinner size={11} data-testid="node-spinner" />
       ) : (
         <div data-testid="node-kind-dot" className={cx(s.kindDot, chrome.kindDot)} />

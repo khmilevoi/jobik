@@ -41,6 +41,11 @@ describe('canvasColors', () => {
     expect(canvasColors.failedSolidLabel).toBe('#1a0d0b')
   })
 
+  it('carries the `3B` retrying card ramp', () => {
+    expect(canvasColors.retryingBorder).toBe('#241b1a')
+    expect(canvasColors.retryingHeaderWash).toBe('rgba(31,214,189,.04)')
+  })
+
   it('builds the skeleton shimmer from the image placeholder and its highlight', () => {
     expect(canvasColors.skeleton).toBe(
       'linear-gradient(100deg,#0d0f11 30%,#161a1d 50%,#0d0f11 70%)',

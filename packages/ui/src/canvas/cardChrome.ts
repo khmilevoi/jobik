@@ -36,6 +36,7 @@ const byState = {
   ok: s.ok,
   failed: s.failed,
   cached: s.cached,
+  retrying: s.retrying,
 } satisfies Record<NodeRunState, string>
 
 const byProblem = {
@@ -71,24 +72,32 @@ function defaultKindDot(
   if (isStart) return 'start'
   if (state === 'queued') return 'queued'
   if (state === 'cached') return 'cached'
-  if (state === 'ok' || state === 'failed' || state === 'running') return 'status'
+  // `retrying` is here for completeness only: `NodeCardHeader` draws a spinner in its place, so
+  // the dot this resolves to is never painted. Leaving it out would make the card's one unpainted
+  // element the odd one that falls through to `neutral`.
+  if (state === 'ok' || state === 'failed' || state === 'running' || state === 'retrying') {
+    return 'status'
+  }
   return 'neutral'
 }
 
 /**
  * The whole `Node states` table in one place. `failed` outranks selection: a failed card keeps its
  * own border, halo, divider, wash and title even when selected, which is why `highlighted` is
- * withheld from it rather than overridden. `running` always wears the selection treatment, whether
- * or not it is selected — per `### Node states`.
+ * withheld from it rather than overridden. `3B`'s `retrying` is withheld for the same reason and
+ * on the same line. `running` always wears the selection treatment, whether or not it is selected
+ * — per `### Node states`.
  */
 export function resolveCardChrome(options: CardChromeOptions): CardChrome {
   const { state, problem } = options
   const isStart = options.isStart ?? false
-  const failed = state === 'failed'
+  // `3B`'s retrying card sits with `failed` here: both state their own border, and selection's
+  // accent one would paint over it.
+  const ownBorder = state === 'failed' || state === 'retrying'
   // `3D`: a validation mark outranks selection for the same reason `failed` does — the accent
   // border would paint over the very thing the mark exists to point at.
   const highlighted =
-    !failed && problem === undefined && (options.selected === true || state === 'running')
+    !ownBorder && problem === undefined && (options.selected === true || state === 'running')
   const dot = options.kindDot ?? defaultKindDot(state, isStart, problem)
 
   // `### Selection and hover`: the section label lifts from `#4e555b` to `#535a60` on a selected
@@ -107,7 +116,7 @@ export function resolveCardChrome(options: CardChromeOptions): CardChrome {
       highlighted && s.highlighted,
       problem !== undefined && byProblem[problem],
     ),
-    header: failed || highlighted || problem === 'error' ? s.headerWash : '',
+    header: ownBorder || highlighted || problem === 'error' ? s.headerWash : '',
     kindDot: byKindDot[dot],
     sectionLabel: sectionLabel(),
   }

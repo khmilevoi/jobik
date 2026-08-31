@@ -84,6 +84,12 @@ export const canvasColors = {
   failedActionBorder: '#332725',
   failedActionLabel: '#cfc4c1',
   failedSolidLabel: '#1a0d0b',
+
+  /** `3B` → the retrying card. It keeps the failed surface and title but drops the failure border
+   *  and halo for a quiet one of its own, and its header wash is the accent at `.04` — a step
+   *  below the `.05` a running card takes, because the retry is the smaller claim. */
+  retryingBorder: '#241b1a',
+  retryingHeaderWash: 'rgba(31,214,189,.04)',
 } as const
 
 export const canvasMetrics = {

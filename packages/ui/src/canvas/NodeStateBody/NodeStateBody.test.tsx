@@ -156,6 +156,23 @@ describe('NodeStateBody — failed', () => {
     expect(onViewTrace).not.toHaveBeenCalled()
     expect(onRetry).not.toHaveBeenCalled()
   })
+
+  /**
+   * Not a style assertion: `nodrag` is React Flow's own opt-out hook, and without it a press on
+   * either action reaches the node's drag handler and starts dragging the card underneath it.
+   * `NodeOutputSlot`'s `inspect` carries it for the same reason.
+   */
+  it('keeps both footer actions out of the card drag', () => {
+    render(
+      <NodeStateBody
+        detail={{ kind: 'failed', errorName: 'E', message: 'm' }}
+        captionColor={textColors.typeAnnotation}
+      />,
+    )
+
+    expect(screen.getByTestId('node-view-trace')).toHaveClass('nodrag')
+    expect(screen.getByTestId('node-retry')).toHaveClass('nodrag')
+  })
 })
 
 /**

@@ -47,6 +47,8 @@
   --jbk-canvas-failed-action-border: #332725;
   --jbk-canvas-failed-action-label: #cfc4c1;
   --jbk-canvas-failed-solid-label: #1a0d0b;
+  --jbk-canvas-retrying-border: #241b1a;
+  --jbk-canvas-retrying-header-wash: rgba(31, 214, 189, 0.04);
 
   /* canvasMetrics */
   --jbk-canvas-dot-grid-gap: 22px;

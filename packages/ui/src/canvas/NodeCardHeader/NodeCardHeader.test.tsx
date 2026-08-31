@@ -80,4 +80,13 @@ describe('NodeCardHeader', () => {
     expect(screen.getByTestId('node-spinner')).toBeInTheDocument()
     expect(screen.queryByTestId('node-kind-dot')).toBeNull()
   })
+
+  // `3B`: "The node header swaps its dot for the spinner" — the retrying card reads exactly as the
+  // running one does here, and its status word is the only thing that says which of the two it is.
+  it('swaps the kind dot for the spinner while retrying, and prints the retry clock', () => {
+    renderHeader({ id: 'render', state: 'retrying', status: 'retrying', elapsed: '0.4s' })
+    expect(screen.getByTestId('node-spinner')).toBeInTheDocument()
+    expect(screen.queryByTestId('node-kind-dot')).toBeNull()
+    expect(screen.getByTestId('node-status')).toHaveTextContent('retrying · 0.4s')
+  })
 })
