@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
-import { cx } from '../../cx.js'
-import { Badge, Button } from '../../primitives/index.js'
+import { cx } from '#cx.js'
+import { Badge, Button } from '#primitives/index.js'
 import s from './TopBar.module.css'
 
 export interface TopBarProps {

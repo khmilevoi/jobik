@@ -1,10 +1,10 @@
-import { Button, SectionLabel } from '../../primitives/index.js'
-import { formatLastRunMeta } from '../format.js'
-import { RunDivider, type RunDotTone, RunStatusDot } from '../RunChrome/RunChrome.js'
-import { RunInputControl } from '../RunInputControl/RunInputControl.js'
-import { RunNodeTimings } from '../RunNodeList/RunNodeList.js'
-import type { RunIdleState, RunSummary } from '../types.js'
-import { validateRunInputs } from '../validate.js'
+import { Button, SectionLabel } from '#primitives/index.js'
+import { formatLastRunMeta } from '#run/format.js'
+import { RunDivider, type RunDotTone, RunStatusDot } from '#run/RunChrome/RunChrome.js'
+import { RunInputControl } from '#run/RunInputControl/RunInputControl.js'
+import { RunNodeTimings } from '#run/RunNodeList/RunNodeList.js'
+import type { RunIdleState, RunSummary } from '#run/types.js'
+import { validateRunInputs } from '#run/validate.js'
 import s from './RunIdleView.module.css'
 
 export interface RunIdleViewProps {

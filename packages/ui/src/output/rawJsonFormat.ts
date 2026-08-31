@@ -1,4 +1,4 @@
-import { accent, statusColors, textColors } from '../tokens.js'
+import { accent, statusColors, textColors } from '#tokens.js'
 
 /**
  * The mono syntax colouring of the artboard's `Raw` panel (design 963–975).

@@ -1,6 +1,10 @@
-import { cx } from '../../cx.js'
-import type { FlowUiDescriptor, FlowUiOutputComponent, OutputComponentProps } from '../flowUi.js'
-import { RawJson } from '../RawJson/RawJson.js'
+import { cx } from '#cx.js'
+import type {
+  FlowUiDescriptor,
+  FlowUiOutputComponent,
+  OutputComponentProps,
+} from '#output/flowUi.js'
+import { RawJson } from '#output/RawJson/RawJson.js'
 import s from './GenericOutput.module.css'
 
 /**

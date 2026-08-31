@@ -1,7 +1,7 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
-import { resolveCardChrome } from '../cardChrome.js'
-import type { NodeCardData } from '../types.js'
+import { resolveCardChrome } from '#canvas/cardChrome.js'
+import type { NodeCardData } from '#canvas/types.js'
 import { NodeCardHeader } from './NodeCardHeader.js'
 
 afterEach(cleanup)

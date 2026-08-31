@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
-import { cx, type StyleWithVars } from '../../cx.js'
-import { px } from '../../tokens.js'
+import { cx, type StyleWithVars } from '#cx.js'
+import { px } from '#tokens.js'
 import s from './Chip.module.css'
 
 export type ChipTone = 'neutral' | 'accent'

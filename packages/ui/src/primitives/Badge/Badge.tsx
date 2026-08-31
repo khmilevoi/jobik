@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { cx } from '../../cx.js'
+import { cx } from '#cx.js'
 import s from './Badge.module.css'
 
 export interface BadgeProps {

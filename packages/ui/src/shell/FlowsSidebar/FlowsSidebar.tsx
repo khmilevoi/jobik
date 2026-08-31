@@ -1,8 +1,8 @@
-import { cx } from '../../cx.js'
-import { SectionLabel } from '../../primitives/index.js'
-import type { KindDotTone } from '../../tokens.js'
-import { textColors } from '../../tokens.js'
-import { PanelHeader } from '../PanelHeader/PanelHeader.js'
+import { cx } from '#cx.js'
+import { SectionLabel } from '#primitives/index.js'
+import { PanelHeader } from '#shell/PanelHeader/PanelHeader.js'
+import type { KindDotTone } from '#tokens.js'
+import { textColors } from '#tokens.js'
 import s from './FlowsSidebar.module.css'
 
 export interface FlowSummary {

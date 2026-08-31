@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { cx } from '../../cx.js'
+import { cx } from '#cx.js'
 import s from './Button.module.css'
 
 export type ButtonVariant = 'quiet' | 'outlined' | 'accent'

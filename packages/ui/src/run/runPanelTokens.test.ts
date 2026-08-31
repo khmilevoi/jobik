@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { canvasColors } from '../canvas/canvasTokens.js'
-import { textColors } from '../tokens.js'
+import { canvasColors } from '#canvas/canvasTokens.js'
+import { textColors } from '#tokens.js'
 import { runPanelColors, runPanelMetrics } from './runPanelTokens.js'
 
 describe('runPanelColors', () => {

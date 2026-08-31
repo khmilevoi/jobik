@@ -1,7 +1,7 @@
-import { cx } from '../../cx.js'
-import { runNodeStatusLabel } from '../format.js'
-import { type RunDotTone, RunSpinner, RunStatusDot } from '../RunChrome/RunChrome.js'
-import type { RunNodeStatus, RunNodeTiming } from '../types.js'
+import { cx } from '#cx.js'
+import { runNodeStatusLabel } from '#run/format.js'
+import { type RunDotTone, RunSpinner, RunStatusDot } from '#run/RunChrome/RunChrome.js'
+import type { RunNodeStatus, RunNodeTiming } from '#run/types.js'
 import s from './RunNodeList.module.css'
 
 /**

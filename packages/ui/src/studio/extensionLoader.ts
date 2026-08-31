@@ -1,6 +1,6 @@
 import * as errore from 'errore'
-import type { FlowUiDescriptor } from '../output/index.js'
-import { isFlowUiDescriptor } from '../output/index.js'
+import type { FlowUiDescriptor } from '#output/index.js'
+import { isFlowUiDescriptor } from '#output/index.js'
 
 /**
  * `## Flow-local output UI`: loading the browser bundle of a flow's `flow.ui.tsx`.

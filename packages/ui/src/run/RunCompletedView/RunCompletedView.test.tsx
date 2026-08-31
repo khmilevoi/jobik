@@ -1,7 +1,7 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { RunCompletedState } from '../types.js'
+import type { RunCompletedState } from '#run/types.js'
 import { RunCompletedView } from './RunCompletedView.js'
 
 afterEach(cleanup)

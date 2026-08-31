@@ -2,8 +2,8 @@ import type { NodeInputDescriptor } from '@jobik/core'
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import * as z from 'zod'
-import { RunDock } from '../../shell/index.js'
-import type { RunPanelState } from '../types.js'
+import type { RunPanelState } from '#run/types.js'
+import { RunDock } from '#shell/index.js'
 import { RunPanel, RunPanelCard } from './RunPanel.js'
 
 afterEach(cleanup)

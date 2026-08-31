@@ -1,6 +1,6 @@
 import type { AssetDescriptor } from '@jobik/core'
 import { describe, expect, it, vi } from 'vitest'
-import type { WireNodeReportPayload } from '../client/index.js'
+import type { WireNodeReportPayload } from '#client/index.js'
 import { isUrlValue, toOutputFields } from './assets.js'
 
 // Ruling R1: the server's `serialiseNodeOutput` writes the same descriptor into both `output` and

@@ -1,4 +1,4 @@
-import { cx } from '../cx.js'
+import { cx } from '#cx.js'
 import { canvasMetrics } from './canvasTokens.js'
 import s from './cardChrome.module.css'
 import type { NodeCardData, NodeKindDot, NodeRunState } from './types.js'

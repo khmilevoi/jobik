@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { cx, type StyleWithVars } from '../../cx.js'
+import { cx, type StyleWithVars } from '#cx.js'
 import s from './SectionLabel.module.css'
 
 export interface SectionLabelProps {

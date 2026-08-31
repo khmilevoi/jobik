@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { cx, type StyleWithVars } from '../../cx.js'
+import { cx, type StyleWithVars } from '#cx.js'
 import s from './RunChrome.module.css'
 
 export interface RunDividerProps {

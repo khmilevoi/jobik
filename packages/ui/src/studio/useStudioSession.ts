@@ -1,6 +1,6 @@
 import type { AssetDescriptor } from '@jobik/core'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { FieldConnection, NodeLayoutChange } from '../canvas/index.js'
+import type { FieldConnection, NodeLayoutChange } from '#canvas/index.js'
 import type {
   FlowListItem,
   JobikClient,
@@ -8,10 +8,10 @@ import type {
   SafeFlowDescriptorPayload,
   WireErrorPayload,
   WireRunReportPayload,
-} from '../client/index.js'
-import { isRevisionConflictPayload, JobikServerError } from '../client/index.js'
-import type { FlowUiDescriptor } from '../output/index.js'
-import type { RunInputDraft, RunInputDraftValue } from '../run/index.js'
+} from '#client/index.js'
+import { isRevisionConflictPayload, JobikServerError } from '#client/index.js'
+import type { FlowUiDescriptor } from '#output/index.js'
+import type { RunInputDraft, RunInputDraftValue } from '#run/index.js'
 import { connectFields, createDraft, type FlowDraft, markSaved, moveNode } from './draft.js'
 import { type ExternalModules, loadFlowUi } from './extensionLoader.js'
 import { initialRunInputDraft } from './inputSchema.js'

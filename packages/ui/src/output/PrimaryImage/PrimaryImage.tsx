@@ -1,4 +1,4 @@
-import { ImageFrame } from '../ImageFrame/ImageFrame.js'
+import { ImageFrame } from '#output/ImageFrame/ImageFrame.js'
 import s from './PrimaryImage.module.css'
 
 export interface OutputMetadataRowProps {

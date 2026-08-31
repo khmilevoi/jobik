@@ -1,8 +1,8 @@
-import { Button } from '../../primitives/index.js'
-import { formatHiddenFrames, formatStackFrame } from '../format.js'
-import { RunAction, RunWell } from '../RunChrome/RunChrome.js'
-import { RunNodeTimings } from '../RunNodeList/RunNodeList.js'
-import type { RunFailedState } from '../types.js'
+import { Button } from '#primitives/index.js'
+import { formatHiddenFrames, formatStackFrame } from '#run/format.js'
+import { RunAction, RunWell } from '#run/RunChrome/RunChrome.js'
+import { RunNodeTimings } from '#run/RunNodeList/RunNodeList.js'
+import type { RunFailedState } from '#run/types.js'
 import s from './RunFailedView.module.css'
 
 export interface RunFailedViewProps {

@@ -1,8 +1,8 @@
-import { cx, type StyleWithVars } from '../../cx.js'
-import { px, radii } from '../../tokens.js'
-import { canvasMetrics } from '../canvasTokens.js'
-import { StripePlaceholder } from '../StripePlaceholder/StripePlaceholder.js'
-import type { NodeCardDetail } from '../types.js'
+import { canvasMetrics } from '#canvas/canvasTokens.js'
+import { StripePlaceholder } from '#canvas/StripePlaceholder/StripePlaceholder.js'
+import type { NodeCardDetail } from '#canvas/types.js'
+import { cx, type StyleWithVars } from '#cx.js'
+import { px, radii } from '#tokens.js'
 import s from './NodeStateBody.module.css'
 
 export interface NodeStateBodyProps {

@@ -1,6 +1,6 @@
-import { cx } from '../../cx.js'
-import type { CardChrome } from '../cardChrome.js'
-import type { NodeCardData } from '../types.js'
+import type { CardChrome } from '#canvas/cardChrome.js'
+import type { NodeCardData } from '#canvas/types.js'
+import { cx } from '#cx.js'
 import s from './NodeCardHeader.module.css'
 
 export interface NodeCardHeaderProps {

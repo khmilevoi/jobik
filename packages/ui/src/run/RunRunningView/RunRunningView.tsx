@@ -1,9 +1,9 @@
-import type { StyleWithVars } from '../../cx.js'
-import { SectionLabel } from '../../primitives/index.js'
-import { formatNodesComplete } from '../format.js'
-import { RunAction, RunDivider, RunWell } from '../RunChrome/RunChrome.js'
-import { RunNodeRows } from '../RunNodeList/RunNodeList.js'
-import type { RunRunningState } from '../types.js'
+import type { StyleWithVars } from '#cx.js'
+import { SectionLabel } from '#primitives/index.js'
+import { formatNodesComplete } from '#run/format.js'
+import { RunAction, RunDivider, RunWell } from '#run/RunChrome/RunChrome.js'
+import { RunNodeRows } from '#run/RunNodeList/RunNodeList.js'
+import type { RunRunningState } from '#run/types.js'
 import s from './RunRunningView.module.css'
 
 export interface RunRunningViewProps {

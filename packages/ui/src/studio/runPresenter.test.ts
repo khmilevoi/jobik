@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { RunStreamEvent, WireRunReportPayload } from '../client/index.js'
+import type { RunStreamEvent, WireRunReportPayload } from '#client/index.js'
 import {
   toNodeOverlays,
   toRunErrorDetail,

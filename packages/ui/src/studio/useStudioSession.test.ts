@@ -1,8 +1,8 @@
 import type { FlowDocument, NodeStatus } from '@jobik/core'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { JobikClient, RunStreamEvent } from '../client/index.js'
-import { JobikServerError, JobikTransportError, NdjsonParseError } from '../client/index.js'
+import type { JobikClient, RunStreamEvent } from '#client/index.js'
+import { JobikServerError, JobikTransportError, NdjsonParseError } from '#client/index.js'
 import { useStudioSession } from './useStudioSession.js'
 
 const DOCUMENT = {

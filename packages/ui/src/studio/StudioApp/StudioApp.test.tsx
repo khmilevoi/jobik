@@ -2,8 +2,8 @@ import type { FlowDocument } from '@jobik/core'
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { JobikClient, RunStreamEvent, WireRunReportPayload } from '../../client/index.js'
-import { JobikServerError, JobikTransportError } from '../../client/index.js'
+import type { JobikClient, RunStreamEvent, WireRunReportPayload } from '#client/index.js'
+import { JobikServerError, JobikTransportError } from '#client/index.js'
 import { StudioApp } from './StudioApp.js'
 
 afterEach(cleanup)

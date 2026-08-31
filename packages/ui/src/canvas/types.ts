@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react'
-import type { KindDotTone } from '../tokens.js'
+import type { KindDotTone } from '#tokens.js'
 
 /** The six card treatments the artboards fix. `idle` is the default, un-run
  *  card. */

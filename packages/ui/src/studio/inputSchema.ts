@@ -1,6 +1,6 @@
 import type { ControlDescriptor, NodeInputDescriptor } from '@jobik/core'
 import * as z from 'zod'
-import type { RunInputDraft, RunInputPresentation } from '../run/index.js'
+import type { RunInputDraft, RunInputPresentation } from '#run/index.js'
 
 /**
  * A browser Zod schema for a start's inputs, synthesised from P6's control descriptors.

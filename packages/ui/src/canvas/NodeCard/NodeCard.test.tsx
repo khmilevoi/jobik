@@ -1,8 +1,8 @@
 import { cleanup, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
-import { renderInNodeContext } from '../canvasTestUtils.js'
-import { MetadataRow } from '../NodeStateBody/NodeStateBody.js'
-import type { NodeCardData } from '../types.js'
+import { renderInNodeContext } from '#canvas/canvasTestUtils.js'
+import { MetadataRow } from '#canvas/NodeStateBody/NodeStateBody.js'
+import type { NodeCardData } from '#canvas/types.js'
 import { JobikNode, NodeCard } from './NodeCard.js'
 
 afterEach(cleanup)

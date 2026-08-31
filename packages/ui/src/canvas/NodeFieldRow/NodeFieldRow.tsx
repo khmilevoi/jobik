@@ -1,13 +1,13 @@
-import { cx } from '../../cx.js'
-import { TypeAnnotation } from '../../primitives/index.js'
-import { FieldHandle } from '../FieldHandle/FieldHandle.js'
+import { FieldHandle } from '#canvas/FieldHandle/FieldHandle.js'
 import {
   fieldAnnotationClass,
   fieldLabelClass,
   resolveFieldTone,
   resolveHandleTone,
-} from '../fields.js'
-import type { HandleDirection, NodeFieldSpec } from '../types.js'
+} from '#canvas/fields.js'
+import type { HandleDirection, NodeFieldSpec } from '#canvas/types.js'
+import { cx } from '#cx.js'
+import { TypeAnnotation } from '#primitives/index.js'
 import s from './NodeFieldRow.module.css'
 
 export interface NodeFieldRowProps {

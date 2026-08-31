@@ -1,4 +1,4 @@
-import { groupDigits } from '../format.js'
+import { groupDigits } from '#output/format.js'
 import s from './TypedValueGrid.module.css'
 
 /** The four value cells the `Typed values` grid prints (design 939–946). */

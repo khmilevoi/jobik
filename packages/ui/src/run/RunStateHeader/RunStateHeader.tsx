@@ -1,7 +1,7 @@
-import { cx } from '../../cx.js'
-import { formatRunMeta } from '../format.js'
-import { RunSpinner, RunStatusDot } from '../RunChrome/RunChrome.js'
-import type { RunPanelState } from '../types.js'
+import { cx } from '#cx.js'
+import { formatRunMeta } from '#run/format.js'
+import { RunSpinner, RunStatusDot } from '#run/RunChrome/RunChrome.js'
+import type { RunPanelState } from '#run/types.js'
 import s from './RunStateHeader.module.css'
 
 export interface RunStateHeaderProps {

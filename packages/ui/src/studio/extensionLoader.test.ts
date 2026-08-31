@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { defineFlowUi } from '../output/index.js'
+import { defineFlowUi } from '#output/index.js'
 import {
   FlowUiLoadError,
   loadFlowUi,

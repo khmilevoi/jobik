@@ -1,4 +1,4 @@
-import { formatRawJson, type RawJsonTone } from '../rawJsonFormat.js'
+import { formatRawJson, type RawJsonTone } from '#output/rawJsonFormat.js'
 import s from './RawJson.module.css'
 
 export interface RawJsonProps {

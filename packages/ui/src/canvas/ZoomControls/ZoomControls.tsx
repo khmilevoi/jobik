@@ -1,5 +1,5 @@
 import { Panel, useReactFlow, useViewport } from '@xyflow/react'
-import { cx } from '../../cx.js'
+import { cx } from '#cx.js'
 import s from './ZoomControls.module.css'
 
 export function formatZoom(zoom: number): string {

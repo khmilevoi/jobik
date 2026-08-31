@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
-import { cx } from '../../cx.js'
-import { PanelHeader } from '../PanelHeader/PanelHeader.js'
+import { cx } from '#cx.js'
+import { PanelHeader } from '#shell/PanelHeader/PanelHeader.js'
 import s from './RunDock.module.css'
 
 /** `Run panel — states`: the failed card's meta is its own `#6d5f5c` (design 801); the running and

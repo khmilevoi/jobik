@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
-import type { StyleWithVars } from '../../cx.js'
-import { StudioStyles } from '../../globalStyles.js'
-import { accent as accentTokens } from '../../tokens.js'
+import type { StyleWithVars } from '#cx.js'
+import { StudioStyles } from '#globalStyles.js'
+import { accent as accentTokens } from '#tokens.js'
 import s from './StudioFrame.module.css'
 
 export interface StudioFrameProps {

@@ -4,7 +4,7 @@ import { StrictMode } from 'react'
 import * as ReactJsxRuntime from 'react/jsx-runtime'
 import * as ReactDOM from 'react-dom'
 import * as ReactDOMClient from 'react-dom/client'
-import * as jobikUi from '../index.js'
+import * as jobikUi from '#index.js'
 import { StudioApp } from './StudioApp/StudioApp.js'
 
 /**

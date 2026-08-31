@@ -1,6 +1,6 @@
 import { BaseEdge, type Edge, type EdgeProps } from '@xyflow/react'
-import { fieldEdgeClass, fieldEdgePath } from '../edgePaths.js'
-import type { FieldEdgeData } from '../types.js'
+import { fieldEdgeClass, fieldEdgePath } from '#canvas/edgePaths.js'
+import type { FieldEdgeData } from '#canvas/types.js'
 
 export type FieldEdgeType = Edge<FieldEdgeData, 'fieldEdge'>
 

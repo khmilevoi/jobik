@@ -1,5 +1,5 @@
 import type { FlowConnection, FlowDocument } from '@jobik/core'
-import type { FieldConnection, NodeLayoutChange } from '../canvas/index.js'
+import type { FieldConnection, NodeLayoutChange } from '#canvas/index.js'
 
 /**
  * `## UI and persistence`: the editor keeps a draft in memory, marks it dirty after an edit, and

@@ -1,7 +1,7 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { RunFailedState } from '../types.js'
+import type { RunFailedState } from '#run/types.js'
 import { RunFailedView } from './RunFailedView.js'
 
 afterEach(cleanup)

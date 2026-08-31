@@ -1,6 +1,6 @@
 import type { FlowDocument } from '@jobik/core'
 import { describe, expect, it } from 'vitest'
-import type { SafeFlowDescriptorPayload } from '../client/index.js'
+import type { SafeFlowDescriptorPayload } from '#client/index.js'
 import {
   toCanvasEdges,
   toCanvasNodes,

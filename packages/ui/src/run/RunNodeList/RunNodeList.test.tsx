@@ -1,6 +1,6 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
-import type { RunNodeTiming } from '../types.js'
+import type { RunNodeTiming } from '#run/types.js'
 import { RunNodeRows, RunNodeTimings, resolveRunNodeTone } from './RunNodeList.js'
 
 afterEach(cleanup)

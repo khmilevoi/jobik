@@ -1,8 +1,8 @@
 import type { InputFieldDescriptor } from '@jobik/core'
 import { useId } from 'react'
-import { cx } from '../../cx.js'
-import { TypeAnnotation } from '../../primitives/index.js'
-import type { RunInputDraftValue, RunInputPresentation } from '../types.js'
+import { cx } from '#cx.js'
+import { TypeAnnotation } from '#primitives/index.js'
+import type { RunInputDraftValue, RunInputPresentation } from '#run/types.js'
 import s from './RunInputControl.module.css'
 
 /** The three shells a control can sit on. `line` and `area` are the two the design draws. */

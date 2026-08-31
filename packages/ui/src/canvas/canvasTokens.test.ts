@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { motion } from '../tokens.js'
+import { motion } from '#tokens.js'
 import { canvasColors, canvasMetrics } from './canvasTokens.js'
 
 describe('canvasColors', () => {

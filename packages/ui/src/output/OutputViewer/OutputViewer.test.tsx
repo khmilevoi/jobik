@@ -1,8 +1,8 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { OutputComponentProps } from '../flowUi.js'
-import { OutputPreview } from '../OutputPreview/OutputPreview.js'
+import type { OutputComponentProps } from '#output/flowUi.js'
+import { OutputPreview } from '#output/OutputPreview/OutputPreview.js'
 import { OutputViewer } from './OutputViewer.js'
 
 afterEach(cleanup)

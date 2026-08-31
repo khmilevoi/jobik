@@ -1,4 +1,4 @@
-import { cx } from '../../cx.js'
+import { cx } from '#cx.js'
 // The one component that reads `studioTokens.css`, so it is what puts the file in the module
 // graph — the studio directory has no barrel to hang the import on.
 import '../studioTokens.css'

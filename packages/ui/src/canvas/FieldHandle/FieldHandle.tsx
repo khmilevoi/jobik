@@ -1,6 +1,6 @@
 import { Handle, Position } from '@xyflow/react'
-import { fieldHandleClass, fieldHandleId } from '../fields.js'
-import type { FieldHandleTone, HandleDirection } from '../types.js'
+import { fieldHandleClass, fieldHandleId } from '#canvas/fields.js'
+import type { FieldHandleTone, HandleDirection } from '#canvas/types.js'
 
 export interface FieldHandleProps {
   readonly direction: HandleDirection

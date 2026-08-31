@@ -3,7 +3,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as z from 'zod'
-import type { RunIdleState } from '../types.js'
+import type { RunIdleState } from '#run/types.js'
 import { RunIdleView } from './RunIdleView.js'
 
 afterEach(cleanup)

@@ -1,4 +1,4 @@
-import { cx } from '../cx.js'
+import { cx } from '#cx.js'
 import s from './edgePaths.module.css'
 import type { FieldEdgeData, FieldEdgeTone } from './types.js'
 

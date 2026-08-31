@@ -1,9 +1,9 @@
-import { cx, type StyleWithVars } from '../../cx.js'
-import { InsetWell } from '../../primitives/index.js'
-import { radii } from '../../tokens.js'
-import { canvasMetrics } from '../canvasTokens.js'
-import { StripePlaceholder } from '../StripePlaceholder/StripePlaceholder.js'
-import type { NodeOutputSlotSpec } from '../types.js'
+import { canvasMetrics } from '#canvas/canvasTokens.js'
+import { StripePlaceholder } from '#canvas/StripePlaceholder/StripePlaceholder.js'
+import type { NodeOutputSlotSpec } from '#canvas/types.js'
+import { cx, type StyleWithVars } from '#cx.js'
+import { InsetWell } from '#primitives/index.js'
+import { radii } from '#tokens.js'
 import s from './NodeOutputSlot.module.css'
 
 export interface NodeOutputSlotProps {

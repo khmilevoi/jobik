@@ -1,5 +1,5 @@
 import type { NodeStatus, RunLogLine } from '@jobik/core'
-import type { RunStreamEvent, WireErrorPayload, WireRunReportPayload } from '../client/index.js'
+import type { RunStreamEvent, WireErrorPayload, WireRunReportPayload } from '#client/index.js'
 
 /**
  * The live run stream, reduced to a value.

@@ -1,4 +1,4 @@
-import { cx } from '../cx.js'
+import { cx } from '#cx.js'
 import s from './fields.module.css'
 import type {
   FieldEdgeTone,

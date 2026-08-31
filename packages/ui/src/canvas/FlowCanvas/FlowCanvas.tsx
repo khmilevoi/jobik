@@ -8,14 +8,14 @@ import {
   ReactFlow,
 } from '@xyflow/react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { accent } from '../../tokens.js'
-import { canvasColors, canvasMetrics } from '../canvasTokens.js'
-import { toFieldConnection, toNodeLayoutChange } from '../changes.js'
-import { FieldEdge, type FieldEdgeType } from '../FieldEdge/FieldEdge.js'
-import { fieldHandleId, liveFieldsByNode, resolveEdgeTone } from '../fields.js'
-import { type JobikFlowNode, JobikNode } from '../NodeCard/NodeCard.js'
-import type { EdgeShape, FlowCanvasEdge, FlowCanvasNode, FlowCanvasProps } from '../types.js'
-import { ZoomControls } from '../ZoomControls/ZoomControls.js'
+import { canvasColors, canvasMetrics } from '#canvas/canvasTokens.js'
+import { toFieldConnection, toNodeLayoutChange } from '#canvas/changes.js'
+import { FieldEdge, type FieldEdgeType } from '#canvas/FieldEdge/FieldEdge.js'
+import { fieldHandleId, liveFieldsByNode, resolveEdgeTone } from '#canvas/fields.js'
+import { type JobikFlowNode, JobikNode } from '#canvas/NodeCard/NodeCard.js'
+import type { EdgeShape, FlowCanvasEdge, FlowCanvasNode, FlowCanvasProps } from '#canvas/types.js'
+import { ZoomControls } from '#canvas/ZoomControls/ZoomControls.js'
+import { accent } from '#tokens.js'
 import s from './FlowCanvas.module.css'
 
 /** Module constants: React Flow requires both maps to be referentially stable. */

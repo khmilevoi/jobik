@@ -1,6 +1,6 @@
 import { type ReactNode, useId } from 'react'
-import type { StyleWithVars } from '../../cx.js'
-import { px } from '../../tokens.js'
+import type { StyleWithVars } from '#cx.js'
+import { px } from '#tokens.js'
 import s from './StripePlaceholder.module.css'
 
 export interface StripePlaceholderProps {

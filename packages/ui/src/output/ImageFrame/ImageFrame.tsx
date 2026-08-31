@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
-import { StripePlaceholder } from '../../canvas/index.js'
-import { cx } from '../../cx.js'
-import { outputMetrics } from '../outputTokens.js'
+import { StripePlaceholder } from '#canvas/index.js'
+import { cx } from '#cx.js'
+import { outputMetrics } from '#output/outputTokens.js'
 import s from './ImageFrame.module.css'
 
 /** Only the two cells the `Output viewer` artboard contains are typed. */

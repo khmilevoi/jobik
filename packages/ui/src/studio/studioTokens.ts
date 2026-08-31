@@ -9,7 +9,7 @@
  * tone — so they are re-exported here under the chip's own name rather than re-declared as new
  * literals; neither is actually new.
  */
-import { accent } from '../tokens.js'
+import { accent } from '#tokens.js'
 
 export const studioColors = {
   /** `Studio — run in progress` (474): the running chip's outline — `accent.chipBorder`. */

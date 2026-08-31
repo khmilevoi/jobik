@@ -1,6 +1,6 @@
 import { cleanup, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
-import { renderInNodeContext } from '../canvasTestUtils.js'
+import { renderInNodeContext } from '#canvas/canvasTestUtils.js'
 import { NodeFieldRow } from './NodeFieldRow.js'
 
 afterEach(cleanup)

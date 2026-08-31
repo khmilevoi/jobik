@@ -1,6 +1,6 @@
 import type { NodeInputDescriptor } from '@jobik/core'
 import { describe, expect, it } from 'vitest'
-import { collectRunInputValues } from '../run/index.js'
+import { collectRunInputValues } from '#run/index.js'
 import { initialRunInputDraft, runInputPresentation, toRunInputSchema } from './inputSchema.js'
 
 const DESCRIPTOR: NodeInputDescriptor = {

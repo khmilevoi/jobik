@@ -13,7 +13,7 @@
  * its stylesheet is on the page, and `shell/RunDock` must not need a `run/` component mounted to
  * keep the one colour that marks a failed run.
  */
-import { surfaces } from '../tokens.js'
+import { surfaces } from '#tokens.js'
 
 /** `Run panel — states` running (line 787): the lit band that sweeps the skeleton. */
 const skeletonHighlight = '#161a1d'

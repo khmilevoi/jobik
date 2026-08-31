@@ -1,7 +1,7 @@
-import { SectionLabel } from '../../primitives/index.js'
-import { type OutputPrimarySpec, PrimaryImage } from '../PrimaryImage/PrimaryImage.js'
-import { type TypedValue, TypedValueGrid } from '../TypedValueGrid/TypedValueGrid.js'
-import { VariantRow, type VariantSpec } from '../VariantRow/VariantRow.js'
+import { type OutputPrimarySpec, PrimaryImage } from '#output/PrimaryImage/PrimaryImage.js'
+import { type TypedValue, TypedValueGrid } from '#output/TypedValueGrid/TypedValueGrid.js'
+import { VariantRow, type VariantSpec } from '#output/VariantRow/VariantRow.js'
+import { SectionLabel } from '#primitives/index.js'
 import s from './OutputPreview.module.css'
 
 export interface OutputPreviewProps {

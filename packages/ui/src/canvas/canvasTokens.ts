@@ -6,7 +6,7 @@
  * value `tokens.ts` already carries — import it.** Every entry below names the
  * artboard it came from.
  */
-import { motion, surfaces } from '../tokens.js'
+import { motion, surfaces } from '#tokens.js'
 
 /** `Node states` → running: the lit band that sweeps across the skeleton. */
 const skeletonHighlight = '#161a1d'

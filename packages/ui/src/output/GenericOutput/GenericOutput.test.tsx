@@ -1,8 +1,8 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
-import { NodeOutputSlot } from '../../canvas/index.js'
-import { textColors } from '../../tokens.js'
-import type { OutputComponentProps } from '../flowUi.js'
+import { NodeOutputSlot } from '#canvas/index.js'
+import type { OutputComponentProps } from '#output/flowUi.js'
+import { textColors } from '#tokens.js'
 import { GenericOutput, resolveOutputComponent } from './GenericOutput.js'
 
 afterEach(cleanup)

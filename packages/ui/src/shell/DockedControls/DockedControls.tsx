@@ -1,6 +1,6 @@
-import { cx } from '../../cx.js'
-import { Button, Chip, chipBox } from '../../primitives/index.js'
-import { Chevron } from '../PanelHeader/PanelHeader.js'
+import { cx } from '#cx.js'
+import { Button, Chip, chipBox } from '#primitives/index.js'
+import { Chevron } from '#shell/PanelHeader/PanelHeader.js'
 import s from './DockedControls.module.css'
 
 /**

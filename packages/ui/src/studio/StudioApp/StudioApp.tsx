@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { EdgeShape } from '../../canvas/index.js'
-import { FlowCanvas, MetadataRow } from '../../canvas/index.js'
-import type { JobikClient } from '../../client/index.js'
-import { createJobikClient } from '../../client/index.js'
-import { OutputViewer, resolveOutputComponent } from '../../output/index.js'
-import type { RunOutputField, RunPanelState } from '../../run/index.js'
-import { assetMetaParts, formatRunMeta, RunPanel, validateRunInputs } from '../../run/index.js'
-import type { RunDockMetaTone } from '../../shell/index.js'
-import { toOutputFields } from '../assets.js'
-import type { ExternalModules } from '../extensionLoader.js'
-import { formatElapsed } from '../format.js'
-import type { NodeOverlay } from '../graphModel.js'
+import type { EdgeShape } from '#canvas/index.js'
+import { FlowCanvas, MetadataRow } from '#canvas/index.js'
+import type { JobikClient } from '#client/index.js'
+import { createJobikClient } from '#client/index.js'
+import { OutputViewer, resolveOutputComponent } from '#output/index.js'
+import type { RunOutputField, RunPanelState } from '#run/index.js'
+import { assetMetaParts, formatRunMeta, RunPanel, validateRunInputs } from '#run/index.js'
+import type { RunDockMetaTone } from '#shell/index.js'
+import { toOutputFields } from '#studio/assets.js'
+import type { ExternalModules } from '#studio/extensionLoader.js'
+import { formatElapsed } from '#studio/format.js'
+import type { NodeOverlay } from '#studio/graphModel.js'
 import {
   toCanvasEdges,
   toCanvasNodes,
@@ -18,9 +18,9 @@ import {
   toFlowSummaries,
   toInventory,
   waitingOnField,
-} from '../graphModel.js'
-import { runInputPresentation, toRunInputSchema } from '../inputSchema.js'
-import { RunningChip, SaveConflictChip, SaveErrorChip } from '../RunningChip/RunningChip.js'
+} from '#studio/graphModel.js'
+import { runInputPresentation, toRunInputSchema } from '#studio/inputSchema.js'
+import { RunningChip, SaveConflictChip, SaveErrorChip } from '#studio/RunningChip/RunningChip.js'
 import {
   toNodeOverlays,
   toRunErrorDetail,
@@ -28,10 +28,10 @@ import {
   toRunNodeTimings,
   toRunStack,
   toRunSummary,
-} from '../runPresenter.js'
-import { completedNodeCount } from '../runSession.js'
-import { Studio } from '../Studio/Studio.js'
-import { useStudioSession } from '../useStudioSession.js'
+} from '#studio/runPresenter.js'
+import { completedNodeCount } from '#studio/runSession.js'
+import { Studio } from '#studio/Studio/Studio.js'
+import { useStudioSession } from '#studio/useStudioSession.js'
 import s from './StudioApp.module.css'
 
 /**

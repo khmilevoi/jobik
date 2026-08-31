@@ -1,7 +1,7 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
-import { canvasColors } from '../canvasTokens.js'
-import type { FlowCanvasEdge, FlowCanvasNode } from '../types.js'
+import { canvasColors } from '#canvas/canvasTokens.js'
+import type { FlowCanvasEdge, FlowCanvasNode } from '#canvas/types.js'
 import { dotGrid, FlowCanvas, toReactFlowEdges, toReactFlowNodes } from './FlowCanvas.js'
 
 afterEach(cleanup)

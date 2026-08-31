@@ -7,9 +7,9 @@ import type {
   NodeFieldSpec,
   NodeOutputSlotSpec,
   NodeRunState,
-} from '../canvas/index.js'
-import type { FlowListItem, SafeFlowDescriptorPayload } from '../client/index.js'
-import type { FlowNodeSummary, FlowSummary, InventoryEntry } from '../shell/index.js'
+} from '#canvas/index.js'
+import type { FlowListItem, SafeFlowDescriptorPayload } from '#client/index.js'
+import type { FlowNodeSummary, FlowSummary, InventoryEntry } from '#shell/index.js'
 
 /**
  * The safe flow descriptor and the JSON document, mapped onto P7's canvas props.

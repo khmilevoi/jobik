@@ -1,5 +1,5 @@
-import type { WireNodeReportPayload } from '../client/index.js'
-import type { RunOutputField } from '../run/index.js'
+import type { WireNodeReportPayload } from '#client/index.js'
+import type { RunOutputField } from '#run/index.js'
 
 /**
  * `### Run panel` completed state: `Outputs` shows a 54px thumbnail with field name, mime and size

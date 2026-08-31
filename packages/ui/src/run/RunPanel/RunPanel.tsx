@@ -1,10 +1,10 @@
-import { cx } from '../../cx.js'
-import { RunCompletedView } from '../RunCompletedView/RunCompletedView.js'
-import { RunFailedView } from '../RunFailedView/RunFailedView.js'
-import { RunIdleView } from '../RunIdleView/RunIdleView.js'
-import { RunRunningView } from '../RunRunningView/RunRunningView.js'
-import { RunStateHeader } from '../RunStateHeader/RunStateHeader.js'
-import type { RunPanelState } from '../types.js'
+import { cx } from '#cx.js'
+import { RunCompletedView } from '#run/RunCompletedView/RunCompletedView.js'
+import { RunFailedView } from '#run/RunFailedView/RunFailedView.js'
+import { RunIdleView } from '#run/RunIdleView/RunIdleView.js'
+import { RunRunningView } from '#run/RunRunningView/RunRunningView.js'
+import { RunStateHeader } from '#run/RunStateHeader/RunStateHeader.js'
+import type { RunPanelState } from '#run/types.js'
 import s from './RunPanel.module.css'
 
 export interface RunPanelProps {

@@ -1,8 +1,8 @@
 import type { NodeStatus } from '@jobik/core'
-import type { NodeRunState } from '../canvas/index.js'
-import { RUN_ANNOTATIONS } from '../canvas/index.js'
-import type { WireErrorPayload, WireRunReportPayload } from '../client/index.js'
-import { wireErrorFrames } from '../client/index.js'
+import type { NodeRunState } from '#canvas/index.js'
+import { RUN_ANNOTATIONS } from '#canvas/index.js'
+import type { WireErrorPayload, WireRunReportPayload } from '#client/index.js'
+import { wireErrorFrames } from '#client/index.js'
 import type {
   RunErrorDetail,
   RunLog,
@@ -10,7 +10,7 @@ import type {
   RunNodeTiming,
   RunStack,
   RunSummary,
-} from '../run/index.js'
+} from '#run/index.js'
 import { formatElapsed, formatLogTime } from './format.js'
 import type { NodeOverlay } from './graphModel.js'
 import { completedNodeCount, type RunSession } from './runSession.js'
