@@ -1,0 +1,136 @@
+.sidebar {
+  width: var(--jbk-layout-left-sidebar-width);
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  background: var(--jbk-surface-panel);
+  border-right: 1px solid var(--jbk-border-shell-divider);
+}
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 0 8px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  height: var(--jbk-layout-list-row-height);
+  padding: 0 8px;
+  border-radius: var(--jbk-radius-control);
+}
+
+.groupLabelFirst {
+  padding: 14px 10px 6px 14px;
+}
+
+.groupLabel {
+  padding: 20px 10px 6px 14px;
+}
+
+.flowRow {
+  justify-content: space-between;
+}
+
+.flowRowActive {
+  background: var(--jbk-surface-active-list-row);
+  border: 1px solid var(--jbk-border-active-list-row);
+}
+
+.flowName {
+  font-size: var(--jbk-size-12-5);
+  color: var(--jbk-text-inactive-list-item);
+}
+
+.flowNameActive {
+  color: var(--jbk-text-primary);
+  font-weight: var(--jbk-weight-medium);
+}
+
+.flowCount {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-9-5);
+  color: var(--jbk-text-section-label);
+}
+
+.flowCountActive {
+  color: var(--jbk-text-active-meta);
+}
+
+.nodeRow {
+  gap: 9px;
+}
+
+.nodeRowSelected {
+  background: var(--jbk-surface-active-node-row);
+}
+
+.nodeDot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--jbk-radius-kind-dot);
+}
+
+.dotStart {
+  background: var(--jbk-kind-dot-start);
+}
+
+.dotNeutral {
+  background: var(--jbk-kind-dot-neutral);
+}
+
+.dotQueued {
+  background: var(--jbk-kind-dot-queued);
+}
+
+.dotCached {
+  background: var(--jbk-kind-dot-cached);
+}
+
+.nodeId {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-11-5);
+  color: var(--jbk-text-field-label);
+}
+
+.nodeIdSelected {
+  color: var(--jbk-text-active-identifier);
+}
+
+.nodeSpacer {
+  flex: 1;
+}
+
+.nodeKind {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-9-5);
+  color: var(--jbk-text-section-label);
+}
+
+.nodeKindSelected {
+  color: var(--jbk-text-active-meta);
+}
+
+.inventoryRow {
+  height: var(--jbk-layout-inventory-row-height);
+  justify-content: space-between;
+}
+
+.inventoryName {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-11-5);
+  color: var(--jbk-text-inactive-list-item);
+}
+
+.inventoryKind {
+  font-size: var(--jbk-size-11);
+  color: var(--jbk-text-section-label);
+}

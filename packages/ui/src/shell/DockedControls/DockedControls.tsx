@@ -1,23 +1,24 @@
-import { Button, Chip, chipStyle } from '../primitives/index.js'
-import { accent, fontFamilies, px, textColors } from '../tokens.js'
-import { Chevron } from './PanelHeader.js'
-
-const labelStyle = { fontSize: px(11.5), color: textColors.controlLabel } as const
+import { cx } from '../../cx.js'
+import { Button, Chip, chipBox } from '../../primitives/index.js'
+import { Chevron } from '../PanelHeader/PanelHeader.js'
+import s from './DockedControls.module.css'
 
 /**
  * The left panel docked into the top bar. One button wearing the chip box — it has no second
  * control inside it, so it can be the button itself.
  */
 export function DockedFlowsControl(props: { readonly onExpand: () => void }) {
+  const box = chipBox({ gap: 7 })
   return (
     <button
       type="button"
       aria-label="Expand flows and nodes"
       onClick={props.onExpand}
-      style={chipStyle({ gap: 7 })}
+      className={box.className}
+      style={box.style}
     >
       <Chevron direction="right" />
-      <div style={labelStyle}>Flows &amp; nodes</div>
+      <div className={s.label}>Flows &amp; nodes</div>
     </button>
   )
 }
@@ -47,12 +48,9 @@ export function DockedRunControl(props: DockedRunControlProps) {
         type="button"
         aria-label="Expand run panel"
         onClick={props.onExpand}
-        style={{ ...labelStyle, background: 'none', border: 'none', padding: 0 }}
+        className={cx(s.label, s.runButton)}
       >
-        Run{' '}
-        <span style={{ fontFamily: fontFamilies.mono, color: accent.cssVar }}>
-          {props.entryNodeId}
-        </span>
+        Run <span className={s.runEntry}>{props.entryNodeId}</span>
       </button>
     </Chip>
   )

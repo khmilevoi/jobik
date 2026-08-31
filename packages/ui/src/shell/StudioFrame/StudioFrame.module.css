@@ -1,0 +1,17 @@
+.frame {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--jbk-surface-shell);
+  border: 1px solid var(--jbk-border-frame);
+  border-radius: var(--jbk-radius-panel);
+  font-family: var(--jbk-font-ui);
+}
+
+.body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}

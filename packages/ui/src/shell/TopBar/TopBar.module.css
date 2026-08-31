@@ -1,0 +1,93 @@
+.bar {
+  height: var(--jbk-layout-top-bar-height);
+  flex: none;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 16px;
+  background: var(--jbk-surface-top-bar);
+  border-bottom: 1px solid var(--jbk-border-shell-divider);
+}
+
+.barCompact {
+  gap: 14px;
+}
+
+.wordmarkRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wordmarkSquare {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--jbk-radius-badge);
+  border: 1.5px solid var(--jbk-accent);
+}
+
+.wordmarkText {
+  font-size: var(--jbk-size-14);
+  font-weight: var(--jbk-weight-semibold);
+  color: var(--jbk-text-primary);
+  letter-spacing: var(--jbk-tracking-wide);
+}
+
+.divider {
+  width: 1px;
+  height: 18px;
+  background: var(--jbk-border-inset);
+}
+
+.flowNameRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.flowName {
+  font-size: var(--jbk-size-13);
+  font-weight: var(--jbk-weight-medium);
+  color: var(--jbk-text-active-identifier);
+}
+
+.dirty {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dirtyMarginLeft {
+  margin-left: 2px;
+}
+
+.dirtyDot {
+  width: 5px;
+  height: 5px;
+  border-radius: var(--jbk-radius-round);
+  background: var(--jbk-status-unsaved);
+}
+
+.dirtyLabel {
+  font-size: var(--jbk-size-11);
+  color: var(--jbk-text-chevron);
+}
+
+.spacer {
+  flex: 1;
+}
+
+/*
+ * Known drift, deliberately not fixed here (see shell brief): the design has since moved this
+ * opacity onto `Validate`/`Save` individually rather than the whole cluster. Migrated as-is.
+ */
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  opacity: 1;
+}
+
+.actionsRunning {
+  opacity: 0.45;
+}

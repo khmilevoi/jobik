@@ -1,0 +1,73 @@
+.dock {
+  width: var(--jbk-layout-right-dock-width);
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  background: var(--jbk-surface-panel);
+  border-left: 1px solid var(--jbk-border-shell-divider);
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.titleLabel {
+  font-size: var(--jbk-size-12-5);
+  font-weight: var(--jbk-weight-semibold);
+  color: var(--jbk-text-primary);
+}
+
+.titleEntry {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-11-5);
+  color: var(--jbk-accent);
+}
+
+/*
+ * The same 38px bar `PanelHeader` draws, without its chevron button: design 586–593 shows no
+ * collapse control in a dock that carries a run number, and `PanelHeader` always draws one.
+ * Everything else — height, divider, layout — is the same header.
+ */
+.header {
+  height: var(--jbk-layout-panel-header-height);
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--jbk-border-panel-header-divider);
+}
+
+.meta {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-10);
+}
+
+/*
+ * `Run panel — states` running and completed (777, 838): the neutral tone, already a shared
+ * token. `--jbk-text-type-annotation` is `textColors.typeAnnotation`.
+ */
+.metaNormal {
+  color: var(--jbk-text-type-annotation);
+}
+
+/*
+ * `Run panel — states` failed (801): the failed card's own `#6d5f5c`, the run panel's colour and
+ * not the shell's — named here exactly as the earlier TS import named it. The variable is defined
+ * in `run/runPanelTokens.css`.
+ */
+.metaFailed {
+  color: var(--jbk-run-failed-meta);
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}

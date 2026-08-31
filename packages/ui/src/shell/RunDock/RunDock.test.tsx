@@ -6,30 +6,19 @@ import { RunDock } from './RunDock.js'
 afterEach(cleanup)
 
 describe('RunDock', () => {
-  it('draws the 320px dock', () => {
+  it('draws the dock', () => {
     render(
       <RunDock entryNodeId="start1" onCollapse={() => {}}>
         <div data-testid="dock-content" />
       </RunDock>,
     )
-    const dock = screen.getByTestId('studio-dock')
-    expect(dock.style.width).toBe('320px')
-    expect(dock.style.flex).toBe('0 0 auto')
-    expect(dock.style.background).toBe('rgb(10, 11, 13)')
-    expect(dock.style.borderLeft).toBe('1px solid rgb(23, 25, 28)')
-    expect(dock.style.flexDirection).toBe('column')
+    expect(screen.getByTestId('studio-dock')).toBeInTheDocument()
   })
 
-  it('heads the dock with Run and the entry id in accent mono', () => {
+  it('heads the dock with Run and the entry id', () => {
     render(<RunDock entryNodeId="start1" onCollapse={() => {}} />)
-    const run = screen.getByText('Run')
-    expect(run.style.fontSize).toBe('12.5px')
-    expect(run.style.fontWeight).toBe('600')
-    expect(run.style.color).toBe('rgb(232, 234, 236)')
-    const entry = screen.getByText('start1')
-    expect(entry.style.fontSize).toBe('11.5px')
-    expect(entry.style.fontFamily).toContain('JetBrains Mono')
-    expect(entry.getAttribute('style')).toContain('var(--accent, #1fd6bd)')
+    expect(screen.getByText('Run')).toBeInTheDocument()
+    expect(screen.getByText('start1')).toBeInTheDocument()
   })
 
   it('collapses to the right', async () => {
@@ -40,19 +29,12 @@ describe('RunDock', () => {
     expect(onCollapse).toHaveBeenCalledTimes(1)
   })
 
-  it('gives the body the padding and gap P11 builds inside, and scrolls it', () => {
+  it('gives the body what P11 builds inside it', () => {
     render(
       <RunDock entryNodeId="start1" onCollapse={() => {}}>
         <div data-testid="dock-content" />
       </RunDock>,
     )
-    const body = screen.getByTestId('studio-dock-body')
-    expect(body.style.padding).toBe('16px 14px')
-    expect(body.style.flexDirection).toBe('column')
-    expect(body.style.gap).toBe('16px')
-    expect(body.style.flex).toBe('1 1 0%')
-    expect(body.style.minHeight).toBe('0px')
-    expect(body.style.overflowY).toBe('auto')
     expect(screen.getByTestId('dock-content')).toBeInTheDocument()
   })
 
@@ -64,13 +46,12 @@ describe('RunDock', () => {
 
 /**
  * Closeout finding 8-A. `Studio — run in progress` (design 586–593) draws the dock header with the
- * run number where the idle chevron was and symmetric `0 14px` padding; the standalone settled
- * cards (801, 838) add the elapsed after it.
+ * run number where the idle chevron was; the standalone settled cards (801, 838) add the elapsed
+ * after it.
  */
 describe('RunDock — the run number', () => {
-  it('keeps the chevron and the asymmetric padding while idle', () => {
+  it('keeps the chevron while idle', () => {
     render(<RunDock entryNodeId="start1" onCollapse={() => {}} />)
-    expect(screen.getByTestId('studio-dock-header').style.padding).toBe('0px 10px 0px 14px')
     expect(screen.getByRole('button', { name: 'Collapse run panel' })).toBeInTheDocument()
     expect(screen.queryByTestId('studio-dock-run-meta')).toBeNull()
   })
@@ -78,17 +59,12 @@ describe('RunDock — the run number', () => {
   it('replaces the chevron with the run number during a run', () => {
     render(<RunDock entryNodeId="start1" onCollapse={() => {}} runMeta="#219" />)
     const header = screen.getByTestId('studio-dock-header')
-    expect(header.style.padding).toBe('0px 14px')
     expect(header.textContent).toContain('start1')
     expect(screen.queryByRole('button', { name: 'Collapse run panel' })).toBeNull()
-    const meta = screen.getByTestId('studio-dock-run-meta')
-    expect(meta.textContent).toBe('#219')
-    expect(meta.style.fontSize).toBe('10px')
-    expect(meta.style.fontFamily).toContain('JetBrains Mono')
-    expect(meta.style.color).toBe('rgb(93, 101, 108)')
+    expect(screen.getByTestId('studio-dock-run-meta').textContent).toBe('#219')
   })
 
-  it('paints a failed run’s meta in the failed card’s own colour', () => {
+  it('renders a failed run’s own meta text too', () => {
     render(
       <RunDock
         entryNodeId="start1"
@@ -97,9 +73,7 @@ describe('RunDock — the run number', () => {
         runMetaTone="failed"
       />,
     )
-    const meta = screen.getByTestId('studio-dock-run-meta')
-    expect(meta.textContent).toBe('#220 · 0.8s')
-    expect(meta.style.color).toBe('rgb(109, 95, 92)')
+    expect(screen.getByTestId('studio-dock-run-meta').textContent).toBe('#220 · 0.8s')
   })
 
   it('still builds nothing of its own inside the body while a run is in flight', () => {

@@ -6,37 +6,20 @@ import { PanelHeader } from './PanelHeader.js'
 afterEach(cleanup)
 
 describe('PanelHeader', () => {
-  it('draws the 38px header with its divider', () => {
+  it('renders its children and a labelled collapse button, and fires onCollapse', async () => {
+    const onCollapse = vi.fn()
     render(
       <PanelHeader
         data-testid="header"
         chevron="left"
         collapseLabel="Collapse flows and nodes"
-        onCollapse={() => {}}
+        onCollapse={onCollapse}
       >
         <span>Flows &amp; nodes</span>
       </PanelHeader>,
     )
-    const header = screen.getByTestId('header')
-    expect(header.style.height).toBe('38px')
-    expect(header.style.flex).toBe('0 0 auto')
-    expect(header.style.justifyContent).toBe('space-between')
-    expect(header.style.padding).toBe('0px 10px 0px 14px')
-    expect(header.style.borderBottom).toBe('1px solid rgb(20, 22, 24)')
-  })
-
-  it('draws the 22px chevron button and fires onCollapse', async () => {
-    const onCollapse = vi.fn()
-    render(
-      <PanelHeader chevron="left" collapseLabel="Collapse flows and nodes" onCollapse={onCollapse}>
-        <span>Flows &amp; nodes</span>
-      </PanelHeader>,
-    )
+    expect(screen.getByTestId('header')).toHaveTextContent('Flows & nodes')
     const button = screen.getByRole('button', { name: 'Collapse flows and nodes' })
-    expect(button.style.width).toBe('22px')
-    expect(button.style.height).toBe('22px')
-    expect(button.style.border).toBe('1px solid rgb(33, 36, 39)')
-    expect(button.style.borderRadius).toBe('4px')
     await userEvent.click(button)
     expect(onCollapse).toHaveBeenCalledTimes(1)
   })

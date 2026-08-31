@@ -16,14 +16,6 @@ describe('StudioFrame', () => {
     )
     const frame = screen.getByTestId('studio-frame')
     expect(frame).toHaveAttribute('data-jobik-studio')
-    expect(frame.style.background).toBe('rgb(7, 8, 9)')
-    expect(frame.style.border).toBe('1px solid rgb(26, 29, 32)')
-    expect(frame.style.borderRadius).toBe('8px')
-    expect(frame.style.overflow).toBe('hidden')
-    expect(frame.style.flexDirection).toBe('column')
-    expect(frame.style.width).toBe('100%')
-    expect(frame.style.height).toBe('100%')
-    expect(frame.style.fontFamily).toContain('Archivo')
     expect(frame.style.getPropertyValue('--accent')).toBe('#1fd6bd')
   })
 
@@ -37,12 +29,9 @@ describe('StudioFrame', () => {
     expect(screen.getByTestId('studio-frame').style.getPropertyValue('--accent')).toBe('#3ecf8e')
   })
 
-  it('lays the body out as a row that may shrink', () => {
+  it('lays the body out with the topBar and canvas both present', () => {
     render(<StudioFrame topBar={<div />} canvas={<div data-testid="canvas" />} />)
-    const body = screen.getByTestId('studio-body')
-    expect(body.style.flex).toBe('1 1 0%')
-    expect(body.style.display).toBe('flex')
-    expect(body.style.minHeight).toBe('0px')
+    expect(screen.getByTestId('studio-body')).toBeInTheDocument()
     expect(screen.getByTestId('canvas')).toBeInTheDocument()
   })
 
