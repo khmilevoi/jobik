@@ -182,9 +182,12 @@ There is deliberately **no generated `*.module.css.d.ts`**: `css.d.ts` declares 
 `Record<string, string>`, so a typo compiles and `cssModuleUsage.test.ts` is what catches it. That
 trade was chosen; do not add a generator.
 
-The published package now ships `dist/style.css` and a consumer must
-`import '@jobik/ui/style.css'`. `tsdown` writes that `exports` entry itself on every build — see
-*Stack*, and never hand-edit it.
+`tsdown` now emits `dist/style.css`, and writes its `exports` entry itself on every build — see
+*Stack*, and never hand-edit it. **Nobody imports that file.** The Studio reaches a browser one
+way: `jobik-studio` serves the prebuilt `dist/studio`, whose own Vite pipeline emits the CSS its
+`index.html` links. A flow's `flow.ui.tsx` does not pull it in either — `extensionBundle.ts` keeps
+`@jobik/ui` external, so a flow-local component is styled by the Studio page hosting it. The file
+is a by-product of building the browser entry, which exists for authoring types.
 
 ## Docs
 
