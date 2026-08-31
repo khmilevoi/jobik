@@ -105,6 +105,10 @@ describe('tokens', () => {
       errorTag: '#dc8577',
       errorBody: '#a79b98',
       unsaved: '#8a7d4a',
+      // Folded up from `primitives`/`shell` and `shell`/`modals` respectively: a value two
+      // directories read is a shared value.
+      okLabel: '#8bb69c',
+      warningTag: '#b3a069',
     })
     expect(kindDotColors).toEqual({
       start: 'var(--accent, #1fd6bd)',
@@ -128,7 +132,7 @@ describe('tokens', () => {
     })
   })
 
-  it('carries the radii and the four motion loops', () => {
+  it('carries the radii and every animation the design declares', () => {
     expect(radii).toEqual({
       panel: 8,
       nodeCard: 7,
@@ -144,6 +148,10 @@ describe('tokens', () => {
       shimmer: 'jshim 1.5s linear infinite',
       pulseSlow: 'jpulse 1.5s ease-in-out infinite',
       pulseFast: 'jpulse 1s ease-in-out infinite',
+      // Artboard `3D` took the design from four keyframes to six. `resultPop` is the only
+      // `ease-out` in the file and the only animation that is not a loop.
+      validateSweep: 'jsweep 1.1s ease-in-out infinite',
+      resultPop: 'jpop .22s ease-out',
     })
   })
 

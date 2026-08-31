@@ -105,8 +105,23 @@ export const accent = {
   headerWash: 'rgba(31,214,189,.05)',
   chipBorder: 'rgba(31,214,189,.3)',
   chipFill: 'rgba(31,214,189,.06)',
-  /** shared — `canvas`, `run` and `studio`: the unlit ring behind a spinner's accent arc */
+  /**
+   * The unlit ring behind a spinner's accent arc, at the wider of the design's two alphas.
+   * `canvas`, `run` and `studio` each drew their own ring until `primitives/Spinner` replaced all
+   * three, so `primitives` is now its only reader — it stays here because it is the `.25` half of
+   * a pair whose `.22` half is `primitiveColors.accentSoft`, and because the value is the
+   * design's, not one directory's.
+   */
   spinnerTrack: 'rgba(31,214,189,.25)',
+  /**
+   * The colour every accent inline link and the accent primary swap to on hover.
+   *
+   * The one value in this group that does **not** follow `cssVar`, because the design states it as
+   * a literal rather than as a function of the accent. A themed frame that overrides `--accent`
+   * therefore keeps this hover, which is a real limitation and not an oversight — the design fixes
+   * no hover for the three `accentAlternates`.
+   */
+  hover: '#4ce3ce',
 } as const
 
 export const accentAlternates = ['#28c8d8', '#3ecf8e', '#c8a24a'] as const
@@ -117,6 +132,19 @@ export const statusColors = {
   errorTag: '#dc8577',
   errorBody: '#a79b98',
   unsaved: '#8a7d4a',
+  /**
+   * shared — `primitives` and `shell`: a success LABEL, one step lighter than `ok`, which stays the
+   * dot and the column header. `3A` §2.1 gives it to the copied/saved button, `3D` §3D.3 to the
+   * status strip's `No issues`.
+   */
+  okLabel: '#8bb69c',
+  /**
+   * shared — `shell` and `modals`: the one colour a warning gets anywhere. `3D` §3D.3 uses it for
+   * the problems strip's warning code, `09-modals.md` §2 for the Validation dialog's warning tag
+   * and its `1 warning` badge. The design gives a warning no second, brighter step — a highlighted
+   * warning row keeps this exact value.
+   */
+  warningTag: '#b3a069',
 } as const
 
 export type KindDotTone = 'start' | 'neutral' | 'queued' | 'cached'
@@ -162,13 +190,41 @@ export const radii = {
   round: '50%',
 } as const
 
-/** The four motion loops. The keyframe names match `STUDIO_GLOBAL_CSS`. */
+/**
+ * The design's motion, whole. The keyframe names match `STUDIO_GLOBAL_CSS`.
+ *
+ * The first five are loops: something is moving because work is in progress. `validateSweep` joined
+ * them with artboard `3D`, and `resultPop` is the one exception to the rule — a `.22s` entrance for
+ * a result chip, and the only `ease-out` in the design.
+ */
 export const motion = {
   spinner: 'jspin .7s linear infinite',
   edgeDash: 'jdash .8s linear infinite',
   shimmer: 'jshim 1.5s linear infinite',
   pulseSlow: 'jpulse 1.5s ease-in-out infinite',
   pulseFast: 'jpulse 1s ease-in-out infinite',
+  /** `3D`: the 2px gradient bar under a validating button. Its host must clip and be positioned. */
+  validateSweep: 'jsweep 1.1s ease-in-out infinite',
+  /** `3D`: the resolved `Valid` / `2 errors` chip arriving. */
+  resultPop: 'jpop .22s ease-out',
+} as const
+
+/**
+ * The scrollbar. `Studio — full page, output open` draws it three times — down the flows sidebar,
+ * down the run dock and beside the output dock's typed-value grid — always as a `3px` track at
+ * `rgba(255,255,255,.025)` with a `#333940` thumb, both `2px` rounded. A Studio-wide treatment
+ * rather than one panel's, which is why it lives here.
+ *
+ * The design *draws* a scrollbar; a browser *styles* one, and the two are not the same thing.
+ * `globalStyles.css` reads `thumb` and `track` through the standard `scrollbar-color`, and reaches
+ * `width`/`radius` only inside its `@supports not (scrollbar-color: auto)` fallback — `scrollbar-width`
+ * has no length form, so `thin` is as close to `3px` as a native scrollbar goes.
+ */
+export const scrollbar = {
+  width: 3,
+  radius: 2,
+  track: 'rgba(255,255,255,.025)',
+  thumb: '#333940',
 } as const
 
 export const layout = {

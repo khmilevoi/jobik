@@ -29,6 +29,14 @@ describe('STUDIO_GLOBAL_CSS', () => {
       '@keyframes jshim{0%{background-position:130% 0}100%{background-position:-30% 0}}',
     )
     expect(STUDIO_GLOBAL_CSS).toContain('@keyframes jpulse{0%,100%{opacity:.4}50%{opacity:1}}')
+    // Artboard `3D` added these two. `jsweep` is the validating button's 2px bar; `jpop` is the
+    // result chip arriving, and the only non-loop animation in the design.
+    expect(STUDIO_GLOBAL_CSS).toContain(
+      '@keyframes jsweep{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}',
+    )
+    expect(STUDIO_GLOBAL_CSS).toContain(
+      '@keyframes jpop{from{opacity:0;transform:translateY(2px) scale(.97)}to{opacity:1;transform:none}}',
+    )
   })
 
   it('scopes the box-sizing reset to the Studio', () => {
@@ -56,7 +64,7 @@ describe('globalStyles.css', () => {
 
   it('keeps the keyframe names the motion tokens reference', () => {
     const stylesheet = fs.readFileSync(path.join(SRC, 'globalStyles.css'), 'utf8')
-    for (const name of ['jspin', 'jdash', 'jshim', 'jpulse']) {
+    for (const name of ['jspin', 'jdash', 'jshim', 'jpulse', 'jsweep', 'jpop']) {
       expect(stylesheet).toContain(`@keyframes ${name}`)
     }
   })

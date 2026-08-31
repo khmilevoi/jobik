@@ -25,6 +25,66 @@
   cursor: pointer;
 }
 
+/*
+ * The scrollbar, from `Studio — full page, output open`. Both properties inherit, so declaring them
+ * once on the frame themes every scroll container inside it — the flows sidebar, the run dock, the
+ * output dock's grid and any well a component makes scrollable.
+ *
+ * The standard properties are the primary path; the `::-webkit-*` block is a fallback for browsers
+ * that do not implement them, and lives inside `@supports not` so the two can never both apply.
+ * The design draws a `3px` track, which only the fallback can honour — `scrollbar-width` has no
+ * length form, so `thin` is as close as a native scrollbar goes. That gap is deliberate and
+ * recorded on the `scrollbar` token in `tokens.ts`.
+ */
+[data-jobik-studio] {
+  scrollbar-width: thin;
+  scrollbar-color: var(--jbk-scrollbar-thumb) var(--jbk-scrollbar-track);
+}
+
+@supports not (scrollbar-color: auto) {
+  [data-jobik-studio]::-webkit-scrollbar,
+  [data-jobik-studio] ::-webkit-scrollbar {
+    width: var(--jbk-scrollbar-width);
+    height: var(--jbk-scrollbar-width);
+  }
+
+  [data-jobik-studio]::-webkit-scrollbar-track,
+  [data-jobik-studio] ::-webkit-scrollbar-track {
+    background: var(--jbk-scrollbar-track);
+    border-radius: var(--jbk-scrollbar-radius);
+  }
+
+  [data-jobik-studio]::-webkit-scrollbar-thumb,
+  [data-jobik-studio] ::-webkit-scrollbar-thumb {
+    background: var(--jbk-scrollbar-thumb);
+    border-radius: var(--jbk-scrollbar-radius);
+  }
+}
+
+/*
+ * The one place this stylesheet departs from the design.
+ *
+ * The design file has no `prefers-reduced-motion` block — it has no media query at all — but three
+ * of its four loops are exactly the kind a reduced-motion setting exists to stop: `jshim` sweeps a
+ * gradient across a whole card, `jpulse` cycles opacity, `jdash` marches along every live edge.
+ * Under `reduce` they are turned off by redefining the tokens that carry them, so every component
+ * gets it without a single `*.module.css` knowing about it.
+ *
+ * `jspin` is deliberately left running. It is 11px of rotation and it is the *only* signal that a
+ * run is in progress; stopping it removes information rather than motion. Its duration is not
+ * changed either, because the design fixes `.7s` and a slower one would be invented.
+ */
+@media (prefers-reduced-motion: reduce) {
+  [data-jobik-studio] {
+    --jbk-motion-edge-dash: none;
+    --jbk-motion-shimmer: none;
+    --jbk-motion-pulse-slow: none;
+    --jbk-motion-pulse-fast: none;
+    --jbk-motion-validate-sweep: none;
+    --jbk-motion-result-pop: none;
+  }
+}
+
 @keyframes jspin {
   to {
     transform: rotate(360deg);
@@ -55,5 +115,27 @@
 
   50% {
     opacity: 1;
+  }
+}
+
+@keyframes jsweep {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes jpop {
+  from {
+    opacity: 0;
+    transform: translateY(2px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
   }
 }

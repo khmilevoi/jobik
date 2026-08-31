@@ -12,6 +12,7 @@ import {
   layout,
   motion,
   radii,
+  scrollbar,
   statusColors,
   surfaces,
   textColors,
@@ -78,6 +79,9 @@ function expectedProperties(): Map<string, string> {
   add('motion', motion)
   add('radius', radii, 'px')
   add('layout', layout, 'px')
+  // Mixed on purpose: the two colours carry no unit, the two lengths take `px` like every other
+  // numeric token, so `.module.css` and `globalStyles.css` never add a unit themselves.
+  add('scrollbar', scrollbar, 'px')
 
   // `accent.cssVar` is the override point rather than a value of its own, so it takes the bare
   // name. Everything else in the group follows the convention.

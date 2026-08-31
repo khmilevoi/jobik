@@ -31,3 +31,18 @@ export * from './output/index.js'
 export * from './client/index.js'
 export type { StudioAppProps } from './studio/StudioApp.js'
 export { StudioApp } from './studio/StudioApp.js'
+
+// --- design-sync modals ---
+// Artboard `3C`: the four dialogs — Validation, Download output, Stack trace, Cancel run — plus
+// the `ModalShell` they compose. Presentational: every action is a callback.
+export * from './modals/index.js'
+
+// --- design-sync flow switching ---
+// Artboard `3F`: the `Switch flow` confirm — one modal, two bodies, guarding a switch that would
+// drop an unsaved draft or leave a run running with nothing left to cancel it. It also reaches
+// consumers through the `./modals/index.js` star export above; named here so this barrel states it.
+export type {
+  SwitchFlowBody,
+  SwitchFlowModalProps,
+} from './modals/SwitchFlowModal/SwitchFlowModal.js'
+export { SwitchFlowModal } from './modals/SwitchFlowModal/SwitchFlowModal.js'
