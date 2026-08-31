@@ -4,7 +4,7 @@ import type {
   FlowSummary,
   InventoryEntry,
   RunDockMetaTone,
-} from '../shell/index.js'
+} from '../../shell/index.js'
 import {
   DockedFlowsControl,
   DockedRunControl,
@@ -12,7 +12,8 @@ import {
   RunDock,
   StudioFrame,
   TopBar,
-} from '../shell/index.js'
+} from '../../shell/index.js'
+import s from './Studio.module.css'
 
 /** The artboard's own data (design lines 68–122). A default, not a hard-coded body. */
 const FIXTURE_FLOWS: readonly FlowSummary[] = [
@@ -114,9 +115,7 @@ export function Studio(props: StudioProps) {
           />
         )
       }
-      canvas={
-        props.canvas ?? <div data-testid="studio-canvas-slot" style={{ flex: 1, minWidth: 0 }} />
-      }
+      canvas={props.canvas ?? <div data-testid="studio-canvas-slot" className={s.canvasSlot} />}
       right={
         rightCollapsed ? undefined : (
           <RunDock

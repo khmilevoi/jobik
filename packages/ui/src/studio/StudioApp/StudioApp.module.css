@@ -1,0 +1,23 @@
+/*
+ * `StudioApp` is a wiring component: the only two boxes it draws itself are the canvas slot it
+ * hands to `Studio` and the backdrop the output viewer opens over.
+ */
+.canvas {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+
+/*
+ * R6: `surfaces.appShell` does not exist. The backdrop reuses `--jbk-surface-shell` — the same
+ * token `StudioFrame` already draws the app shell in; the viewer card's own panel background comes
+ * from `OutputViewer` itself.
+ */
+.viewerBackdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  background: var(--jbk-surface-shell);
+}

@@ -1,17 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { EdgeShape } from '../canvas/index.js'
-import { FlowCanvas, MetadataRow } from '../canvas/index.js'
-import type { JobikClient } from '../client/index.js'
-import { createJobikClient } from '../client/index.js'
-import { OutputViewer, resolveOutputComponent } from '../output/index.js'
-import type { RunOutputField, RunPanelState } from '../run/index.js'
-import { assetMetaParts, formatRunMeta, RunPanel, validateRunInputs } from '../run/index.js'
-import type { RunDockMetaTone } from '../shell/index.js'
-import { surfaces } from '../tokens.js'
-import { toOutputFields } from './assets.js'
-import type { ExternalModules } from './extensionLoader.js'
-import { formatElapsed } from './format.js'
-import type { NodeOverlay } from './graphModel.js'
+import type { EdgeShape } from '../../canvas/index.js'
+import { FlowCanvas, MetadataRow } from '../../canvas/index.js'
+import type { JobikClient } from '../../client/index.js'
+import { createJobikClient } from '../../client/index.js'
+import { OutputViewer, resolveOutputComponent } from '../../output/index.js'
+import type { RunOutputField, RunPanelState } from '../../run/index.js'
+import { assetMetaParts, formatRunMeta, RunPanel, validateRunInputs } from '../../run/index.js'
+import type { RunDockMetaTone } from '../../shell/index.js'
+import { toOutputFields } from '../assets.js'
+import type { ExternalModules } from '../extensionLoader.js'
+import { formatElapsed } from '../format.js'
+import type { NodeOverlay } from '../graphModel.js'
 import {
   toCanvasEdges,
   toCanvasNodes,
@@ -19,9 +18,9 @@ import {
   toFlowSummaries,
   toInventory,
   waitingOnField,
-} from './graphModel.js'
-import { runInputPresentation, toRunInputSchema } from './inputSchema.js'
-import { RunningChip, SaveConflictChip, SaveErrorChip } from './RunningChip.js'
+} from '../graphModel.js'
+import { runInputPresentation, toRunInputSchema } from '../inputSchema.js'
+import { RunningChip, SaveConflictChip, SaveErrorChip } from '../RunningChip/RunningChip.js'
 import {
   toNodeOverlays,
   toRunErrorDetail,
@@ -29,10 +28,11 @@ import {
   toRunNodeTimings,
   toRunStack,
   toRunSummary,
-} from './runPresenter.js'
-import { completedNodeCount } from './runSession.js'
-import { Studio } from './Studio.js'
-import { useStudioSession } from './useStudioSession.js'
+} from '../runPresenter.js'
+import { completedNodeCount } from '../runSession.js'
+import { Studio } from '../Studio/Studio.js'
+import { useStudioSession } from '../useStudioSession.js'
+import s from './StudioApp.module.css'
 
 /**
  * The Studio, driven by a live server.
@@ -434,7 +434,7 @@ export function StudioApp(props: StudioAppProps) {
   }, [studio.lastReport, openViewerNode])
 
   const canvas = (
-    <div style={{ flex: 1, minWidth: 0, position: 'relative', display: 'flex' }}>
+    <div className={s.canvas}>
       <FlowCanvas
         nodes={nodes}
         edges={edges}
@@ -446,18 +446,7 @@ export function StudioApp(props: StudioAppProps) {
         onConnectFields={onConnectFields}
       />
       {openViewerNode === undefined ? null : (
-        // R6: `surfaces.appShell` does not exist. The backdrop reuses `surfaces.shell` — the same
-        // token merged `StudioFrame.tsx` already draws the app shell in; the viewer card's own
-        // `surfaces.panel` background comes from `OutputViewer` itself.
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            zIndex: 10,
-            background: surfaces.shell,
-            display: 'flex',
-          }}
-        >
+        <div className={s.viewerBackdrop}>
           <OutputViewer
             nodeId={openViewerNode.nodeId}
             output={{ ...(openViewerNode.output ?? {}), ...openViewerNode.assets }}
@@ -467,6 +456,10 @@ export function StudioApp(props: StudioAppProps) {
             logs={viewerLogs}
             onCopyAll={onCopyAllOutput}
             onDownload={onDownloadOutput}
+            // `OutputViewer.style` is that component's own declared prop — "layout only, width
+            // and height, never a colour" — not an inline style of ours. It stays until
+            // `OutputViewer` grows a `className`, which is the output directory's call, not this
+            // one's; there is no design value here for a stylesheet to own.
             style={{ width: '100%', height: '100%' }}
           />
         </div>

@@ -1,0 +1,25 @@
+/*
+ * Every value in `studioTokens.ts`, as a custom property — the studio shell's own half of what
+ * `tokens.css` does for the shared set. `studioTokens.ts` stays the TypeScript-side source of
+ * truth and `studioTokens.css.test.ts` proves the two agree in both directions, so a hex is never
+ * hand-copied from one into the other.
+ *
+ * NAMING — `--jbk-studio-<key>`, `<key>` in kebab-case, matching `tokens.css`. Numeric metrics
+ * carry their `px` here so a `.module.css` never adds a unit.
+ *
+ * Scoped to `[data-jobik-studio]` for the same reason `tokens.css` is: the package must never
+ * restyle a host application. `RunningChip.tsx` is the one component that reads these and imports
+ * this file — the studio directory has no barrel to hang the import on.
+ */
+
+[data-jobik-studio] {
+  /* studioColors — both are `accent.chipBorder` / `accent.chipFill` under the chip's own name */
+  --jbk-studio-running-chip-border: rgba(31, 214, 189, 0.3);
+  --jbk-studio-running-chip-fill: rgba(31, 214, 189, 0.06);
+
+  /* studioMetrics */
+  --jbk-studio-chip-height: 28px;
+  --jbk-studio-chip-spinner-size: 11px;
+  --jbk-studio-chip-spinner-border-width: 1.5px;
+  --jbk-studio-chip-action-height: 20px;
+}

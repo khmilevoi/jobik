@@ -10,15 +10,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   publicationExpectedUrlPattern,
   publicationSampleInput,
-} from '../../../../examples/publication/fixtures.js'
-import type { JobikClient } from '../client/index.js'
-import { createJobikClient } from '../client/index.js'
-import * as jobikUi from '../index.js'
-import type { JobikServer } from '../server/httpServer.js'
-import { serveFlowRegistry } from '../server/httpServer.js'
-import { jobikAllRoutes } from '../server/runRoutes.js'
-import { registryOf } from '../server/runTestSupport.js'
-import { pushCleanup, setupCleanups, temporaryFlow } from '../server/testSupport.js'
+} from '../../../../../examples/publication/fixtures.js'
+import type { JobikClient } from '../../client/index.js'
+import { createJobikClient } from '../../client/index.js'
+import * as jobikUi from '../../index.js'
+import type { JobikServer } from '../../server/httpServer.js'
+import { serveFlowRegistry } from '../../server/httpServer.js'
+import { jobikAllRoutes } from '../../server/runRoutes.js'
+import { registryOf } from '../../server/runTestSupport.js'
+import { pushCleanup, setupCleanups, temporaryFlow } from '../../server/testSupport.js'
 import { StudioApp } from './StudioApp.js'
 
 /**

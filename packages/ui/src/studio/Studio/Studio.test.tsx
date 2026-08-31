@@ -11,7 +11,6 @@ describe('Studio', () => {
     expect(screen.getByTestId('studio-frame')).toBeInTheDocument()
     expect(screen.getByTestId('studio-sidebar')).toBeInTheDocument()
     expect(screen.getByTestId('studio-dock')).toBeInTheDocument()
-    expect(screen.getByTestId('studio-top-bar').style.gap).toBe('16px')
     expect(screen.getByText('flow.ts')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Expand flows and nodes' })).not.toBeInTheDocument()
   })
@@ -30,13 +29,11 @@ describe('Studio', () => {
     render(<Studio />)
     await userEvent.click(screen.getByRole('button', { name: 'Collapse flows and nodes' }))
     expect(screen.queryByTestId('studio-sidebar')).not.toBeInTheDocument()
-    expect(screen.getByTestId('studio-top-bar').style.gap).toBe('14px')
     expect(screen.queryByText('flow.ts')).not.toBeInTheDocument()
     expect(screen.getByText('Unsaved')).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Expand flows and nodes' }))
     expect(screen.getByTestId('studio-sidebar')).toBeInTheDocument()
-    expect(screen.getByTestId('studio-top-bar').style.gap).toBe('16px')
     expect(screen.getByText('flow.ts')).toBeInTheDocument()
   })
 

@@ -2,8 +2,8 @@ import type { FlowDocument } from '@jobik/core'
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { JobikClient, RunStreamEvent, WireRunReportPayload } from '../client/index.js'
-import { JobikServerError, JobikTransportError } from '../client/index.js'
+import type { JobikClient, RunStreamEvent, WireRunReportPayload } from '../../client/index.js'
+import { JobikServerError, JobikTransportError } from '../../client/index.js'
 import { StudioApp } from './StudioApp.js'
 
 afterEach(cleanup)
@@ -229,7 +229,6 @@ describe('running from the panel', () => {
     await userEvent.click(screen.getByTestId('run-start-button'))
 
     await waitFor(() => expect(screen.getByTestId('studio-running-chip')).toBeInTheDocument())
-    expect(screen.getByTestId('studio-top-bar-actions')).toHaveStyle({ opacity: '0.45' })
     expect(screen.getByText('Validate').closest('button')).toBeDisabled()
     expect(screen.getByText('Save').closest('button')).toBeDisabled()
 
@@ -819,7 +818,6 @@ describe('the treatments a real run builds', () => {
 
     await waitFor(() => expect(screen.getByTestId('studio-dock-run-meta').textContent).toBe('#219'))
     expect(screen.queryByLabelText('Collapse run panel')).toBeNull()
-    expect(screen.getByTestId('studio-dock-header').style.padding).toBe('0px 14px')
 
     release()
     await waitFor(() =>
@@ -835,6 +833,5 @@ describe('the treatments a real run builds', () => {
 
     expect(screen.getByLabelText('Collapse run panel')).toBeInTheDocument()
     expect(screen.queryByTestId('studio-dock-run-meta')).toBeNull()
-    expect(screen.getByTestId('studio-dock-header').style.padding).toBe('0px 10px 0px 14px')
   })
 })

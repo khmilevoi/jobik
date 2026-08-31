@@ -1,0 +1,92 @@
+/* `.chip` is the shell all three chips share — `chipShell` in the inline-style original. */
+.chip {
+  display: flex;
+  flex: none;
+  align-items: center;
+  height: var(--jbk-studio-chip-height);
+  border-radius: var(--jbk-radius-control);
+}
+
+.running {
+  gap: 9px;
+  padding: 0 4px 0 10px;
+  border: 1px solid var(--jbk-studio-running-chip-border);
+  background: var(--jbk-studio-running-chip-fill);
+}
+
+/* A save conflict and a save failure share one chrome: `borders.secondaryButton`, no fill. */
+.conflict,
+.saveError {
+  gap: 8px;
+  border: 1px solid var(--jbk-border-secondary-button);
+  background: none;
+}
+
+.conflict {
+  padding: 0 4px 0 10px;
+}
+
+.saveError {
+  padding: 0 10px;
+}
+
+.spinner {
+  flex: none;
+  width: var(--jbk-studio-chip-spinner-size);
+  height: var(--jbk-studio-chip-spinner-size);
+  border: var(--jbk-studio-chip-spinner-border-width) solid var(--jbk-run-spinner-track);
+  border-top-color: var(--jbk-accent);
+  border-radius: var(--jbk-radius-round);
+  animation: var(--jbk-motion-spinner);
+}
+
+.runningLabel {
+  font-size: var(--jbk-size-11-5);
+  color: var(--jbk-run-action-label);
+}
+
+.startId {
+  font-family: var(--jbk-font-mono);
+  color: var(--jbk-accent);
+}
+
+.elapsed {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-10);
+  color: var(--jbk-text-muted);
+}
+
+/* The inline `Cancel` / `Reload` / `Copy draft` cell. */
+.action {
+  display: flex;
+  align-items: center;
+  height: var(--jbk-studio-chip-action-height);
+  padding: 0 8px;
+  border: 1px solid var(--jbk-border-secondary-button);
+  border-radius: var(--jbk-radius-badge);
+  background: none;
+  font-family: var(--jbk-font-ui);
+  font-size: var(--jbk-size-11);
+  color: var(--jbk-text-control-label);
+  cursor: pointer;
+}
+
+.dot {
+  flex: none;
+  width: 5px;
+  height: 5px;
+  border-radius: var(--jbk-radius-round);
+}
+
+.unsavedDot {
+  background: var(--jbk-status-unsaved);
+}
+
+.failedDot {
+  background: var(--jbk-status-failed);
+}
+
+.message {
+  font-size: var(--jbk-size-11-5);
+  color: var(--jbk-text-control-label);
+}

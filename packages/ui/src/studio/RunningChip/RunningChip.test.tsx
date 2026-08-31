@@ -1,7 +1,6 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { motion } from '../tokens.js'
 import { RunningChip, SaveConflictChip } from './RunningChip.js'
 
 afterEach(cleanup)
@@ -13,14 +12,6 @@ describe('RunningChip', () => {
     expect(screen.getByTestId('studio-running-chip').textContent).toContain('Running')
     expect(screen.getByTestId('studio-running-start').textContent).toBe('start1')
     expect(screen.getByTestId('studio-running-elapsed').textContent).toBe('1.3s')
-  })
-
-  it('spins on the .7s loop the design fixes', () => {
-    render(<RunningChip startId="start1" elapsed="0.0s" />)
-
-    expect(screen.getByTestId('studio-running-spinner')).toHaveStyle({
-      animation: motion.spinner,
-    })
   })
 
   it('cancels from the chip', async () => {

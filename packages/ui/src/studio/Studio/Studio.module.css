@@ -1,0 +1,8 @@
+/*
+ * The empty canvas slot `Studio` draws when no caller fills `canvas`. Layout only — the artboard
+ * gives the placeholder no chrome of its own, and `FlowCanvas` (P7) supplies the real one.
+ */
+.canvasSlot {
+  flex: 1;
+  min-width: 0;
+}
