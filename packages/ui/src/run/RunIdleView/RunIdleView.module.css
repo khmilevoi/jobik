@@ -1,0 +1,36 @@
+/* `Studio — default`, lines 274–315: the explanatory line, the controls, and the `Last run` block. */
+.note {
+  font-size: var(--jbk-size-11-5);
+  line-height: 1.5;
+  color: var(--jbk-run-note);
+}
+
+.lastRun {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.lastRunHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.lastRunStatus {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.lastRunStatusLabel {
+  font-size: var(--jbk-size-11-5);
+  color: var(--jbk-text-field-label);
+}
+
+/* `Studio — default`, 307: `2.4s · 3 nodes`. */
+.lastRunMeta {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-10);
+  color: var(--jbk-text-type-annotation);
+}

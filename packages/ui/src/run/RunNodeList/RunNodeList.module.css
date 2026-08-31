@@ -1,0 +1,121 @@
+/*
+ * The two node lists: the 30px rows of `Studio — run in progress` (607–620) and the compact mono
+ * timings of `Run panel — states` (782, 810, 838) and the idle `Last run` block (308–312).
+ *
+ * The name and value cells are the two a status paints, so they are one class each per tone rather
+ * than one class per (status × list) pair — see `RunNodeList.tsx`, where the table that picks them
+ * is written out in full.
+ */
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--jbk-run-node-row-gap);
+}
+
+/*
+ * Only the running row carries a border, so the row sets its own `box-sizing` rather than relying
+ * on the reset in `globalStyles.css` (which scopes that rule to `[data-jobik-studio]`) —
+ * `RunPanelCard` is designed to be used standalone, outside `StudioFrame`, where that attribute is
+ * never set.
+ */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: var(--jbk-run-node-row-height);
+  padding: 0 var(--jbk-run-node-row-padding-x);
+  box-sizing: border-box;
+  border-radius: var(--jbk-radius-control);
+}
+
+.rowActive {
+  border: 1px solid var(--jbk-run-active-row-border);
+  background: var(--jbk-accent-header-wash);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.rowName {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-11-5);
+}
+
+.rowValue {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-10);
+}
+
+.timings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--jbk-run-timing-row-gap);
+  font-family: var(--jbk-font-mono);
+}
+
+/* `failed` and `completed` are the states cards; `lastRun` is the idle block, one step down. */
+.timingsCompact {
+  font-size: var(--jbk-size-10-5);
+}
+
+.timingsLastRun {
+  font-size: var(--jbk-size-10);
+}
+
+.timingRow {
+  display: flex;
+  justify-content: space-between;
+}
+
+/* The name cell, one class per tone. */
+.nameRunning {
+  color: var(--jbk-text-active-identifier);
+}
+
+.nameDim {
+  color: var(--jbk-run-queued-node-name);
+}
+
+.nameFailed {
+  color: var(--jbk-status-error-tag);
+}
+
+.nameSettled {
+  color: var(--jbk-text-field-label);
+}
+
+.nameLastRun {
+  color: var(--jbk-run-last-run-node-name);
+}
+
+/* The value cell, one class per tone. */
+.valueRunning {
+  color: var(--jbk-accent);
+}
+
+.valueFaint {
+  color: var(--jbk-text-faintest);
+}
+
+.valueFailed {
+  color: var(--jbk-status-failed);
+}
+
+.valueSettled {
+  color: var(--jbk-text-section-label);
+}
+
+.valueOk {
+  color: var(--jbk-status-ok);
+}
+
+/*
+ * `Node states` cached, design 750. Standing ruling 3: no run-panel artboard fixes a cached row,
+ * so this step and the `#4a5157` dot are the only two marks the design does fix, and the
+ * `cached · 0.0s` label `runNodeStatusLabel` composes is what carries the distinction into the
+ * timings list, which draws no dot at all.
+ */
+.valueCached {
+  color: var(--jbk-text-muted);
+}

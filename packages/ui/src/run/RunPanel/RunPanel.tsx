@@ -1,11 +1,11 @@
-import { borders, px, radii, surfaces } from '../tokens.js'
-import { RunCompletedView } from './RunCompletedView.js'
-import { RunFailedView } from './RunFailedView.js'
-import { RunIdleView } from './RunIdleView.js'
-import { RunRunningView } from './RunRunningView.js'
-import { RunStateHeader } from './RunStateHeader.js'
-import { runPanelColors, runPanelMetrics } from './runPanelTokens.js'
-import type { RunPanelState } from './types.js'
+import { cx } from '../../cx.js'
+import { RunCompletedView } from '../RunCompletedView/RunCompletedView.js'
+import { RunFailedView } from '../RunFailedView/RunFailedView.js'
+import { RunIdleView } from '../RunIdleView/RunIdleView.js'
+import { RunRunningView } from '../RunRunningView/RunRunningView.js'
+import { RunStateHeader } from '../RunStateHeader/RunStateHeader.js'
+import type { RunPanelState } from '../types.js'
+import s from './RunPanel.module.css'
 
 export interface RunPanelProps {
   readonly state: RunPanelState
@@ -30,7 +30,20 @@ export function RunPanel(props: RunPanelProps) {
 export interface RunPanelCardProps {
   readonly state: RunPanelState
   readonly entryNodeId: string
+  readonly className?: string
 }
+
+/**
+ * The panel's four states and the frame each one takes, spelled out so `satisfies` catches a fifth
+ * and `cssModuleUsage.test.ts` can see every read. `undefined` means the state adds nothing to
+ * `.card` — the artboards draw one tinted frame and one plain one.
+ */
+const cardByKind = {
+  idle: undefined,
+  running: undefined,
+  completed: undefined,
+  failed: s.cardFailed,
+} satisfies Record<RunPanelState['kind'], string | undefined>
 
 /**
  * The isolated 320×430 card of the `Run panel — states` artboard (lines 771–866): the frame, the
@@ -45,34 +58,13 @@ export interface RunPanelCardProps {
  * both the header and the body.
  */
 export function RunPanelCard(props: RunPanelCardProps) {
-  const failed = props.state.kind === 'failed'
   return (
     <div
       data-testid="run-panel-card"
-      style={{
-        width: px(runPanelMetrics.cardWidth),
-        height: px(runPanelMetrics.cardHeight),
-        background: surfaces.panel,
-        border: `1px solid ${failed ? runPanelColors.failedFrame : borders.frame}`,
-        borderRadius: px(radii.panel),
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-      }}
+      className={cx(s.card, cardByKind[props.state.kind], props.className)}
     >
       <RunStateHeader state={props.state} entryNodeId={props.entryNodeId} />
-      <div
-        data-testid="run-panel-card-body"
-        style={{
-          flex: 1,
-          minHeight: 0,
-          overflowY: 'auto',
-          padding: runPanelMetrics.cardBodyPadding,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: px(runPanelMetrics.cardBodyGap),
-        }}
-      >
+      <div data-testid="run-panel-card-body" className={s.cardBody}>
         <RunPanel state={props.state} />
       </div>
     </div>

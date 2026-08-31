@@ -1,0 +1,49 @@
+/*
+ * The two shells the design fixes for an input control, plus the one adjustment a checkbox needs.
+ *
+ * `.shell` is `Studio — default` line 283, the single-line control; `.area` is line 290, the same
+ * shell as a 118px monospace area. They are applied together rather than through `composes`, so
+ * every class this component reads stays a literal `s.<name>` that `cssModuleUsage.test.ts` sees.
+ */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.label {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-11-5);
+  color: var(--jbk-text-active-field-label);
+}
+
+.shell {
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid var(--jbk-border-quiet-control);
+  border-radius: var(--jbk-radius-control);
+  background: var(--jbk-surface-input-well);
+  font-family: var(--jbk-font-ui);
+  font-size: var(--jbk-size-12);
+  color: var(--jbk-run-control-value);
+}
+
+.area {
+  height: var(--jbk-run-markdown-area-height);
+  resize: none;
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-11);
+  line-height: 1.65;
+  color: var(--jbk-text-field-label);
+}
+
+.checkbox {
+  width: auto;
+  padding: 0;
+}

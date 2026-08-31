@@ -1,0 +1,122 @@
+/*
+ * The union of `Studio — run in progress` lines 595–648 and `Run panel — states` lines 779–793.
+ *
+ * `--jbk-run-progress` is the override point behind the `progress` prop: the bar is determinate and
+ * its width is a number the caller computes, independent of the node counts (the artboard shows
+ * `54%` beside `1 of 3`), so it is the one value here that cannot be a class.
+ */
+.progress {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.progressHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.progressSummary {
+  font-size: var(--jbk-size-11-5);
+  color: var(--jbk-run-action-label);
+}
+
+.progressElapsed {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-10);
+  color: var(--jbk-text-type-annotation);
+}
+
+/*
+ * The track's 2px corner is the one radius on this card that `radii` names for something else —
+ * `kindDot` is the only 2px step there is, and the token sets are closed by design, so it is read
+ * rather than restated.
+ */
+.progressTrack {
+  height: var(--jbk-run-progress-bar-height);
+  overflow: hidden;
+  border-radius: var(--jbk-radius-kind-dot);
+  background: var(--jbk-run-progress-track);
+}
+
+.progressFill {
+  width: var(--jbk-run-progress, 0%);
+  height: var(--jbk-run-progress-bar-height);
+  background: var(--jbk-accent);
+}
+
+.note {
+  font-size: var(--jbk-size-11-5);
+  line-height: 1.5;
+  color: var(--jbk-run-note);
+}
+
+.log {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.logHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.logFollow {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-9-5);
+  color: var(--jbk-text-faintest);
+}
+
+.logLines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--jbk-run-log-line-gap);
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-10);
+  line-height: 1.5;
+  color: var(--jbk-text-muted);
+}
+
+.logTime {
+  color: var(--jbk-text-faintest);
+}
+
+.logPending {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--jbk-text-type-annotation);
+}
+
+.logCaret {
+  width: var(--jbk-run-caret-width);
+  height: var(--jbk-run-caret-height);
+  background: var(--jbk-accent);
+  animation: var(--jbk-motion-pulse-fast);
+}
+
+.partial {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.partialMedia {
+  height: var(--jbk-run-partial-media-height);
+  border-radius: var(--jbk-radius-small);
+  background: var(--jbk-run-skeleton);
+  background-size: var(--jbk-run-skeleton-background-size);
+  animation: var(--jbk-motion-shimmer);
+}
+
+.partialCaption {
+  width: var(--jbk-run-partial-caption-width);
+  height: var(--jbk-run-partial-caption-height);
+  border-radius: var(--jbk-radius-badge);
+  background: var(--jbk-run-skeleton);
+  background-size: var(--jbk-run-skeleton-background-size);
+  animation: var(--jbk-motion-shimmer);
+}

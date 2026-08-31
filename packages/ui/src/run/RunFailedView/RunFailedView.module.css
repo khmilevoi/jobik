@@ -1,0 +1,53 @@
+/* `Run panel — states` failed, lines 802–827 — the body only. The tinted header is the card's. */
+.errorWell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.errorHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.errorName {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-11);
+  color: var(--jbk-status-error-tag);
+}
+
+/* Design 806. `#6d5f5c` again: with the header's meta it is the whole failed-state ramp. */
+.errorNode {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-9-5);
+  color: var(--jbk-run-failed-meta);
+}
+
+.errorMessage {
+  font-size: var(--jbk-size-11-5);
+  line-height: 1.55;
+  color: var(--jbk-status-error-body);
+}
+
+.stack {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-10);
+  line-height: 1.6;
+  color: var(--jbk-text-muted);
+}
+
+.stackAside {
+  color: var(--jbk-text-section-label);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.action {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}

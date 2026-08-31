@@ -1,31 +1,49 @@
 import type { InputFieldDescriptor } from '@jobik/core'
-import { type CSSProperties, useId } from 'react'
-import { TypeAnnotation } from '../primitives/index.js'
-import { borders, fontFamilies, px, radii, surfaces, textColors } from '../tokens.js'
-import { runPanelColors, runPanelMetrics } from './runPanelTokens.js'
-import type { RunInputDraftValue, RunInputPresentation } from './types.js'
+import { useId } from 'react'
+import { cx } from '../../cx.js'
+import { TypeAnnotation } from '../../primitives/index.js'
+import type { RunInputDraftValue, RunInputPresentation } from '../types.js'
+import s from './RunInputControl.module.css'
 
-/** `Studio — default`, line 283: the single-line control shell. */
-const lineShell: CSSProperties = {
-  width: '100%',
-  border: `1px solid ${borders.quietControl}`,
-  borderRadius: px(radii.control),
-  background: surfaces.inputWell,
-  padding: '9px 10px',
-  fontFamily: fontFamilies.ui,
-  fontSize: px(12),
-  color: runPanelColors.controlValue,
-}
+/** The three shells a control can sit on. `line` and `area` are the two the design draws. */
+type RunInputShell = 'line' | 'area' | 'checkbox'
 
-/** `Studio — default`, line 290: the same shell as a 118px monospace area. */
-const areaShell: CSSProperties = {
-  ...lineShell,
-  height: px(runPanelMetrics.markdownAreaHeight),
-  fontFamily: fontFamilies.mono,
-  fontSize: px(11),
-  lineHeight: 1.65,
-  color: textColors.fieldLabel,
-  resize: 'none',
+const shells = {
+  line: s.shell,
+  area: cx(s.shell, s.area),
+  checkbox: cx(s.shell, s.checkbox),
+} satisfies Record<RunInputShell, string>
+
+type RunInputControlKind = InputFieldDescriptor['control']['kind']
+
+/**
+ * Every control kind, spelled out, and the shell it sits on.
+ *
+ * `number`, `boolean` and `enum` are named by `## Zod and editor controls` but by no artboard, so
+ * they reuse the single-line shell and change only the element inside it. `satisfies` makes a new
+ * kind in `@jobik/core`'s `ControlDescriptor` a type error here rather than a control that renders
+ * unstyled.
+ */
+const shellByControl = {
+  string: 'line',
+  number: 'line',
+  boolean: 'checkbox',
+  enum: 'line',
+  literal: 'line',
+  asset: 'line',
+  json: 'area',
+} satisfies Record<RunInputControlKind, RunInputShell>
+
+/**
+ * Which shell a field takes. `string` is the only kind the caller's `presentation` moves, and a
+ * `json` control is an area whatever it says — the table above already fixes that.
+ */
+function shellOf(
+  kind: RunInputControlKind,
+  presentation: RunInputPresentation | undefined,
+): string {
+  if (kind === 'string' && presentation === 'area') return shells.area
+  return shells[shellByControl[kind]]
 }
 
 export interface RunInputControlProps {
@@ -34,15 +52,14 @@ export interface RunInputControlProps {
   /** `'line'` by default. A `json` control is always an area whatever this says. */
   readonly presentation?: RunInputPresentation
   readonly onChange?: (field: string, value: RunInputDraftValue) => void
+  readonly className?: string
 }
 
 /**
  * One control per top-level input field, drawn on one of the two shells the design fixes.
  *
- * `number`, `boolean` and `enum` are named by `## Zod and editor controls` but by no artboard, so
- * they reuse the single-line shell and change only the element inside it. `literal` and `asset` are
- * never editable and render disabled: a literal is fixed, and an unconnected asset input is a graph
- * validation error rather than an empty form control.
+ * `literal` and `asset` are never editable and render disabled: a literal is fixed, and an
+ * unconnected asset input is a graph validation error rather than an empty form control.
  */
 export function RunInputControl(props: RunInputControlProps) {
   const { field, onChange } = props
@@ -54,6 +71,7 @@ export function RunInputControl(props: RunInputControlProps) {
   const domId = `${useId()}-${field.field}`
   const emit = (next: RunInputDraftValue) => onChange?.(field.field, next)
   const text = typeof props.value === 'string' ? props.value : ''
+  const shell = shellOf(control.kind, props.presentation)
 
   const element = (() => {
     if (control.kind === 'json') {
@@ -63,7 +81,7 @@ export function RunInputControl(props: RunInputControlProps) {
           id={domId}
           value={text}
           onChange={(event) => emit(event.target.value)}
-          style={areaShell}
+          className={shell}
         />
       )
     }
@@ -72,7 +90,7 @@ export function RunInputControl(props: RunInputControlProps) {
       const fixed =
         control.kind === 'literal' ? String(control.value ?? 'null') : (field.title ?? 'Buffer')
       return (
-        <input data-testid={testId} id={domId} disabled readOnly value={fixed} style={lineShell} />
+        <input data-testid={testId} id={domId} disabled readOnly value={fixed} className={shell} />
       )
     }
 
@@ -84,7 +102,7 @@ export function RunInputControl(props: RunInputControlProps) {
           type="checkbox"
           checked={props.value === true}
           onChange={(event) => emit(event.target.checked)}
-          style={{ ...lineShell, width: 'auto', padding: 0 }}
+          className={shell}
         />
       )
     }
@@ -96,7 +114,7 @@ export function RunInputControl(props: RunInputControlProps) {
           id={domId}
           value={text}
           onChange={(event) => emit(event.target.value)}
-          style={lineShell}
+          className={shell}
         >
           {control.options.map((option) => (
             <option key={String(option)} value={String(option)}>
@@ -116,7 +134,7 @@ export function RunInputControl(props: RunInputControlProps) {
           step={control.integer ? 1 : 'any'}
           value={text}
           onChange={(event) => emit(event.target.value)}
-          style={lineShell}
+          className={shell}
         />
       )
     }
@@ -128,7 +146,7 @@ export function RunInputControl(props: RunInputControlProps) {
           id={domId}
           value={text}
           onChange={(event) => emit(event.target.value)}
-          style={areaShell}
+          className={shell}
         />
       )
     }
@@ -140,23 +158,15 @@ export function RunInputControl(props: RunInputControlProps) {
         type="text"
         value={text}
         onChange={(event) => emit(event.target.value)}
-        style={lineShell}
+        className={shell}
       />
     )
   })()
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: px(7) }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-        <label
-          htmlFor={domId}
-          data-testid={`run-input-label-${field.field}`}
-          style={{
-            fontFamily: fontFamilies.mono,
-            fontSize: px(11.5),
-            color: textColors.activeFieldLabel,
-          }}
-        >
+    <div className={cx(s.field, props.className)}>
+      <div className={s.head}>
+        <label htmlFor={domId} data-testid={`run-input-label-${field.field}`} className={s.label}>
           {field.field}
         </label>
         <TypeAnnotation data-testid={`run-input-annotation-${field.field}`}>

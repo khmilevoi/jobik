@@ -21,17 +21,10 @@ const markdown: InputFieldDescriptor = {
 }
 
 describe('RunInputControl', () => {
-  it('labels the field in mono beside its type annotation', () => {
+  it('labels the field beside its type annotation', () => {
     render(<RunInputControl field={title} value="Typed flows, quietly" />)
-    const label = screen.getByTestId('run-input-label-title')
-    expect(label.textContent).toBe('title')
-    expect(label.style.fontFamily).toContain('JetBrains Mono')
-    expect(label.style.fontSize).toBe('11.5px')
-    expect(label.style.color).toBe('rgb(195, 201, 206)')
-    const annotation = screen.getByTestId('run-input-annotation-title')
-    expect(annotation.textContent).toBe('string')
-    expect(annotation.style.fontSize).toBe('10px')
-    expect(annotation.style.color).toBe('rgb(93, 101, 108)')
+    expect(screen.getByTestId('run-input-label-title').textContent).toBe('title')
+    expect(screen.getByTestId('run-input-annotation-title').textContent).toBe('string')
   })
 
   it('draws a single-line control for a string by default', () => {
@@ -39,23 +32,16 @@ describe('RunInputControl', () => {
     const input = screen.getByTestId('run-input-title')
     expect(input.tagName).toBe('INPUT')
     expect(input).toHaveValue('Typed flows, quietly')
-    expect(input.style.border).toBe('1px solid rgb(33, 37, 40)')
-    expect(input.style.background).toBe('rgb(12, 14, 16)')
-    expect(input.style.borderRadius).toBe('5px')
-    expect(input.style.padding).toBe('9px 10px')
-    expect(input.style.fontSize).toBe('12px')
-    expect(input.style.color).toBe('rgb(213, 218, 222)')
   })
 
-  it('draws a 118px monospace area when the caller asks for one', () => {
+  it('draws a monospace area on its own shell when the caller asks for one', () => {
+    render(<RunInputControl field={title} value="a" />)
+    const line = screen.getByTestId('run-input-title').className
+    cleanup()
     render(<RunInputControl field={markdown} value="## Release 0.4" presentation="area" />)
     const area = screen.getByTestId('run-input-markdown')
     expect(area.tagName).toBe('TEXTAREA')
-    expect(area.style.height).toBe('118px')
-    expect(area.style.fontFamily).toContain('JetBrains Mono')
-    expect(area.style.fontSize).toBe('11px')
-    expect(area.style.lineHeight).toBe('1.65')
-    expect(area.style.color).toBe('rgb(170, 177, 183)')
+    expect(area.className).not.toBe(line)
   })
 
   it('reports every keystroke as a draft change', async () => {
@@ -72,11 +58,14 @@ describe('RunInputControl', () => {
       annotation: 'number',
       control: { kind: 'number', integer: true },
     }
+    render(<RunInputControl field={title} value="a" />)
+    const line = screen.getByTestId('run-input-title').className
+    cleanup()
     render(<RunInputControl field={field} value="1024" />)
     const input = screen.getByTestId('run-input-width')
     expect(input).toHaveAttribute('type', 'number')
     expect(input).toHaveAttribute('step', '1')
-    expect(input.style.border).toBe('1px solid rgb(33, 37, 40)')
+    expect(input.className).toBe(line)
   })
 
   it('draws a boolean as a checkbox and reports its next value', async () => {
@@ -151,7 +140,10 @@ describe('RunInputControl', () => {
     expect(labels[1]).toHaveAttribute('for', inputs[1]?.id)
   })
 
-  it('draws a nested schema in the monospace area whatever the caller asks for', () => {
+  it('draws a nested schema on the area shell whatever the caller asks for', () => {
+    render(<RunInputControl field={markdown} value="x" presentation="area" />)
+    const area = screen.getByTestId('run-input-markdown').className
+    cleanup()
     const field: InputFieldDescriptor = {
       field: 'meta',
       required: true,
@@ -159,9 +151,9 @@ describe('RunInputControl', () => {
       control: { kind: 'json', schema: { type: 'object' } },
     }
     render(<RunInputControl field={field} value={'{"a":1}'} presentation="line" />)
-    const area = screen.getByTestId('run-input-meta')
-    expect(area.tagName).toBe('TEXTAREA')
-    expect(area.style.height).toBe('118px')
-    expect(area).toHaveValue('{"a":1}')
+    const json = screen.getByTestId('run-input-meta')
+    expect(json.tagName).toBe('TEXTAREA')
+    expect(json).toHaveValue('{"a":1}')
+    expect(json.className).toBe(area)
   })
 })

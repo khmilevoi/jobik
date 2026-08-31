@@ -1,0 +1,72 @@
+/* `Run panel — states` completed, lines 836–864 — the body only. The header is the card's. */
+.outputs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--jbk-run-output-row-gap);
+}
+
+/* An asset row: the 54px thumbnail, its name and meta, and the `Open` action pushed right. */
+.assetRow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.thumb {
+  width: var(--jbk-run-thumbnail-size);
+  height: var(--jbk-run-thumbnail-size);
+  flex: none;
+  overflow: hidden;
+  border-radius: var(--jbk-radius-small);
+}
+
+.assetText {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.assetName {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-11);
+  color: var(--jbk-text-active-identifier);
+}
+
+.assetMeta {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-9-5);
+  color: var(--jbk-text-type-annotation);
+}
+
+.spacer {
+  flex: 1;
+}
+
+/* A text or url row: the field name above an inset well. */
+.valueRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.valueName {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-11);
+  color: var(--jbk-text-active-field-label);
+}
+
+.textWell {
+  font-size: var(--jbk-size-11-5);
+  line-height: 1.5;
+  color: var(--jbk-text-field-label);
+}
+
+.urlWell {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-10-5);
+  color: var(--jbk-accent);
+}

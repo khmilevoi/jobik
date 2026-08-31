@@ -1,16 +1,21 @@
-import { Button, SectionLabel } from '../primitives/index.js'
-import { fontFamilies, px, statusColors, textColors } from '../tokens.js'
-import { formatLastRunMeta } from './format.js'
-import { RunDivider, RunStatusDot } from './RunChrome.js'
-import { RunInputControl } from './RunInputControl.js'
-import { RunNodeTimings } from './RunNodeList.js'
-import { runPanelColors } from './runPanelTokens.js'
-import type { RunIdleState } from './types.js'
-import { validateRunInputs } from './validate.js'
+import { Button, SectionLabel } from '../../primitives/index.js'
+import { formatLastRunMeta } from '../format.js'
+import { RunDivider, type RunDotTone, RunStatusDot } from '../RunChrome/RunChrome.js'
+import { RunInputControl } from '../RunInputControl/RunInputControl.js'
+import { RunNodeTimings } from '../RunNodeList/RunNodeList.js'
+import type { RunIdleState, RunSummary } from '../types.js'
+import { validateRunInputs } from '../validate.js'
+import s from './RunIdleView.module.css'
 
 export interface RunIdleViewProps {
   readonly state: RunIdleState
 }
+
+/** Both summary outcomes, spelled out; `satisfies` makes a third one a type error. */
+const lastRunDotTone = {
+  completed: 'ok',
+  failed: 'failed',
+} satisfies Record<RunSummary['status'], RunDotTone>
 
 /**
  * `Studio — default`, lines 274–315.
@@ -37,10 +42,7 @@ export function RunIdleView(props: RunIdleViewProps) {
 
   return (
     <>
-      <div
-        data-testid="run-panel-note"
-        style={{ fontSize: px(11.5), color: runPanelColors.note, lineHeight: 1.5 }}
-      >
+      <div data-testid="run-panel-note" className={s.note}>
         {state.note}
       </div>
 
@@ -61,30 +63,20 @@ export function RunIdleView(props: RunIdleViewProps) {
       {lastRun === undefined ? null : (
         <>
           <RunDivider data-testid="run-panel-divider" />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: px(9) }}>
+          <div className={s.lastRun}>
             <SectionLabel data-testid="run-last-run-label">Last run</SectionLabel>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: px(7) }}>
+            <div className={s.lastRunHead}>
+              <div className={s.lastRunStatus}>
                 <RunStatusDot
                   data-testid="run-last-run-dot"
                   shape="round"
-                  color={lastRun.status === 'failed' ? statusColors.failed : statusColors.ok}
+                  tone={lastRunDotTone[lastRun.status]}
                 />
-                <div
-                  data-testid="run-last-run-status"
-                  style={{ fontSize: px(11.5), color: textColors.fieldLabel }}
-                >
+                <div data-testid="run-last-run-status" className={s.lastRunStatusLabel}>
                   {lastRun.status}
                 </div>
               </div>
-              <div
-                data-testid="run-last-run-meta"
-                style={{
-                  fontFamily: fontFamilies.mono,
-                  fontSize: px(10),
-                  color: textColors.typeAnnotation,
-                }}
-              >
+              <div data-testid="run-last-run-meta" className={s.lastRunMeta}>
                 {formatLastRunMeta(lastRun.totalElapsed, lastRun.nodeCount)}
               </div>
             </div>

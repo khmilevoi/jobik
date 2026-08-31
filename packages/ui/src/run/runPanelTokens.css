@@ -1,0 +1,69 @@
+/*
+ * Every value in `runPanelTokens.ts`, as a custom property. `runPanelTokens.ts` stays the
+ * TypeScript-side source of truth — `runPanelTokens.test.ts` still pins each value against the
+ * artboard line it came from, and `shell/RunDock.tsx` still reads one colour from it in JS — while
+ * this file is what every stylesheet under `run/` reads. `runPanelTokens.css.test.ts` proves the two
+ * agree in both directions, so there is one source of truth and not two. Never hand-copy a hex
+ * here: change `runPanelTokens.ts` and let the parity test tell you what else must move.
+ *
+ * NAMING — `--jbk-run-<key>`, the key in kebab-case (`failedMeta` -> `failed-meta`), the group
+ * prefix `--jbk-run-` that `PATTERN.md` assigns this token module. Numeric metrics carry their
+ * `px` here, so a `.module.css` never adds a unit.
+ *
+ * `--jbk-run-failed-meta` (#6d5f5c) is load-bearing rather than decorative: with the cached dot it
+ * is one of only two colours that are the sole distinguishing mark of a state — the failed run's
+ * `#220 · 0.8s` meta and its error well's owning node. It comes off the artboard (`Run panel —
+ * states` failed, lines 801 and 806) and it may not be approximated.
+ *
+ * Scoped to `[data-jobik-studio]` for the same reason `tokens.css` is: the package must never
+ * restyle a host application.
+ */
+
+[data-jobik-studio] {
+  /* runPanelColors */
+  --jbk-run-note: #767e85;
+  --jbk-run-control-value: #d5dade;
+  --jbk-run-action-label: #cfd5da;
+  --jbk-run-progress-track: #16191c;
+  --jbk-run-spinner-track: rgba(31, 214, 189, 0.25);
+  --jbk-run-active-row-border: rgba(31, 214, 189, 0.18);
+  --jbk-run-queued-dot-border: #34393d;
+  --jbk-run-queued-node-name: #6d757c;
+  --jbk-run-last-run-node-name: #636c73;
+  --jbk-run-skeleton-highlight: #161a1d;
+  --jbk-run-skeleton: linear-gradient(100deg, #0d0f11 30%, #161a1d 50%, #0d0f11 70%);
+  --jbk-run-failed-frame: #241b1a;
+  --jbk-run-failed-header-wash: rgba(201, 106, 92, 0.05);
+  --jbk-run-failed-title: #f0e6e4;
+  --jbk-run-failed-meta: #6d5f5c;
+  --jbk-run-error-well-border: #2a1f1e;
+
+  /* runPanelMetrics */
+  --jbk-run-card-width: 320px;
+  --jbk-run-card-height: 430px;
+  --jbk-run-card-body-padding: 16px 14px;
+  --jbk-run-card-body-gap: 14px;
+  --jbk-run-progress-bar-height: 3px;
+  --jbk-run-spinner-size: 9px;
+  --jbk-run-spinner-border-width: 1.5px;
+  --jbk-run-status-dot-size: 5px;
+  --jbk-run-square-dot-size: 6px;
+  --jbk-run-node-row-height: 30px;
+  --jbk-run-node-row-padding-x: 8px;
+  --jbk-run-node-row-gap: 2px;
+  --jbk-run-timing-row-gap: 6px;
+  --jbk-run-markdown-area-height: 118px;
+  --jbk-run-well-padding-block: 10px;
+  --jbk-run-well-padding-text: 8px 10px;
+  --jbk-run-well-padding-error: 11px;
+  --jbk-run-partial-media-height: 70px;
+  --jbk-run-partial-caption-height: 9px;
+  --jbk-run-partial-caption-width: 70%;
+  --jbk-run-skeleton-background-size: 220% 100%;
+  --jbk-run-thumbnail-size: 54px;
+  --jbk-run-output-row-gap: 9px;
+  --jbk-run-action-height: 34px;
+  --jbk-run-log-line-gap: 5px;
+  --jbk-run-caret-width: 3px;
+  --jbk-run-caret-height: 9px;
+}

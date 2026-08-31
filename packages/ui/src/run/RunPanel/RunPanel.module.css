@@ -1,0 +1,29 @@
+/*
+ * The isolated 320×430 card of the `Run panel — states` artboard (lines 771–866). Only the frame
+ * changes with the panel's state: `failed` takes the error tint (795), the other three take the
+ * shell frame.
+ */
+.card {
+  width: var(--jbk-run-card-width);
+  height: var(--jbk-run-card-height);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--jbk-border-frame);
+  border-radius: var(--jbk-radius-panel);
+  background: var(--jbk-surface-panel);
+}
+
+.cardFailed {
+  border-color: var(--jbk-run-failed-frame);
+}
+
+.cardBody {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--jbk-run-card-body-padding);
+  display: flex;
+  flex-direction: column;
+  gap: var(--jbk-run-card-body-gap);
+}

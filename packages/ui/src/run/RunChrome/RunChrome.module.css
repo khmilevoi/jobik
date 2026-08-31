@@ -1,0 +1,121 @@
+/*
+ * The run panel's own chrome: the hairline, the two wells, the 34px action, the status dot and the
+ * spinner. Every value traces to `tokens.ts` or `runPanelTokens.ts` — see `RunChrome.tsx` for the
+ * artboard lines each one came from.
+ */
+
+/* RunDivider */
+.divider {
+  height: 1px;
+  background: var(--jbk-border-inline-hairline);
+}
+
+/*
+ * RunWell. `--jbk-run-well-padding` is the override point behind the `padding` prop: the completed
+ * state's text and url wells take `8px 10px` where the block wells take their tone's own default.
+ * A caller supplies it as a value rather than picking from a set the design names, so it arrives as
+ * a custom property rather than as a class.
+ */
+.well {
+  border-radius: var(--jbk-radius-control);
+}
+
+.wellNeutral {
+  padding: var(--jbk-run-well-padding, var(--jbk-run-well-padding-block));
+  border: 1px solid var(--jbk-border-node-header-divider);
+  background: var(--jbk-surface-input-well);
+}
+
+.wellError {
+  padding: var(--jbk-run-well-padding, var(--jbk-run-well-padding-error));
+  border: 1px solid var(--jbk-run-error-well-border);
+  background: var(--jbk-surface-failed-error-well);
+}
+
+/* RunAction */
+.action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: var(--jbk-run-action-height);
+  border: 1px solid var(--jbk-border-secondary-button);
+  border-radius: var(--jbk-radius-control);
+  background: none;
+  font-family: var(--jbk-font-ui);
+  font-size: var(--jbk-size-12-5);
+  color: var(--jbk-run-action-label);
+}
+
+.actionRegular {
+  font-weight: var(--jbk-weight-regular);
+}
+
+.actionMedium {
+  font-weight: var(--jbk-weight-medium);
+}
+
+.hint {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-10);
+  color: var(--jbk-text-type-annotation);
+}
+
+/*
+ * RunStatusDot. `--jbk-run-dot-color` is what a fill reads; a `tone` class declares it, and the
+ * `color` prop overrides it inline for a caller outside this package. `hollow` paints a border and
+ * no fill, so it never reads it at all.
+ */
+.dot {
+  flex: none;
+}
+
+.round {
+  width: var(--jbk-run-status-dot-size);
+  height: var(--jbk-run-status-dot-size);
+  border-radius: var(--jbk-radius-round);
+  background: var(--jbk-run-dot-color);
+}
+
+.hollow {
+  width: var(--jbk-run-status-dot-size);
+  height: var(--jbk-run-status-dot-size);
+  border: 1px solid var(--jbk-run-queued-dot-border);
+  border-radius: var(--jbk-radius-round);
+}
+
+.square {
+  width: var(--jbk-run-square-dot-size);
+  height: var(--jbk-run-square-dot-size);
+  border-radius: var(--jbk-radius-kind-dot);
+  background: var(--jbk-run-dot-color);
+}
+
+.toneOk {
+  --jbk-run-dot-color: var(--jbk-status-ok);
+}
+
+.toneFailed {
+  --jbk-run-dot-color: var(--jbk-status-failed);
+}
+
+/*
+ * `Node states` cached, design 747. One of only two colours in the Studio that are the sole
+ * distinguishing mark of a state — no run-panel artboard fixes a cached row, so this dot and the
+ * `cached · 0.0s` label `format.ts` composes are the whole of what keeps it from reading as `ok`.
+ */
+.toneCached {
+  --jbk-run-dot-color: var(--jbk-kind-dot-cached);
+}
+
+/* RunSpinner */
+.spinner {
+  width: var(--jbk-run-spinner-size);
+  height: var(--jbk-run-spinner-size);
+  flex: none;
+  border: var(--jbk-run-spinner-border-width) solid var(--jbk-run-spinner-track);
+  border-top-color: var(--jbk-accent);
+  border-radius: var(--jbk-radius-round);
+  animation: var(--jbk-motion-spinner);
+}

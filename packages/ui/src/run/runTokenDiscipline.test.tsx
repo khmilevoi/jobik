@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import * as z from 'zod'
 import { canvasColors } from '../canvas/canvasTokens.js'
 import * as tokens from '../tokens.js'
-import { RunPanelCard } from './RunPanel.js'
+import { RunPanelCard } from './RunPanel/RunPanel.js'
 import { runPanelColors } from './runPanelTokens.js'
 import type { RunPanelState } from './types.js'
 

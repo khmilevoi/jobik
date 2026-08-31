@@ -3,8 +3,8 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as z from 'zod'
+import type { RunIdleState } from '../types.js'
 import { RunIdleView } from './RunIdleView.js'
-import type { RunIdleState } from './types.js'
 
 afterEach(cleanup)
 
@@ -48,26 +48,18 @@ function state(overrides: Partial<RunIdleState> = {}): RunIdleState {
 describe('RunIdleView', () => {
   it('opens with the explanatory line', () => {
     render(<RunIdleView state={state()} />)
-    const note = screen.getByTestId('run-panel-note')
-    expect(note.textContent).toBe(NOTE)
-    expect(note.style.fontSize).toBe('11.5px')
-    expect(note.style.color).toBe('rgb(118, 126, 133)')
-    expect(note.style.lineHeight).toBe('1.5')
+    expect(screen.getByTestId('run-panel-note').textContent).toBe(NOTE)
   })
 
   it('renders one control per input field, honouring the caller presentation', () => {
     render(<RunIdleView state={state()} />)
     expect(screen.getByTestId('run-input-title').tagName).toBe('INPUT')
     expect(screen.getByTestId('run-input-markdown').tagName).toBe('TEXTAREA')
-    expect(screen.getByTestId('run-input-markdown').style.height).toBe('118px')
   })
 
-  it('carries the solid accent run button with its shortcut', () => {
+  it('carries the run button with its shortcut', () => {
     render(<RunIdleView state={state()} />)
-    const button = screen.getByRole('button', { name: /Run start1/ })
-    expect(button.style.height).toBe('34px')
-    expect(button.style.color).toBe('rgb(4, 33, 29)')
-    expect(button.getAttribute('style')).toContain('var(--accent, #1fd6bd)')
+    expect(screen.getByRole('button', { name: /Run start1/ })).toBeInTheDocument()
     expect(screen.getByText('⌘↵')).toBeInTheDocument()
   })
 
@@ -102,17 +94,17 @@ describe('RunIdleView', () => {
   it('closes with a divider and the Last run block', () => {
     render(<RunIdleView state={state()} />)
     expect(screen.getByTestId('run-panel-divider')).toBeInTheDocument()
-    const label = screen.getByTestId('run-last-run-label')
-    expect(label.textContent).toBe('Last run')
-    expect(label.style.fontSize).toBe('9.5px')
-    expect(label.style.textTransform).toBe('uppercase')
-    expect(screen.getByTestId('run-last-run-dot').style.background).toBe('rgb(111, 156, 130)')
+    expect(screen.getByTestId('run-last-run-label').textContent).toBe('Last run')
+    expect(screen.getByTestId('run-last-run-dot')).toBeInTheDocument()
     expect(screen.getByTestId('run-last-run-status').textContent).toBe('completed')
     expect(screen.getByTestId('run-last-run-meta').textContent).toBe('2.4s · 3 nodes')
     expect(screen.getByTestId('run-timing-value-render').textContent).toBe('2.1s')
   })
 
-  it('paints a failed last run with the failed status colour', () => {
+  it('marks a failed last run apart from a completed one', () => {
+    render(<RunIdleView state={state()} />)
+    const completedDot = screen.getByTestId('run-last-run-dot').className
+    cleanup()
     render(
       <RunIdleView
         state={state({
@@ -125,8 +117,8 @@ describe('RunIdleView', () => {
         })}
       />,
     )
-    expect(screen.getByTestId('run-last-run-dot').style.background).toBe('rgb(201, 106, 92)')
     expect(screen.getByTestId('run-last-run-status').textContent).toBe('failed')
+    expect(screen.getByTestId('run-last-run-dot').className).not.toBe(completedDot)
   })
 
   it('omits the divider and the block entirely when there is no last run', () => {

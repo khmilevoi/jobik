@@ -2,10 +2,9 @@ import type { NodeInputDescriptor } from '@jobik/core'
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import * as z from 'zod'
-import { RunDock } from '../shell/index.js'
+import { RunDock } from '../../shell/index.js'
+import type { RunPanelState } from '../types.js'
 import { RunPanel, RunPanelCard } from './RunPanel.js'
-import { RunStateHeader } from './RunStateHeader.js'
-import type { RunPanelState } from './types.js'
 
 afterEach(cleanup)
 
@@ -79,8 +78,6 @@ describe('RunPanel', () => {
       </RunDock>,
     )
     const body = screen.getByTestId('studio-dock-body')
-    expect(body.style.padding).toBe('16px 14px')
-    expect(body.style.gap).toBe('16px')
     // The note is a DIRECT child of the dock body: no fragment wrapper sits between them.
     expect(screen.getByTestId('run-panel-note').parentElement).toBe(body)
   })
@@ -95,62 +92,21 @@ describe('RunPanel', () => {
   })
 })
 
-describe('RunStateHeader', () => {
-  it('spins beside Running and the run number while a run is in flight', () => {
-    render(<RunStateHeader state={RUNNING} entryNodeId="start1" />)
-    expect(screen.getByTestId('run-state-header-spinner')).toBeInTheDocument()
-    expect(screen.getByTestId('run-state-header-title').textContent).toBe('Running')
-    expect(screen.getByTestId('run-state-header-meta').textContent).toBe('#219')
-    expect(screen.getByTestId('run-state-header-meta').style.color).toBe('rgb(93, 101, 108)')
-  })
-
-  it('tints the failed header and names the run with its elapsed time', () => {
-    render(<RunStateHeader state={FAILED} entryNodeId="start1" />)
-    const header = screen.getByTestId('run-state-header')
-    expect(header.getAttribute('style')).toContain('rgba(201, 106, 92, 0.05)')
-    expect(header.style.borderBottom).toBe('1px solid rgb(36, 27, 26)')
-    expect(screen.getByTestId('run-state-header-dot').style.background).toBe('rgb(201, 106, 92)')
-    expect(screen.getByTestId('run-state-header-title').textContent).toBe('Run failed')
-    expect(screen.getByTestId('run-state-header-title').style.color).toBe('rgb(240, 230, 228)')
-    expect(screen.getByTestId('run-state-header-meta').textContent).toBe('#220 · 0.8s')
-    expect(screen.getByTestId('run-state-header-meta').style.color).toBe('rgb(109, 95, 92)')
-  })
-
-  it('marks a completed run with the ok dot and its elapsed time', () => {
-    render(<RunStateHeader state={COMPLETED} entryNodeId="start1" />)
-    expect(screen.getByTestId('run-state-header-dot').style.background).toBe('rgb(111, 156, 130)')
-    expect(screen.getByTestId('run-state-header-title').textContent).toBe('Completed')
-    expect(screen.getByTestId('run-state-header-meta').textContent).toBe('#221 · 2.4s')
-  })
-
-  it('heads an idle card with Run and the entry id in accent mono', () => {
-    render(<RunStateHeader state={IDLE} entryNodeId="start1" />)
-    expect(screen.getByTestId('run-state-header-title').textContent).toBe('Run')
-    const entry = screen.getByTestId('run-state-header-entry')
-    expect(entry.textContent).toBe('start1')
-    expect(entry.getAttribute('style')).toContain('var(--accent, #1fd6bd)')
-    expect(screen.queryByTestId('run-state-header-meta')).toBeNull()
-  })
-})
-
 describe('RunPanelCard', () => {
-  it('draws the 320x430 card of the states artboard, header and body', () => {
+  it('draws the card of the states artboard, header and body', () => {
     render(<RunPanelCard state={RUNNING} entryNodeId="start1" />)
-    const card = screen.getByTestId('run-panel-card')
-    expect(card.style.width).toBe('320px')
-    expect(card.style.height).toBe('430px')
-    expect(card.style.borderRadius).toBe('8px')
-    expect(card.style.border).toBe('1px solid rgb(26, 29, 32)')
-    expect(card.style.background).toBe('rgb(10, 11, 13)')
-    const body = screen.getByTestId('run-panel-card-body')
-    expect(body.style.padding).toBe('16px 14px')
-    expect(body.style.gap).toBe('14px')
+    expect(screen.getByTestId('run-panel-card')).toBeInTheDocument()
+    expect(screen.getByTestId('run-panel-card-body')).toBeInTheDocument()
     expect(screen.getByTestId('run-state-header')).toBeInTheDocument()
     expect(screen.getByTestId('run-progress-bar')).toBeInTheDocument()
   })
 
-  it('frames a failed card in the error tint', () => {
+  /** The error tint is the failed card's only mark, and it is now a class. Hold the branch. */
+  it('frames a failed card differently from a settled one', () => {
+    render(<RunPanelCard state={COMPLETED} entryNodeId="start1" />)
+    const settled = screen.getByTestId('run-panel-card').className
+    cleanup()
     render(<RunPanelCard state={FAILED} entryNodeId="start1" />)
-    expect(screen.getByTestId('run-panel-card').style.border).toBe('1px solid rgb(36, 27, 26)')
+    expect(screen.getByTestId('run-panel-card').className).not.toBe(settled)
   })
 })

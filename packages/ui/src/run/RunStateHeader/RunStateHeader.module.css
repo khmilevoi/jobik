@@ -1,0 +1,53 @@
+/*
+ * The 38px header of the `Run panel — states` cards. Of the four states the panel can be in, three
+ * share one chrome and `failed` is the one the artboard tints (lines 796–802), so the failed
+ * treatment is a single class on the header root that cascades to the title and the meta rather
+ * than three modifiers the caller has to keep in step.
+ */
+.header {
+  height: var(--jbk-layout-panel-header-height);
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--jbk-border-panel-header-divider);
+}
+
+.headerFailed {
+  background: var(--jbk-run-failed-header-wash);
+  border-bottom-color: var(--jbk-run-failed-frame);
+}
+
+.leading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.title {
+  font-size: var(--jbk-size-12-5);
+  font-weight: var(--jbk-weight-semibold);
+  color: var(--jbk-text-primary);
+}
+
+.entry {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-11-5);
+  color: var(--jbk-accent);
+}
+
+.meta {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-10);
+  color: var(--jbk-text-type-annotation);
+}
+
+/* `Run panel — states` failed, 799 and 801. `#6d5f5c` on the meta is the sole mark of the state. */
+.headerFailed .title {
+  color: var(--jbk-run-failed-title);
+}
+
+.headerFailed .meta {
+  color: var(--jbk-run-failed-meta);
+}
