@@ -49,5 +49,5 @@
 }
 
 .headerFailed .meta {
-  color: var(--jbk-run-failed-meta);
+  color: var(--jbk-text-failed-meta);
 }

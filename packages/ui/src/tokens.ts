@@ -48,7 +48,16 @@ export const borders = {
   iconButton: '#212427',
 } as const
 
-/** The eleven-step text ramp, plus four artboard-only steps. */
+/**
+ * The eleven-step text ramp, plus four artboard-only steps and five shared by two directories.
+ *
+ * The last five arrived here from `canvasTokens.ts` and `runPanelTokens.ts` when the CSS Modules
+ * migration made the cost of leaving them there visible. A custom property exists only while the
+ * stylesheet declaring it is on the page, so `shell/RunDock` reading `--jbk-text-failed-meta` was a
+ * silent dependency on some `run/` component also being mounted — and `--jbk-text-failed-meta` is
+ * one of only two colours that are the *sole* mark of a state. A value two directories read is a
+ * shared value, and `tokens.css` is the stylesheet every component already has.
+ */
 export const textColors = {
   primary: '#e8eaec',
   nodeTitle: '#e2e6e9',
@@ -69,6 +78,20 @@ export const textColors = {
   badge: '#5c646b',
   /** artboard-only — the count and kind label on an active list row */
   activeMeta: '#5f676e',
+  /** shared — `canvas` and `output`: the mono metadata row under an image, and its `·` separators */
+  metadata: '#636c73',
+  metadataSeparator: '#2f3438',
+  /** shared — `canvas` and `output`: the caption under an inline output placeholder */
+  slotCaption: '#5b646b',
+  /** shared — `run` and `studio`: `n of m nodes complete`, `Cancel run`, `Copy log` */
+  actionLabel: '#cfd5da',
+  /**
+   * shared — `run` and `shell`: a failed run's `#220 · 0.8s` meta and the error well's owning node
+   * (`Run panel — states` failed, 801 and 806). Load-bearing rather than decorative: with the
+   * `#4a5157` cached dot it is one of only two colours that are the sole mark of a state, so it
+   * must survive exactly and may never be approximated.
+   */
+  failedMeta: '#6d5f5c',
 } as const
 
 export const accent = {
@@ -82,6 +105,8 @@ export const accent = {
   headerWash: 'rgba(31,214,189,.05)',
   chipBorder: 'rgba(31,214,189,.3)',
   chipFill: 'rgba(31,214,189,.06)',
+  /** shared — `canvas`, `run` and `studio`: the unlit ring behind a spinner's accent arc */
+  spinnerTrack: 'rgba(31,214,189,.25)',
 } as const
 
 export const accentAlternates = ['#28c8d8', '#3ecf8e', '#c8a24a'] as const

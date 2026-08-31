@@ -26,10 +26,9 @@ export const canvasColors = {
   handleIdle: '#3a4045',
   handleDim: '#2b3034',
 
-  /** Running treatment: the 2px progress bar track and the spinner's unlit
-   *  ring. */
+  /** Running treatment: the 2px progress bar track. The spinner's unlit ring is
+   *  `accent.spinnerTrack` — `run` and `studio` draw the same ring. */
   progressTrack: '#16191c',
-  spinnerTrack: 'rgba(31,214,189,.25)',
 
   /** The 1.5s skeleton shimmer, over `surfaces.imagePlaceholder`. */
   skeletonHighlight,
@@ -59,11 +58,9 @@ export const canvasColors = {
   /** `Studio — default`: the selected start card's own section-label step. */
   sectionLabelSelectedStart: '#535a60',
 
-  /** Inline output slot: the placeholder caption, the metadata row and its
-   *  separators. */
-  slotCaption: '#5b646b',
-  metadata: '#636c73',
-  metadataSeparator: '#2f3438',
+  /* The inline output slot's caption, metadata row and separators are
+   * `textColors.slotCaption`, `.metadata` and `.metadataSeparator` — the output
+   * viewer draws the same three, so `tokens.ts` owns them. */
 
   /** `Node states` → failed. */
   failedBorder: 'rgba(201,106,92,.45)',

@@ -19,7 +19,7 @@
 
 .progressSummary {
   font-size: var(--jbk-size-11-5);
-  color: var(--jbk-run-action-label);
+  color: var(--jbk-text-action-label);
 }
 
 .progressElapsed {

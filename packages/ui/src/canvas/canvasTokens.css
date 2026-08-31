@@ -25,7 +25,6 @@
   --jbk-canvas-handle-idle: #3a4045;
   --jbk-canvas-handle-dim: #2b3034;
   --jbk-canvas-progress-track: #16191c;
-  --jbk-canvas-spinner-track: rgba(31, 214, 189, 0.25);
   --jbk-canvas-skeleton-highlight: #161a1d;
   --jbk-canvas-skeleton: linear-gradient(100deg, #0d0f11 30%, #161a1d 50%, #0d0f11 70%);
   --jbk-canvas-stripe-base: #0e1113;
@@ -38,9 +37,6 @@
   --jbk-canvas-field-label-dim: #6d757c;
   --jbk-canvas-annotation-dim: #4a5157;
   --jbk-canvas-section-label-selected-start: #535a60;
-  --jbk-canvas-slot-caption: #5b646b;
-  --jbk-canvas-metadata: #636c73;
-  --jbk-canvas-metadata-separator: #2f3438;
   --jbk-canvas-failed-border: rgba(201, 106, 92, 0.45);
   --jbk-canvas-failed-halo: 0 0 0 3px rgba(201, 106, 92, 0.05);
   --jbk-canvas-failed-header-wash: rgba(201, 106, 92, 0.06);

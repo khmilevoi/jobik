@@ -3,9 +3,9 @@
  *
  * `tokens.css` carries every design token as a custom property and `globalStyles.css` carries the
  * reset and the four motion loops. Importing them here is what puts them in the module graph, so a
- * bundler emits them — `dist/index.css` for a consumer of the package, an `assets/*.css` link for
- * the Studio bundle. Every `*.module.css` in the package reads `var(--jbk-…)` and depends on that
- * import having happened.
+ * bundler emits them — `dist/style.css` for a consumer of the package, who imports it as
+ * `@jobik/ui/style.css`, and an `assets/*.css` link for the Studio bundle. Every `*.module.css` in
+ * the package reads `var(--jbk-…)` and depends on that import having happened.
  *
  * `STUDIO_GLOBAL_CSS` and `StudioStyles` are exported from the append-only barrel and keep working
  * unchanged. The string mirrors `globalStyles.css` — `globalStyles.test.tsx` fails when the two

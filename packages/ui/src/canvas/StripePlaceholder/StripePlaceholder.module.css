@@ -31,5 +31,5 @@
   font-family: var(--jbk-font-mono);
   font-size: var(--jbk-size-10);
   letter-spacing: var(--jbk-tracking-start-tag);
-  color: var(--jbk-canvas-slot-caption);
+  color: var(--jbk-text-slot-caption);
 }

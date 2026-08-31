@@ -29,7 +29,10 @@ packages/core/src/
 
 packages/ui/src/
   index.ts        append-only browser barrel (named imports)
-  tokens.ts globalStyles.tsx   design tokens and the global stylesheet
+  tokens.ts tokens.css   the design tokens, in TypeScript and as `--jbk-*` custom properties
+  globalStyles.tsx globalStyles.css   the reset and the four keyframes
+  cx.ts css.d.ts  the class-name joiner; the ambient `*.module.css` declaration
+  cssModuleSource.ts + cssModuleUsage/cssModuleValues.test.ts   the styling gates
   primitives/     Badge, Button, Chip, InsetWell, SectionLabel, TypeAnnotation
   shell/          StudioFrame, TopBar, FlowsSidebar, RunDock, PanelHeader, DockedControls
   canvas/         React Flow canvas: FlowCanvas, NodeCard*, FieldEdge/FieldHandle, edge paths
@@ -52,6 +55,19 @@ jobik.config.ts   this repository's own Studio config — the example flow, 127.
 ```
 
 Tests sit next to their subject as `*.test.ts(x)`; there is no separate test tree.
+
+Inside every `packages/ui/src/<area>/`, **a component gets a folder named after it and a plain
+module does not**: `NodeCard/NodeCard.tsx`, `NodeCard/NodeCard.module.css` and
+`NodeCard/NodeCard.test.tsx` together, while `cardChrome.ts`, `canvasTokens.ts`, `types.ts`,
+`format.ts` and the like stay flat beside the directory barrel. There are no per-component
+`index.ts` files — import `./NodeCard/NodeCard.js` directly. Directory barrels (`canvas/index.ts`,
+`run/index.ts`, …) are ordinary files and absorb the paths; only the three barrels named under
+*Rules for editing here* are append-only.
+
+`studio/Studio.ts` and `studio/StudioApp.ts` are one-line re-export shims and are **permanent**:
+`packages/ui/src/index.ts` is append-only and names those two paths directly, and neither will
+resolve to a directory. Do not delete them, and do not add a third — a barrel line naming a
+component you are moving is something to report, not to edit around.
 
 ## Scripts
 
@@ -130,6 +146,46 @@ progress`, `Node states`, `Run panel — states`, `Output viewer`. Canvas props:
 spacing, or new UI states — read the artboard first. If code and design disagree, the design wins —
 but check `DEFERRED.md` first: several disagreements are already known and deliberately deferred.
 
+## Styling
+
+`@jobik/ui` styles itself with **CSS Modules**. `tokens.ts` is still the TypeScript-side source of
+the design values; `tokens.css` restates every one as a `--jbk-*` custom property, and that is what
+stylesheets read. `canvas/`, `run/`, `output/` and `studio/` each add their own `<name>Tokens.ts` +
+`<name>Tokens.css` pair, imported once from the directory barrel. A value two directories read
+belongs in `tokens.ts`, not in one of theirs — a custom property exists only while its own
+stylesheet is on the page.
+
+The invariants, all of them enforced by a test rather than by the compiler:
+
+- `<Component>/<Component>.module.css` beside its component, bound as `s`:
+  `import s from './NodeCard.module.css'`. No other binding name.
+- **`var(--jbk-…)` only.** A colour literal is banned outright in a `*.module.css`, and
+  `font-size`, `font-family` and `border-radius` must read a token — those sets are closed. A
+  component source may not spell a colour either. `padding`, `margin`, `gap`, `width` and `height`
+  stay literal; no token ever carried them.
+- **Literal class access only** — `s.nodeCard`, never `` s[`state-${x}`] `` or `s[variant]`. A
+  computed key blinds the gate, so it is a failure in itself.
+- **Variant maps are written out in full** with `satisfies Record<Foo, string>`, so a missing case
+  is a type error and every value is a read the gate can see.
+- A genuinely dynamic value — a progress width, a caller's colour — rides in as a custom property
+  through `style`, with the rule in the `.module.css`. That is the only inline style left.
+
+Three gates, in `packages/ui/src`:
+
+| Gate | Stops |
+|---|---|
+| `tokens.css.test.ts` (and the per-directory copies) | `tokens.ts` and `tokens.css` drifting apart — both directions |
+| `cssModuleValues.test.ts` | a design value stated in a stylesheet or a source instead of read from a token |
+| `cssModuleUsage.test.ts` | `s.nodeCrad` — a class read but not defined, or defined and read by nobody |
+
+There is deliberately **no generated `*.module.css.d.ts`**: `css.d.ts` declares the module as
+`Record<string, string>`, so a typo compiles and `cssModuleUsage.test.ts` is what catches it. That
+trade was chosen; do not add a generator.
+
+The published package now ships `dist/style.css` and a consumer must
+`import '@jobik/ui/style.css'`. `tsdown` writes that `exports` entry itself on every build — see
+*Stack*, and never hand-edit it.
+
 ## Docs
 
 - `.superpowers/waves/2026-08-29-jobik-v1/closeout/DEFERRED.md` — everything v1 found, verified and
@@ -168,4 +224,4 @@ Changesets. Node >= 24, ESM only.
 - `@jobik/core` is namespace-imported: `import * as jobik from '@jobik/core'`. It exports `start`, `node`, `flow`, and the tagged error classes at top level — no `jobik` object export, no default export. The `jobik.` prefix is the import alias, not something the package owns. `@jobik/ui` and `@jobik/ui/server` keep named imports for their single define-functions.
 - Zod v4 is the schema system and a peer dependency of `@jobik/core`.
 - Errors use `errore` (`import * as errore from 'errore'`): expected failures are returned as `T | Error`, never thrown. See the `errore` skill.
-- The editor is React Flow based, desktop-first, dark only.
+- The editor is React Flow based, desktop-first, dark only, and styled with CSS Modules — see *Styling*.

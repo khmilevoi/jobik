@@ -1,7 +1,7 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
-import { canvasColors } from '../../canvas/canvasTokens.js'
-import { NodeOutputSlot } from '../../canvas/NodeOutputSlot.js'
+import { NodeOutputSlot } from '../../canvas/index.js'
+import { textColors } from '../../tokens.js'
 import type { OutputComponentProps } from '../flowUi.js'
 import { GenericOutput, resolveOutputComponent } from './GenericOutput.js'
 
@@ -41,7 +41,7 @@ describe('GenericOutput', () => {
     render(
       <NodeOutputSlot
         slot={{ content: <GenericOutput {...props} surface="card" /> }}
-        captionColor={canvasColors.metadata}
+        captionColor={textColors.metadata}
       />,
     )
     expect(screen.getByTestId('generic-output')).toBeInTheDocument()

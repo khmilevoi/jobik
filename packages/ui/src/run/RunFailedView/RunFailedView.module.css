@@ -21,7 +21,7 @@
 .errorNode {
   font-family: var(--jbk-font-mono);
   font-size: var(--jbk-size-9-5);
-  color: var(--jbk-run-failed-meta);
+  color: var(--jbk-text-failed-meta);
 }
 
 .errorMessage {

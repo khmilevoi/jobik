@@ -73,6 +73,12 @@
   --jbk-text-chevron: #7c848b;
   --jbk-text-badge: #5c646b;
   --jbk-text-active-meta: #5f676e;
+  /* the five a second directory reads — see the note on `textColors` in `tokens.ts` */
+  --jbk-text-metadata: #636c73;
+  --jbk-text-metadata-separator: #2f3438;
+  --jbk-text-slot-caption: #5b646b;
+  --jbk-text-action-label: #cfd5da;
+  --jbk-text-failed-meta: #6d5f5c;
 
   /* accent — `--jbk-accent` is `accent.cssVar`, the frame's `--accent` override point */
   --jbk-accent: var(--accent, #1fd6bd);
@@ -84,6 +90,7 @@
   --jbk-accent-header-wash: rgba(31, 214, 189, 0.05);
   --jbk-accent-chip-border: rgba(31, 214, 189, 0.3);
   --jbk-accent-chip-fill: rgba(31, 214, 189, 0.06);
+  --jbk-accent-spinner-track: rgba(31, 214, 189, 0.25);
   --jbk-accent-alt-1: #28c8d8;
   --jbk-accent-alt-2: #3ecf8e;
   --jbk-accent-alt-3: #c8a24a;

@@ -38,13 +38,15 @@
   "exports": {
     ".": "./src/index.ts",
     "./server": "./src/server/index.ts",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./style.css": "./dist/style.css"
   },
   "publishConfig": {
     "exports": {
       ".": "./dist/index.js",
       "./server": "./dist/server.mjs",
-      "./package.json": "./package.json"
+      "./package.json": "./package.json",
+      "./style.css": "./dist/style.css"
     }
   }
 }

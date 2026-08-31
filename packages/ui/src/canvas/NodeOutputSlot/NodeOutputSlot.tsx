@@ -8,7 +8,7 @@ import s from './NodeOutputSlot.module.css'
 
 export interface NodeOutputSlotProps {
   readonly slot: NodeOutputSlotSpec
-  /** `canvasColors.metadata` on an ok card, `textColors.typeAnnotation` otherwise. */
+  /** `textColors.metadata` on an ok card, `textColors.typeAnnotation` otherwise. */
   readonly captionColor: string
 }
 

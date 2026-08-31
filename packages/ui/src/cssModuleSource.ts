@@ -119,6 +119,72 @@ export function findCssModuleViolations(css: string): readonly CssModuleViolatio
 }
 
 /**
+ * Every colour literal a component source states directly, instead of reading a token.
+ *
+ * This is the half of the old DOM-scanning discipline tests that a stylesheet scan cannot reach.
+ * Those four tests rendered a tree and read the colours back out of it, so they saw an inline
+ * `style={{ color: '#ff00ff' }}` and an SVG `stroke="#ff00ff"` as well as anything a stylesheet
+ * painted. `findCssModuleViolations` replaces the stylesheet half; without this one, JSX would be
+ * the way back to two sources of truth — and the two load-bearing colours, the `#4a5157` cached
+ * dot and the `#6d5f5c` failed meta, are exactly the kind of value that would drift there.
+ *
+ * The token modules are the files allowed to spell a colour. They are excluded by the gate that
+ * calls this, not here, so the scanner itself stays a plain question about one file's text.
+ *
+ * Comments are masked rather than dropped: this package cites artboard hexes in almost every
+ * docblock, and masking keeps those out of the findings while leaving every line number true.
+ */
+export function findSourceColourViolations(source: string): readonly CssModuleViolation[] {
+  const violations: CssModuleViolation[] = []
+  maskComments(source)
+    .split('\n')
+    .forEach((line, index) => {
+      if (RAW_COLOUR.test(line)) {
+        violations.push({
+          line: index + 1,
+          text: line.trim(),
+          reason: 'a colour literal in a component source — read a token instead',
+        })
+      }
+    })
+  return violations
+}
+
+/** `stripComments`, except every dropped character becomes a space, so line numbers survive. */
+function maskComments(source: string): string {
+  const blank = (text: string) => text.replace(/[^\n]/g, ' ')
+  let out = ''
+  let index = 0
+  while (index < source.length) {
+    const pair = source.slice(index, index + 2)
+    if (pair === '//') {
+      const newline = source.indexOf('\n', index)
+      const stop = newline === -1 ? source.length : newline
+      out += blank(source.slice(index, stop))
+      index = stop
+      continue
+    }
+    if (pair === '/*') {
+      const close = source.indexOf('*/', index + 2)
+      const stop = close === -1 ? source.length : close + 2
+      out += blank(source.slice(index, stop))
+      index = stop
+      continue
+    }
+    const character = source[index] as string
+    if (character === "'" || character === '"' || character === '`') {
+      const end = endOfString(source, index)
+      out += source.slice(index, end)
+      index = end
+      continue
+    }
+    out += character
+    index += 1
+  }
+  return out
+}
+
+/**
  * Drops `//` and block comments while leaving string literals whole.
  *
  * Quote-aware, so a `//` inside `'https://…'` is not mistaken for a comment. It does not model

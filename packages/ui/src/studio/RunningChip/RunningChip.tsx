@@ -15,8 +15,10 @@ import s from './RunningChip.module.css'
  * `--jbk-text-control-label` for its text, `--jbk-status-unsaved` for its dot, the same `#8a7d4a`
  * the unsaved indicator uses, because a conflict *is* an unsaved state.
  *
- * The spinner reads two run-panel tokens (`--jbk-run-spinner-track`, `--jbk-run-action-label`),
- * exactly as this file used to import `runPanelColors` from `../run/index.js`.
+ * The spinner draws the same ring and label as the run panel's own (`--jbk-accent-spinner-track`,
+ * `--jbk-text-action-label`), which is what this file used to import from `runPanelColors`. Both
+ * are shared tokens in `tokens.css` rather than run-panel ones: a custom property exists only
+ * while its stylesheet is on the page, and this chip must never need a `run/` component mounted.
  */
 
 export interface RunningChipProps {

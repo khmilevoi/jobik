@@ -45,7 +45,7 @@
   background: none;
   font-family: var(--jbk-font-ui);
   font-size: var(--jbk-size-12-5);
-  color: var(--jbk-run-action-label);
+  color: var(--jbk-text-action-label);
 }
 
 .actionRegular {
@@ -114,7 +114,7 @@
   width: var(--jbk-run-spinner-size);
   height: var(--jbk-run-spinner-size);
   flex: none;
-  border: var(--jbk-run-spinner-border-width) solid var(--jbk-run-spinner-track);
+  border: var(--jbk-run-spinner-border-width) solid var(--jbk-accent-spinner-track);
   border-top-color: var(--jbk-accent);
   border-radius: var(--jbk-radius-round);
   animation: var(--jbk-motion-spinner);

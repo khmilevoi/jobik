@@ -456,11 +456,7 @@ export function StudioApp(props: StudioAppProps) {
             logs={viewerLogs}
             onCopyAll={onCopyAllOutput}
             onDownload={onDownloadOutput}
-            // `OutputViewer.style` is that component's own declared prop — "layout only, width
-            // and height, never a colour" — not an inline style of ours. It stays until
-            // `OutputViewer` grows a `className`, which is the output directory's call, not this
-            // one's; there is no design value here for a stylesheet to own.
-            style={{ width: '100%', height: '100%' }}
+            className={s.viewer}
           />
         </div>
       )}

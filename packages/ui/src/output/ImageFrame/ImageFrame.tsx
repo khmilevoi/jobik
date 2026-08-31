@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { StripePlaceholder } from '../../canvas/StripePlaceholder.js'
+import { StripePlaceholder } from '../../canvas/index.js'
 import { cx } from '../../cx.js'
 import { outputMetrics } from '../outputTokens.js'
 import s from './ImageFrame.module.css'

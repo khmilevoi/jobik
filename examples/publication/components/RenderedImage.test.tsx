@@ -1,5 +1,5 @@
 import type { OutputComponentProps } from '@jobik/ui'
-import { canvasColors, NodeOutputSlot } from '@jobik/ui'
+import { NodeOutputSlot, textColors } from '@jobik/ui'
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { PUBLICATION_ASSET_NAME } from '../types.js'
@@ -54,7 +54,7 @@ describe('RenderedImage at the card surface', () => {
     render(
       <NodeOutputSlot
         slot={{ content: <RenderedImage {...props} surface="card" /> }}
-        captionColor={canvasColors.metadata}
+        captionColor={textColors.metadata}
       />,
     )
     const media = screen.getByTestId('node-output-media')

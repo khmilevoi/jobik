@@ -59,7 +59,7 @@
  * in `run/runPanelTokens.css`.
  */
 .metaFailed {
-  color: var(--jbk-run-failed-meta);
+  color: var(--jbk-text-failed-meta);
 }
 
 .body {

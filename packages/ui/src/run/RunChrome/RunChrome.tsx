@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { cx, type StyleWithVars } from '../../cx.js'
 import s from './RunChrome.module.css'
 
@@ -25,13 +25,6 @@ export interface RunWellProps {
    * colour.
    */
   readonly className?: string
-  /**
-   * @deprecated Layout only, and only until the caller's own directory is migrated. Pass a
-   * `className` from the caller's `*.module.css` instead; this prop goes away once nothing uses it.
-   * Unlike the inline-style era it now wins over the tone rather than losing to it, so a colour
-   * here would silently override the well — which is why the doc above forbids one.
-   */
-  readonly style?: CSSProperties
   readonly 'data-testid'?: string
 }
 
@@ -49,10 +42,8 @@ const wellTones = {
 export function RunWell(props: RunWellProps) {
   // `padding` is a value the stylesheet cannot know, so it rides in as the custom property the
   // tone rules already read, exactly the way `SectionLabel` carries its `color`.
-  const style: StyleWithVars | CSSProperties | undefined =
-    props.padding === undefined
-      ? props.style
-      : { '--jbk-run-well-padding': props.padding, ...props.style }
+  const style: StyleWithVars | undefined =
+    props.padding === undefined ? undefined : { '--jbk-run-well-padding': props.padding }
   return (
     <div
       data-testid={props['data-testid']}

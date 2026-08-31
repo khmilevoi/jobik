@@ -1,5 +1,5 @@
 import type { AssetDescriptor } from '@jobik/core'
-import { type CSSProperties, useState } from 'react'
+import { useState } from 'react'
 import { cx } from '../../cx.js'
 import { Button } from '../../primitives/index.js'
 import type { FlowUiDescriptor, OutputValues } from '../flowUi.js'
@@ -36,11 +36,6 @@ export interface OutputViewerProps {
   readonly onDownload?: () => void
   /** Layout only — width and height. Never a colour. */
   readonly className?: string
-  /**
-   * @deprecated Layout only, kept for `StudioApp`'s inline width/height override until that
-   * directory migrates its own call site to `className`. Merges last onto the root element.
-   */
-  readonly style?: CSSProperties
 }
 
 function noUrl(): undefined {
@@ -67,7 +62,7 @@ export function OutputViewer(props: OutputViewerProps) {
         : undefined
 
   return (
-    <div data-testid="output-viewer" className={cx(s.viewer, props.className)} style={props.style}>
+    <div data-testid="output-viewer" className={cx(s.viewer, props.className)}>
       <div data-testid="output-viewer-header" className={s.header}>
         <div role="tablist" className={s.tablist}>
           {TABS.map((entry) => {

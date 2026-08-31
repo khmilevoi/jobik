@@ -2,7 +2,6 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { textColors } from '../../tokens.js'
-import { canvasColors } from '../canvasTokens.js'
 import { MetadataRow, NodeStateBody } from './NodeStateBody.js'
 
 afterEach(cleanup)
@@ -52,7 +51,7 @@ describe('NodeStateBody — media', () => {
     render(
       <NodeStateBody
         detail={{ kind: 'media', caption: <MetadataRow parts={['1024×1024', 'png', '412 kb']} /> }}
-        captionColor={canvasColors.metadata}
+        captionColor={textColors.metadata}
       />,
     )
     expect(screen.getByTestId('node-state-media-block')).toHaveTextContent('image output')
@@ -78,7 +77,7 @@ describe('NodeStateBody — media', () => {
     render(
       <NodeStateBody
         detail={{ kind: 'media', content: <img alt="rendered output" src="blob:x" /> }}
-        captionColor={canvasColors.metadata}
+        captionColor={textColors.metadata}
       />,
     )
     expect(screen.getByAltText('rendered output')).toBeInTheDocument()

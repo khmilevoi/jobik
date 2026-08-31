@@ -11,7 +11,6 @@ describe('canvasColors', () => {
     expect(canvasColors.handleIdle).toBe('#3a4045')
     expect(canvasColors.handleDim).toBe('#2b3034')
     expect(canvasColors.progressTrack).toBe('#16191c')
-    expect(canvasColors.spinnerTrack).toBe('rgba(31,214,189,.25)')
     expect(canvasColors.skeletonHighlight).toBe('#161a1d')
     expect(canvasColors.stripeBase).toBe('#0e1113')
     expect(canvasColors.stripeLine).toBe('#14181a')
@@ -19,16 +18,13 @@ describe('canvasColors', () => {
     expect(canvasColors.zoomControlBorder).toBe('#202327')
   })
 
-  it('carries the title steps, the dimmed text steps and the slot text steps', () => {
+  it('carries the title steps and the dimmed text steps', () => {
     expect(canvasColors.titleSelected).toBe('#eef1f3')
     expect(canvasColors.titleFailed).toBe('#f0e6e4')
     expect(canvasColors.titleCached).toBe('#b3b9be')
     expect(canvasColors.fieldLabelDim).toBe('#6d757c')
     expect(canvasColors.annotationDim).toBe('#4a5157')
     expect(canvasColors.sectionLabelSelectedStart).toBe('#535a60')
-    expect(canvasColors.slotCaption).toBe('#5b646b')
-    expect(canvasColors.metadata).toBe('#636c73')
-    expect(canvasColors.metadataSeparator).toBe('#2f3438')
     expect(canvasColors.cachedHeaderDivider).toBe('#191c1f')
   })
 

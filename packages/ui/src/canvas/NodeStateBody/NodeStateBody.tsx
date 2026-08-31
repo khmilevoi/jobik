@@ -7,7 +7,7 @@ import s from './NodeStateBody.module.css'
 
 export interface NodeStateBodyProps {
   readonly detail: NodeCardDetail
-  /** `canvasColors.metadata` on an ok card, `textColors.typeAnnotation` otherwise. */
+  /** `textColors.metadata` on an ok card, `textColors.typeAnnotation` otherwise. */
   readonly captionColor: string
 }
 

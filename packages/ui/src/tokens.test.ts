@@ -55,7 +55,7 @@ describe('tokens', () => {
     })
   })
 
-  it('carries the eleven-step text ramp', () => {
+  it('carries the eleven-step text ramp, the artboard-only steps and the five shared ones', () => {
     expect(textColors).toEqual({
       primary: '#e8eaec',
       nodeTitle: '#e2e6e9',
@@ -72,6 +72,13 @@ describe('tokens', () => {
       chevron: '#7c848b',
       badge: '#5c646b',
       activeMeta: '#5f676e',
+      // Promoted out of `canvasTokens.ts` and `runPanelTokens.ts`: each is read from a second
+      // directory, and a custom property only exists while its own stylesheet is on the page.
+      metadata: '#636c73',
+      metadataSeparator: '#2f3438',
+      slotCaption: '#5b646b',
+      actionLabel: '#cfd5da',
+      failedMeta: '#6d5f5c',
     })
   })
 
@@ -85,6 +92,9 @@ describe('tokens', () => {
     expect(accent.headerWash).toBe('rgba(31,214,189,.05)')
     expect(accent.chipBorder).toBe('rgba(31,214,189,.3)')
     expect(accent.chipFill).toBe('rgba(31,214,189,.06)')
+    // Promoted out of `canvasTokens.ts` and `runPanelTokens.ts` — canvas, run and studio all draw
+    // the same unlit spinner ring, so it is a shared value rather than three copies of one.
+    expect(accent.spinnerTrack).toBe('rgba(31,214,189,.25)')
     expect(accentAlternates).toEqual(['#28c8d8', '#3ecf8e', '#c8a24a'])
   })
 

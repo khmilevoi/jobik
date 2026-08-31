@@ -10,7 +10,7 @@
  * prefix `--jbk-run-` that `PATTERN.md` assigns this token module. Numeric metrics carry their
  * `px` here, so a `.module.css` never adds a unit.
  *
- * `--jbk-run-failed-meta` (#6d5f5c) is load-bearing rather than decorative: with the cached dot it
+ * `--jbk-text-failed-meta` (#6d5f5c) is load-bearing rather than decorative: with the cached dot it
  * is one of only two colours that are the sole distinguishing mark of a state — the failed run's
  * `#220 · 0.8s` meta and its error well's owning node. It comes off the artboard (`Run panel —
  * states` failed, lines 801 and 806) and it may not be approximated.
@@ -23,9 +23,7 @@
   /* runPanelColors */
   --jbk-run-note: #767e85;
   --jbk-run-control-value: #d5dade;
-  --jbk-run-action-label: #cfd5da;
   --jbk-run-progress-track: #16191c;
-  --jbk-run-spinner-track: rgba(31, 214, 189, 0.25);
   --jbk-run-active-row-border: rgba(31, 214, 189, 0.18);
   --jbk-run-queued-dot-border: #34393d;
   --jbk-run-queued-node-name: #6d757c;
@@ -35,7 +33,6 @@
   --jbk-run-failed-frame: #241b1a;
   --jbk-run-failed-header-wash: rgba(201, 106, 92, 0.05);
   --jbk-run-failed-title: #f0e6e4;
-  --jbk-run-failed-meta: #6d5f5c;
   --jbk-run-error-well-border: #2a1f1e;
 
   /* runPanelMetrics */

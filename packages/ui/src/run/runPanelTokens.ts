@@ -5,9 +5,13 @@
  * artboards add and nothing else defines. **Never re-declare a value `tokens.ts` already carries —
  * import it.** Every entry below names the artboard and file line it came from.
  *
- * Eight values here also appear in P7's `canvasTokens.ts`, because the same colour is used on the
- * canvas and in the dock. They are declared again rather than imported so neither token file
- * becomes a shared layer for the other; `runPanelTokens.test.ts` asserts the two sets agree.
+ * Several values here also appear in P7's `canvasTokens.ts`, because the same colour is used on
+ * the canvas and in the dock. They are declared again rather than imported so neither token file
+ * becomes a shared layer for the other; `runPanelTokens.test.ts` asserts the two sets agree. The
+ * three a *third* directory reads — `actionLabel`, `spinnerTrack` and the load-bearing
+ * `failedMeta` — are gone from here and live in `tokens.ts`: a custom property exists only while
+ * its stylesheet is on the page, and `shell/RunDock` must not need a `run/` component mounted to
+ * keep the one colour that marks a failed run.
  */
 import { surfaces } from '../tokens.js'
 
@@ -19,13 +23,8 @@ export const runPanelColors = {
   note: '#767e85',
   /** `Studio — default` idle (283): the single-line control's value text. */
   controlValue: '#d5dade',
-  /** `Studio — run in progress` (598, 644) and `Run panel — states` (792, 823): `n of m nodes
-   *  complete`, `Cancel run`, `Copy log`. */
-  actionLabel: '#cfd5da',
   /** `Studio — run in progress` (603) and `Run panel — states` (780): the 3px bar's track. */
   progressTrack: '#16191c',
-  /** `Studio — run in progress` (610) and `Run panel — states` (774): the spinner's unlit ring. */
-  spinnerTrack: 'rgba(31,214,189,.25)',
   /** `Studio — run in progress` (609): the accent-tinted active node row's border. */
   activeRowBorder: 'rgba(31,214,189,.18)',
   /** `Studio — run in progress` (616): a queued node row's hollow dot. */
@@ -47,8 +46,6 @@ export const runPanelColors = {
   failedHeaderWash: 'rgba(201,106,92,.05)',
   /** `Run panel — states` failed (799): the header title. */
   failedTitle: '#f0e6e4',
-  /** `Run panel — states` failed (801, 806): `#220 · 0.8s`, and the error well's owning node. */
-  failedMeta: '#6d5f5c',
   /** `Run panel — states` failed (804): the error well's border. */
   errorWellBorder: '#2a1f1e',
 } as const

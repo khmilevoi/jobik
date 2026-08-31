@@ -9,11 +9,14 @@ import { runPanelColors, runPanelMetrics } from './runPanelTokens.js'
  * `src/tokens.css.test.ts`.
  *
  * Two files now spell the same values, and nothing in a compiler notices when one of them drifts: a
- * `.module.css` that reads `var(--jbk-run-failed-meta)` keeps compiling after somebody edits
- * `runPanelColors.failedMeta` in TypeScript, and the run panel quietly renders the old colour.
+ * `.module.css` that reads `var(--jbk-run-failed-frame)` keeps compiling after somebody edits
+ * `runPanelColors.failedFrame` in TypeScript, and the run panel quietly renders the old colour.
  * `runPanelTokens.ts` remains the source of truth — it is the file whose comments name the artboard
- * line each value came from, and `shell/RunDock.tsx` still reads `runPanelColors` in JS — so this
- * test is what keeps the stylesheet honest to it.
+ * line each value came from — so this test is what keeps the stylesheet honest to it.
+ *
+ * The three values a directory outside `run/` also reads — `actionLabel`, `spinnerTrack` and the
+ * load-bearing `failedMeta` — are not here any more. They live in `tokens.ts` and `tokens.css`,
+ * because a custom property exists only while its own stylesheet is on the page.
  *
  * Both directions, for the same reasons `tokens.css.test.ts` runs both: left to right catches a
  * token that never reached the stylesheet; right to left catches a custom property invented in CSS
@@ -82,13 +85,6 @@ describe('runPanelTokens.css', () => {
       .filter(([name, value]) => normalize(declared.get(name) ?? '') !== normalize(value))
       .map(([name, value]) => `${name}: ${declared.get(name)} (runPanelTokens.ts says ${value})`)
     expect(drifted).toEqual([])
-  })
-
-  it('keeps the failed run meta exactly, because it is the sole mark of that state', () => {
-    // `#6d5f5c` is one of the two colours that distinguish a state on their own. An approximation
-    // here is a silent design regression no other test in this directory would catch.
-    expect(declared.get('--jbk-run-failed-meta')).toBe(runPanelColors.failedMeta)
-    expect(runPanelColors.failedMeta).toBe('#6d5f5c')
   })
 
   it('scopes every declaration to the Studio so a host application is never restyled', () => {

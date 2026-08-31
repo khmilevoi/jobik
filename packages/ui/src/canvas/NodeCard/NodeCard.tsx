@@ -2,7 +2,6 @@ import type { Node, NodeProps } from '@xyflow/react'
 import { cx, type StyleWithVars } from '../../cx.js'
 import { SectionLabel } from '../../primitives/index.js'
 import { px, textColors } from '../../tokens.js'
-import { canvasColors } from '../canvasTokens.js'
 import { resolveCardChrome, resolveCardWidth } from '../cardChrome.js'
 import { fieldHandleId } from '../fields.js'
 import { NodeCardHeader } from '../NodeCardHeader/NodeCardHeader.js'
@@ -67,7 +66,7 @@ export function NodeCard(props: NodeCardProps) {
   const inputs = data.inputs ?? []
   const outputs = data.outputs ?? []
   const live = new Set(data.liveFields ?? [])
-  const captionColor = data.state === 'ok' ? canvasColors.metadata : textColors.typeAnnotation
+  const captionColor = data.state === 'ok' ? textColors.metadata : textColors.typeAnnotation
   // The two values a stylesheet cannot know: the card's own width, and how far the bar has run.
   const widthStyle: StyleWithVars = { '--jbk-card-width': px(resolveCardWidth(data)) }
   const progressStyle: StyleWithVars | undefined =

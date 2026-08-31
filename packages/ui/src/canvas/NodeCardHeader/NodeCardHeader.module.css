@@ -17,7 +17,7 @@
 .spinner {
   width: var(--jbk-canvas-spinner-size);
   height: var(--jbk-canvas-spinner-size);
-  border: var(--jbk-canvas-handle-border-width) solid var(--jbk-canvas-spinner-track);
+  border: var(--jbk-canvas-handle-border-width) solid var(--jbk-accent-spinner-track);
   border-top-color: var(--jbk-accent);
   border-radius: var(--jbk-radius-round);
   animation: var(--jbk-motion-spinner);

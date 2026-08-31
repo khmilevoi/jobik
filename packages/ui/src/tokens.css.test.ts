@@ -135,4 +135,14 @@ describe('tokens.css', () => {
   it('keeps the frame override point that accent.cssVar promises', () => {
     expect(declared.get('--jbk-accent')).toBe('var(--accent, #1fd6bd)')
   })
+
+  it('keeps the two colours that are the sole mark of a state exactly', () => {
+    // The `#4a5157` cached dot and the `#6d5f5c` failed run meta are the only thing distinguishing
+    // those states. An approximation is a silent design regression nothing else would catch, and
+    // both are read from two directories, which is why they live here rather than beside one.
+    expect(declared.get('--jbk-kind-dot-cached')).toBe(kindDotColors.cached)
+    expect(kindDotColors.cached).toBe('#4a5157')
+    expect(declared.get('--jbk-text-failed-meta')).toBe(textColors.failedMeta)
+    expect(textColors.failedMeta).toBe('#6d5f5c')
+  })
 })

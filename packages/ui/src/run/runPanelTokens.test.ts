@@ -1,14 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { canvasColors } from '../canvas/canvasTokens.js'
+import { textColors } from '../tokens.js'
 import { runPanelColors, runPanelMetrics } from './runPanelTokens.js'
 
 describe('runPanelColors', () => {
   it('carries the values the run panel adds to P4 tokens', () => {
     expect(runPanelColors.note).toBe('#767e85')
     expect(runPanelColors.controlValue).toBe('#d5dade')
-    expect(runPanelColors.actionLabel).toBe('#cfd5da')
     expect(runPanelColors.progressTrack).toBe('#16191c')
-    expect(runPanelColors.spinnerTrack).toBe('rgba(31,214,189,.25)')
     expect(runPanelColors.activeRowBorder).toBe('rgba(31,214,189,.18)')
     expect(runPanelColors.queuedDotBorder).toBe('#34393d')
     expect(runPanelColors.queuedNodeName).toBe('#6d757c')
@@ -20,7 +19,6 @@ describe('runPanelColors', () => {
     expect(runPanelColors.failedFrame).toBe('#241b1a')
     expect(runPanelColors.failedHeaderWash).toBe('rgba(201,106,92,.05)')
     expect(runPanelColors.failedTitle).toBe('#f0e6e4')
-    expect(runPanelColors.failedMeta).toBe('#6d5f5c')
     expect(runPanelColors.errorWellBorder).toBe('#2a1f1e')
     expect(runPanelColors.failedHeaderWash).not.toBe(canvasColors.failedHeaderWash)
   })
@@ -33,10 +31,9 @@ describe('runPanelColors', () => {
 
   it('stays in step with the canvas values transcribed from the same artboards', () => {
     expect(runPanelColors.progressTrack).toBe(canvasColors.progressTrack)
-    expect(runPanelColors.spinnerTrack).toBe(canvasColors.spinnerTrack)
     expect(runPanelColors.skeletonHighlight).toBe(canvasColors.skeletonHighlight)
     expect(runPanelColors.queuedNodeName).toBe(canvasColors.fieldLabelDim)
-    expect(runPanelColors.lastRunNodeName).toBe(canvasColors.metadata)
+    expect(runPanelColors.lastRunNodeName).toBe(textColors.metadata)
     expect(runPanelColors.failedFrame).toBe(canvasColors.failedHeaderDivider)
     expect(runPanelColors.failedTitle).toBe(canvasColors.titleFailed)
     expect(runPanelColors.errorWellBorder).toBe(canvasColors.failedWellBorder)

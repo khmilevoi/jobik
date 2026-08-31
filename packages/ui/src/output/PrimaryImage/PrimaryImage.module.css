@@ -6,7 +6,7 @@
   gap: var(--jbk-output-metadata-gap);
   font-family: var(--jbk-font-mono);
   font-size: var(--jbk-size-10);
-  color: var(--jbk-canvas-metadata);
+  color: var(--jbk-text-metadata);
 }
 
 .metadataPart {
@@ -14,7 +14,7 @@
 }
 
 .metadataSeparator {
-  color: var(--jbk-canvas-metadata-separator);
+  color: var(--jbk-text-metadata-separator);
 }
 
 .metadataSpacer {

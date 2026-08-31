@@ -21,3 +21,9 @@
   display: flex;
   background: var(--jbk-surface-shell);
 }
+
+/* The viewer fills the backdrop. Layout only — `OutputViewer` owns everything it paints. */
+.viewer {
+  width: 100%;
+  height: 100%;
+}

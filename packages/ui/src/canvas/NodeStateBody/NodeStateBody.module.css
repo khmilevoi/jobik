@@ -142,7 +142,7 @@
   gap: var(--jbk-metadata-row-gap, 8px);
   font-family: var(--jbk-font-mono);
   font-size: var(--jbk-metadata-row-size, var(--jbk-size-10));
-  color: var(--jbk-canvas-metadata);
+  color: var(--jbk-text-metadata);
 }
 
 .part {
@@ -150,5 +150,5 @@
 }
 
 .separator {
-  color: var(--jbk-canvas-metadata-separator);
+  color: var(--jbk-text-metadata-separator);
 }
