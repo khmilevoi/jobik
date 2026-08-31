@@ -1,0 +1,42 @@
+/*
+ * 3C — the design's only toggle, from the Download-output modal's `Bundle as zip` row.
+ *
+ * **Only the on state is drawn.** `09-modals.md` says so explicitly and tells the implementation
+ * to extrapolate the off state as a `#0c0e10` / `#212528` track with a `#4a5157` knob, recorded as
+ * an extrapolation — which is what `.off` and `--jbk-primitive-toggle-knob-off` are. The track and
+ * its border read tokens that already exist; only the knob colour is new, and it is the one value
+ * in `primitives/` the design does not draw.
+ *
+ * The knob is seated by `justify-content` rather than by an offset, exactly as the design writes
+ * it, so there is nothing here for a transition to have animated even if the design fixed one.
+ */
+
+.track {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex: none;
+  width: 32px;
+  height: 18px;
+  padding: 0 2px;
+  border: 1px solid var(--jbk-primitive-accent-toggle-border);
+  border-radius: var(--jbk-primitive-toggle-radius);
+  background: var(--jbk-primitive-accent-soft);
+}
+
+.off {
+  justify-content: flex-start;
+  border-color: var(--jbk-border-quiet-control);
+  background: var(--jbk-surface-input-well);
+}
+
+.knob {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--jbk-radius-round);
+  background: var(--jbk-accent);
+}
+
+.knobOff {
+  background: var(--jbk-primitive-toggle-knob-off);
+}

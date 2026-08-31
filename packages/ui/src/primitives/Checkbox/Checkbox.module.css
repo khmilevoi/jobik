@@ -1,0 +1,45 @@
+/*
+ * 3C — the design's only checkbox, from the Download-output modal's file rows.
+ *
+ * Checked and unchecked are not a border colour apart: the checked box drops its border entirely
+ * and fills with the accent. `box-sizing: border-box` is what keeps both at 14 px through that
+ * swap — the global reset applies it to everything inside `[data-jobik-studio]`.
+ *
+ * The box is a `<span>` and the real `<input>` is stretched over it, unpainted — so the 14 px box
+ * is the hit target, and the span nests legally inside `3C`'s row-wide `<label>`. Nothing here is
+ * transitioned; foundations §6.4 finds no transition anywhere in the design.
+ */
+
+.box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  position: relative;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--jbk-border-save-button);
+  border-radius: var(--jbk-radius-badge);
+}
+
+.checked {
+  border: none;
+  background: var(--jbk-accent);
+  color: var(--jbk-accent-on-fill);
+}
+
+/*
+ * Present, focusable and clickable; simply not painted. Stretched over the box rather than
+ * collapsed, so the pointer target is the 14 px square the design draws. Transparent rather than
+ * hidden, because `display:none` and `visibility:hidden` both take it out of the tab order — and
+ * the design draws no focus treatment, so the tab order is the only thing a keyboard user has.
+ */
+.input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}

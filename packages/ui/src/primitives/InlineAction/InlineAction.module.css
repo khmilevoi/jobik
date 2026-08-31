@@ -1,0 +1,41 @@
+/*
+ * 3A §2.3 — the inline mono link: `copy url` in a node card footer, `inspect`, `Reveal node`.
+ *
+ * The design draws it as a bare `<span>` with `cursor:pointer`; it is a `<button>` here, because a
+ * span is not reachable by keyboard and the design fixes no focus treatment that would tell a
+ * reader it had been. Everything a button brings by default that would show — the border, the
+ * background, the padding, the inherited-but-different font — is reset below, so what renders is
+ * the span the artboard draws.
+ *
+ * The state rules are written as compounds so they beat `:hover`, which would otherwise win on
+ * specificity and light a working link back up to the accent.
+ */
+
+.inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-10);
+  color: var(--jbk-accent);
+}
+
+/* Foundations §6.4 — `accent inline link` hovers to `#4ce3ce`. Instant; the design fixes no timing. */
+.inline:hover:not(:disabled) {
+  color: var(--jbk-accent-hover);
+}
+
+.inline.busy {
+  color: var(--jbk-text-type-annotation);
+}
+
+.inline.ok {
+  color: var(--jbk-status-ok-label);
+}
+
+.inline.failed {
+  color: var(--jbk-status-error-tag);
+}

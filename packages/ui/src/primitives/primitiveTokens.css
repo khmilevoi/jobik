@@ -1,0 +1,59 @@
+/*
+ * `primitiveTokens.ts`, as custom properties — the same treatment `tokens.css` gives `tokens.ts`
+ * and `outputTokens.css` gives `outputTokens.ts`. Every `primitives/*.module.css` reads this file
+ * instead of restating a value, and `primitiveTokens.css.test.ts` proves the two agree in both
+ * directions.
+ *
+ * `primitiveColors` and `primitiveMetrics` share no key, so one flat `--jbk-primitive-*` prefix is
+ * enough. Every metric is a pixel length.
+ *
+ * Scoped to `[data-jobik-studio]`, for the same reason `tokens.css` is.
+ */
+
+[data-jobik-studio] {
+  /* primitiveColors — 3A §2.1, §2.4, §2.5 state chrome */
+  --jbk-primitive-ok-border: rgba(111, 156, 130, 0.4);
+  --jbk-primitive-ok-fill: rgba(111, 156, 130, 0.08);
+  --jbk-primitive-ok-border-soft: rgba(111, 156, 130, 0.35);
+  --jbk-primitive-ok-fill-soft: rgba(111, 156, 130, 0.05);
+  --jbk-primitive-ok-meta: #63866f;
+  --jbk-primitive-failed-border: rgba(201, 106, 92, 0.4);
+  --jbk-primitive-failed-fill: rgba(201, 106, 92, 0.07);
+  --jbk-primitive-failed-border-soft: rgba(201, 106, 92, 0.35);
+  --jbk-primitive-failed-fill-soft: rgba(201, 106, 92, 0.05);
+
+  /* 3D §3D.1 — the Invalid Validate button and its `report` sub-chip */
+  --jbk-primitive-invalid-border: rgba(201, 106, 92, 0.42);
+  --jbk-primitive-report-chip-fill: rgba(201, 106, 92, 0.16);
+  --jbk-primitive-report-chip-label: #e5a094;
+
+  /* the accent at the alphas 3A §3.2, 3C and the spinner appendix add */
+  --jbk-primitive-accent-soft: rgba(31, 214, 189, 0.22);
+  --jbk-primitive-accent-tint-fill: rgba(31, 214, 189, 0.14);
+  --jbk-primitive-accent-tint-border: rgba(31, 214, 189, 0.35);
+  --jbk-primitive-accent-progress-fill: rgba(31, 214, 189, 0.12);
+  --jbk-primitive-accent-toggle-border: rgba(31, 214, 189, 0.4);
+  --jbk-primitive-accent-percent: #9fd8ce;
+
+  /* 3C §1.5 — the destructive primary. Its fill is --jbk-status-failed. */
+  --jbk-primitive-destructive-label: #1a0d0b;
+  --jbk-primitive-destructive-hover: #d8796b;
+
+  /* foundations §6.4 — the instant hover swaps, and 3A §2.4's field hover */
+  --jbk-primitive-hover-border: #2f3438;
+  --jbk-primitive-hover-border-icon: #33383c;
+  --jbk-primitive-hover-border-panel: #34393d;
+  --jbk-primitive-icon-fill: #131518;
+  --jbk-primitive-hover-fill-panel: #101214;
+  --jbk-primitive-hover-fill-field: #15181a;
+  --jbk-primitive-raised-fill: #1c1f22;
+
+  /* 3A §3.4 and 3C */
+  --jbk-primitive-progress-track-fill: #16191c;
+  --jbk-primitive-toggle-knob-off: #4a5157;
+
+  /* primitiveMetrics */
+  --jbk-primitive-percent-size: 8.5px;
+  --jbk-primitive-toggle-radius: 9px;
+  --jbk-primitive-progress-track-radius: 1px;
+}

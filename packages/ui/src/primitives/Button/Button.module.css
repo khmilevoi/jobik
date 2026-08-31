@@ -1,24 +1,55 @@
 /*
- * The seven (variant, size) cells the artboards contain, one class each.
+ * The eight (variant, size) cells the artboards contain, one class each, plus the four states
+ * `3A` draws every one of them in.
  *
- * They are not a variant axis crossed with a size axis: `quiet:lg` has no height while `accent:lg`
- * is `34px`, and `outlined:lg` pads `6px 14px` where `quiet:lg` pads `6px 12px`. Factoring that
- * into two independent groups would invent metrics for the cells the design does not draw, so the
- * cell stays the unit — exactly as `Record<string, CSSProperties>` had it — and the parts that
- * genuinely are shared are grouped selectors.
+ * The cells are not a variant axis crossed with a size axis: `quiet:lg` has no height while
+ * `accent:lg` is `34px`, and `outlined:lg` pads `6px 14px` where `quiet:lg` pads `6px 12px`.
+ * Factoring that into two independent groups would invent metrics for the cells the design does
+ * not draw, so the cell stays the unit and the parts that genuinely are shared are grouped
+ * selectors.
+ *
+ * `3A` names its rows by shape; this is the mapping, so the four agents building on it can find
+ * their button:
+ *
+ *   Toolbar button, ghost  (h26, `Copy all`)      quiet:md
+ *   Toolbar button, raised (h26, `Download`)      outlined:md
+ *   Output row     (h24 compact, `Save`)          quiet:sm
+ *   Panel button   (h34 full width, `Copy log`)   panel:lg
+ *   Primary        (h34 accent, `Download 3 …`)   accent:lg
+ *   Top-bar Validate / Save                       quiet:lg / outlined:lg
+ *   Run chip       (h20 accent)                   accent:xs
+ *   Collapsed dock (h22, `Show output`, 2A)       quiet:xs
+ *   Modal footer   (h32, 3C §1.5)                 quiet:modal / accent:modal /
+ *                                                 destructive:modal
+ *
+ * **There is not one transition in this file, and that is the design.** Foundations §6.4: the
+ * whole document contains zero `transition` declarations and zero `cubic-bezier`; hover is an
+ * instantaneous `style-hover` swap and every state change is instant. `3A` §4.2 says the same of
+ * the button system specifically, and explains why rule 02 exists — `min-width` reserves the
+ * width of the longest label so a state change never shifts the row, which is the job a width
+ * transition would otherwise be asked to hide. The only motion here is `jspin`, inside the
+ * spinner, and the progress bar's width advancing because bytes actually arrived.
  */
 
 .button {
   display: flex;
   align-items: center;
+  /*
+   * Rule 02, the reserved width. The design fixes three: 106px on the copy toolbar button, 112px
+   * on the download toolbar button, 132px on the live download button. Which one applies depends
+   * on the caller's own label set, so it rides in through `reserveWidth`.
+   */
+  min-width: var(--jbk-button-reserve, auto);
   background: none;
   font-family: var(--jbk-font-ui);
   font-weight: var(--jbk-weight-regular);
 }
 
+.quietXs,
 .quietSm,
 .quietMd,
-.quietLg {
+.quietLg,
+.quietModal {
   border: 1px solid var(--jbk-border-control);
   color: var(--jbk-text-control-label);
 }
@@ -31,11 +62,30 @@
 }
 
 .accentXs,
-.accentLg {
+.accentLg,
+.accentModal {
   border: none;
   background: var(--jbk-accent);
   color: var(--jbk-accent-on-fill);
   font-weight: var(--jbk-weight-semibold);
+}
+
+/* 3C §1.5 — the destructive primary: the accent primary with the failure hue instead. */
+.destructiveModal {
+  border: none;
+  background: var(--jbk-status-failed);
+  color: var(--jbk-primitive-destructive-label);
+  font-weight: var(--jbk-weight-semibold);
+}
+
+/* 2A — the collapsed output dock's `Show output`. The design's only h22 button. */
+.quietXs {
+  height: 22px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 9px;
+  border-radius: var(--jbk-radius-small);
+  font-size: var(--jbk-size-11-5);
 }
 
 .quietSm {
@@ -47,6 +97,8 @@
 
 .quietMd {
   height: 26px;
+  justify-content: center;
+  gap: 7px;
   padding: 0 10px;
   border-radius: var(--jbk-radius-small);
   font-size: var(--jbk-size-11-5);
@@ -60,6 +112,8 @@
 
 .outlinedMd {
   height: 26px;
+  justify-content: center;
+  gap: 7px;
   padding: 0 10px;
   border-radius: var(--jbk-radius-small);
   font-size: var(--jbk-size-11-5);
@@ -70,6 +124,17 @@
   border-radius: var(--jbk-radius-control);
   font-size: var(--jbk-size-12);
   font-weight: var(--jbk-weight-medium);
+}
+
+/* 3A §2.5 — the h34 ghost panel button. Full width by construction; it states no padding. */
+.panelLg {
+  height: 34px;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--jbk-border-secondary-button);
+  border-radius: var(--jbk-radius-control);
+  color: var(--jbk-text-action-label);
+  font-size: var(--jbk-size-12-5);
 }
 
 .accentXs {
@@ -88,9 +153,230 @@
   letter-spacing: var(--jbk-tracking-wide);
 }
 
-/* The mono keyboard hint the accent/lg cell carries. */
+/*
+ * 3C §1.5 — the modal footer's three buttons. "Footer buttons are **32 px**, one notch shorter
+ * than the 34 px panel buttons", and the ghost pads `0 12px` where both primaries pad `0 14px`.
+ *
+ * This is a separate size from `lg` on purpose: `02-shell.md` writes the top bar's `Validate` as
+ * `padding:6px 12px` with no height and `3C` writes the footer's ghost as `height:32px;
+ * padding:0 12px`. Same border, radius, size and colour; different box. One cell cannot mean two
+ * boxes, so there are two.
+ *
+ * `gap:7px` is stated for the ghost-with-icon (`Copy report`, `Save trace`); the two primaries
+ * also carry an icon and the design states no gap for them, so they take their neighbour's.
+ */
+.quietModal,
+.accentModal,
+.destructiveModal {
+  height: 32px;
+  justify-content: center;
+  gap: 7px;
+  border-radius: var(--jbk-radius-control);
+  font-size: var(--jbk-size-12);
+}
+
+.quietModal {
+  padding: 0 12px;
+}
+
+.accentModal,
+.destructiveModal {
+  padding: 0 14px;
+}
+
+/*
+ * Foundations §6.4 — every `style-hover` the design declares for a button shape, as a plain
+ * `:hover`. No timing, because the design fixes none. `:not(:disabled)` is what makes `dimmed`
+ * mean "stops responding": a dimmed button is disabled, so it never lights up under the pointer.
+ *
+ * The design declares no hover at all for the top bar's `Validate` and `Save` (`quiet:lg`,
+ * `outlined:lg`) or for the h20 run chip, so neither is given one here.
+ */
+.quietSm:hover:not(:disabled) {
+  border-color: var(--jbk-primitive-hover-border);
+  color: var(--jbk-text-primary);
+}
+
+.quietMd:hover:not(:disabled) {
+  border-color: var(--jbk-primitive-hover-border);
+  color: var(--jbk-text-active-identifier);
+}
+
+.outlinedMd:hover:not(:disabled) {
+  background: var(--jbk-primitive-raised-fill);
+}
+
+.panelLg:hover:not(:disabled) {
+  border-color: var(--jbk-primitive-hover-border-panel);
+  background: var(--jbk-primitive-hover-fill-panel);
+}
+
+.quietXs:hover:not(:disabled) {
+  border-color: var(--jbk-primitive-hover-border);
+  color: var(--jbk-text-primary);
+}
+
+.quietModal:hover:not(:disabled) {
+  border-color: var(--jbk-primitive-hover-border);
+  color: var(--jbk-text-active-identifier);
+}
+
+.accentLg:hover:not(:disabled),
+.accentModal:hover:not(:disabled) {
+  background: var(--jbk-accent-hover);
+}
+
+.destructiveModal:hover:not(:disabled) {
+  background: var(--jbk-primitive-destructive-hover);
+}
+
+/*
+ * The four states, after the cells so source order settles the ties a compound selector does not.
+ *
+ * `busy` is the indeterminate loader — `3A` rule 03: the percent read-out appears only when the
+ * size is known, and until then the spinner stays indeterminate. `progress` is the determinate
+ * one. Both are "working"; they differ only in whether a number exists.
+ */
+.busy {
+  color: var(--jbk-text-muted);
+}
+
+.outlinedMd.busy {
+  color: var(--jbk-text-control-label);
+}
+
+/*
+ * The two solid cells the design never draws working. Without this the generic `.busy` would put
+ * a muted grey label on a solid fill — a state nobody drew, rendered badly. They keep their own.
+ */
+.accentXs.busy {
+  color: var(--jbk-accent-on-fill);
+}
+
+.destructiveModal.busy {
+  color: var(--jbk-primitive-destructive-label);
+}
+
+/*
+ * 3A §3.2 — the primary loses its solid accent fill while working and becomes a tinted button.
+ * `3C` rule 04 sends the modal footer's primary to the same place: "While the footer action runs
+ * it shows the loader from 3a".
+ */
+.accentLg.busy,
+.accentModal.busy {
+  border: 1px solid var(--jbk-primitive-accent-tint-border);
+  background: var(--jbk-primitive-accent-tint-fill);
+  color: var(--jbk-text-action-label);
+  font-weight: var(--jbk-weight-medium);
+}
+
+.progress {
+  position: relative;
+  overflow: hidden;
+  gap: 8px;
+}
+
+.accentLg.progress,
+.accentModal.progress {
+  border: 1px solid var(--jbk-primitive-accent-tint-border);
+  background: var(--jbk-primitive-accent-progress-fill);
+  color: var(--jbk-text-active-identifier);
+  font-weight: var(--jbk-weight-medium);
+}
+
+.ok {
+  border-color: var(--jbk-primitive-ok-border);
+  background: var(--jbk-primitive-ok-fill);
+  color: var(--jbk-status-ok-label);
+}
+
+.failed {
+  border-color: var(--jbk-primitive-failed-border);
+  background: var(--jbk-primitive-failed-fill);
+  color: var(--jbk-status-error-tag);
+}
+
+/*
+ * The accent cells carry `border: none`, so a state that draws a border has to restore the style
+ * and width; the colour comes from the rule above. Weight drops with the solid fill.
+ */
+.accentXs.ok,
+.accentXs.failed,
+.accentLg.ok,
+.accentLg.failed,
+.accentModal.ok,
+.accentModal.failed,
+.destructiveModal.ok,
+.destructiveModal.failed {
+  border-style: solid;
+  border-width: 1px;
+  font-weight: var(--jbk-weight-medium);
+}
+
+/*
+ * `3B` — "the surface already reports progress, so the button only dims to 45%". Applied to the
+ * button as it is: no colour swap, no ghosting, no spinner, no label change. `3A` §4.3 confirms
+ * the dim itself is static — the design fixes no transition on `opacity`.
+ */
+.dimmed {
+  opacity: 0.45;
+}
+
+/* The leading slot: the caller's icon when idle, the spinner when busy, the check when ok. */
+.indicator {
+  display: flex;
+  align-items: center;
+}
+
+/*
+ * The label sits above the primary's inner progress fill, which is an absolutely positioned
+ * sibling rather than a background. `position: relative` is what floats it, and it costs nothing
+ * in the states that have no fill.
+ */
+.label {
+  position: relative;
+}
+
+/* The mono keyboard hint and size badge an accent fill carries: `⌘↵`, `654 kb`. */
 .hint {
+  position: relative;
   font-family: var(--jbk-font-mono);
   font-size: var(--jbk-size-10);
   color: var(--jbk-accent-on-fill-muted);
+}
+
+/* The mono state read-out beside the label: `42%`, `274 / 654 kb`, `18 lines`. */
+.meta {
+  position: relative;
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-10);
+  color: var(--jbk-text-control-label);
+}
+
+.ok .meta {
+  color: var(--jbk-primitive-ok-meta);
+}
+
+/*
+ * The two determinate loaders `08-buttons.md` §1 draws. A toolbar, panel or row button gets the
+ * 2 px bar flush to its bottom edge; the h34 primary gets an inner fill instead, running the full
+ * height. Both take their width from the same custom property, which is the sanctioned exception
+ * for a genuinely dynamic value.
+ */
+.progressBar {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: var(--jbk-button-progress, 0%);
+  height: 2px;
+  background: var(--jbk-accent);
+}
+
+.progressFill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: var(--jbk-button-progress, 0%);
+  background: var(--jbk-primitive-accent-soft);
 }

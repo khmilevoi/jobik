@@ -1,0 +1,80 @@
+/*
+ * 3A §2.4 — the value row: a field-shaped shell holding one mono value and a trailing copy action.
+ * The run panel's completed `url` field is the same control.
+ *
+ * It is the one copy shape whose *text* changes with the state rather than only its chrome: the
+ * copied cell replaces the value with `copied to clipboard`, and the failed cell replaces it with
+ * `clipboard blocked by the browser` and drops the trailing slot entirely. That is why the failed
+ * rule restores symmetrical padding — with nothing on the right, the `0 4px` that seats a 22 px
+ * button would read as a misalignment.
+ */
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 4px 0 10px;
+  border: 1px solid var(--jbk-border-node-header-divider);
+  border-radius: var(--jbk-radius-control);
+  background: var(--jbk-surface-input-well);
+}
+
+.value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-10-5);
+  color: var(--jbk-accent);
+}
+
+.trailing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: var(--jbk-radius-badge);
+  background: none;
+  color: var(--jbk-text-type-annotation);
+}
+
+/* Foundations §6.4 — `value-row trailing copy button`. Instant. */
+.trailing:hover:not(:disabled) {
+  background: var(--jbk-primitive-hover-fill-field);
+  color: var(--jbk-text-active-field-label);
+}
+
+/*
+ * Working changes nothing but the value's colour — the ring takes the trailing slot with no
+ * border and no radius change, so the slot itself needs no rule.
+ */
+.busy .value {
+  color: var(--jbk-text-type-annotation);
+}
+
+.ok {
+  border-color: var(--jbk-primitive-ok-border-soft);
+  background: var(--jbk-primitive-ok-fill-soft);
+}
+
+.ok .value,
+.ok .trailing {
+  color: var(--jbk-status-ok-label);
+}
+
+.failed {
+  padding: 0 10px;
+  border-color: var(--jbk-primitive-failed-border-soft);
+  background: var(--jbk-primitive-failed-fill-soft);
+}
+
+.failed .value {
+  color: var(--jbk-status-error-tag);
+}

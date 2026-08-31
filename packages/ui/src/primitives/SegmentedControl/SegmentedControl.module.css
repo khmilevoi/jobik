@@ -1,0 +1,51 @@
+/*
+ * 3C — the design's only segmented control, from the Download-output modal's `Format` row
+ * (`png` · `webp` · `jpg`).
+ *
+ * The track is the input well's own surface and border, so the control reads as a field rather
+ * than as three buttons; the selected option is the only one with a fill, and an unselected one
+ * has no chrome at all. Foundations §6.7 is explicit that nothing slides between them.
+ *
+ * Each option is a `<label>` around an unpainted radio, the same construction the checkbox uses.
+ */
+
+.track {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--jbk-border-quiet-control);
+  border-radius: var(--jbk-radius-control);
+  background: var(--jbk-surface-input-well);
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  position: relative;
+  height: 22px;
+  padding: 0 10px;
+  border-radius: var(--jbk-radius-badge);
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-10);
+  color: var(--jbk-text-muted);
+}
+
+/* Foundations §6.4 — `segmented-control inactive option`. Instant, and only on the unselected. */
+.option:hover:not(.selected) {
+  color: var(--jbk-text-active-field-label);
+}
+
+.selected {
+  background: var(--jbk-primitive-raised-fill);
+  color: var(--jbk-text-primary);
+}
+
+/* Present, focusable and arrow-navigable; simply not painted. See `Checkbox.module.css`. */
+.input {
+  position: absolute;
+  width: 0;
+  height: 0;
+  margin: 0;
+  opacity: 0;
+}

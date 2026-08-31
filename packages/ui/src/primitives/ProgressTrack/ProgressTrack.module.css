@@ -1,0 +1,24 @@
+/*
+ * 3A §3.4, transferring — the 2 px track that appears under an output row's filename while the
+ * file is on its way.
+ *
+ * It is the third of the design's three determinate loaders, and the only one that draws its own
+ * unfilled remainder: a button's bar and the primary's inner fill both sit directly on the
+ * button's chrome, while this one needs a track because it has nothing behind it.
+ *
+ * The fill does not animate. Foundations §6.7: "Every bar is a static `width:<n>%`; the width is
+ * never transitioned."
+ */
+
+.track {
+  height: 2px;
+  border-radius: var(--jbk-primitive-progress-track-radius);
+  background: var(--jbk-primitive-progress-track-fill);
+  overflow: hidden;
+}
+
+.fill {
+  width: var(--jbk-progress-value, 0%);
+  height: 2px;
+  background: var(--jbk-accent);
+}

@@ -1,0 +1,104 @@
+/*
+ * `3D` §3D.1 — the four cells of the Validate control, in one 30 px box.
+ *
+ * The shell is `position:relative;overflow:hidden` in every state, not only while checking: the
+ * sweep bar needs both, and the other three states cost nothing for carrying them. `min-width` is
+ * the design's own `128px` rather than `Button`'s caller-chosen reserve — it is the width of the
+ * longest label this control can ever show, so the top bar never shifts as the state changes.
+ *
+ * There is no transition here, and that is the design: foundations §6.4 records zero `transition`
+ * declarations in the whole file. The only motion is `jspin` inside the spinner, `jsweep` under a
+ * running check, and the one-shot `jpop` a resolved chip arrives with — all three read from a
+ * `motion` token, never restated.
+ */
+
+.validate {
+  position: relative;
+  overflow: hidden;
+  height: 30px;
+  min-width: 128px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--jbk-border-control);
+  border-radius: var(--jbk-radius-control);
+  background: none;
+  cursor: pointer;
+  font-family: var(--jbk-font-ui);
+  font-weight: var(--jbk-weight-regular);
+  font-size: var(--jbk-size-12);
+  color: var(--jbk-text-control-label);
+}
+
+.validate:disabled {
+  cursor: default;
+}
+
+/*
+ * `Default` is the only cell the artboard gives a hover, and it is a `style-hover` swap with no
+ * timing — so it is a plain `:hover` on that state alone.
+ */
+.stateIdle:hover:not(:disabled) {
+  border-color: var(--jbk-primitive-hover-border);
+  color: var(--jbk-text-active-identifier);
+}
+
+.stateChecking {
+  border-color: var(--jbk-accent-chip-border);
+  background: var(--jbk-accent-header-wash);
+  color: var(--jbk-text-action-label);
+}
+
+.stateValid {
+  border-color: var(--jbk-primitive-ok-border);
+  background: var(--jbk-primitive-ok-fill);
+  color: var(--jbk-status-ok-label);
+  animation: var(--jbk-motion-result-pop);
+}
+
+/* The `report` chip sits flush right, which is why this cell's right padding drops to 4px. */
+.stateInvalid {
+  gap: 9px;
+  padding: 0 4px 0 12px;
+  border-color: var(--jbk-primitive-invalid-border);
+  background: var(--jbk-primitive-failed-fill);
+  color: var(--jbk-status-error-tag);
+  animation: var(--jbk-motion-result-pop);
+}
+
+/*
+ * The 2 px indeterminate bar. Its gradient names no colour of its own — the accent arrives through
+ * the same custom property the frame lets a host override.
+ */
+.sweep {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--jbk-accent), transparent);
+  animation: var(--jbk-motion-validate-sweep);
+}
+
+.label {
+  position: relative;
+}
+
+.report {
+  height: 20px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--jbk-radius-badge);
+  background: var(--jbk-primitive-report-chip-fill);
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-9-5);
+  color: var(--jbk-primitive-report-chip-label);
+}
+
+/* `3B` — the surface already reports the work, so the control only dims and stops responding. */
+.dimmed {
+  opacity: 0.45;
+}

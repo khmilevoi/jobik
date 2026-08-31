@@ -1,0 +1,61 @@
+/*
+ * The one in-button loader, at the four sizes the design draws.
+ *
+ * `08-buttons.md` §1: "Every in-button loader is the same ring. No dots, no bars, no skeletons
+ * inside a button." The ring is a circle whose border is the unlit track and whose top border is
+ * the accent — the arc is the border, not a stroked path, which is why `jspin` can turn it with a
+ * single `transform`.
+ *
+ * The ring must carry **no other transform**: foundations §6.1 notes `jspin` is a `to`-only rule,
+ * so its implicit start is the element's own transform and anything authored here would be
+ * overwritten mid-cycle.
+ *
+ * Track alpha follows size, per foundations §6-appendix: `.22` on the 8, 9 and 10 px rings and
+ * `.25` on the 11 px ring. The appendix names one exception — "the 9 px rings that sit in a run
+ * panel" also take `.25` — so the track is a prop that defaults from the size rather than being
+ * fixed by it. The design's motion table disagrees with the appendix once, giving `.22` for the
+ * 11 px ring inside the 26 × 26 icon button; the appendix's rule wins so there is one place to
+ * change it.
+ */
+
+.spinner {
+  flex: none;
+  border: 1.5px solid var(--jbk-primitive-accent-soft);
+  border-top-color: var(--jbk-accent);
+  border-radius: var(--jbk-radius-round);
+  animation: var(--jbk-motion-spinner);
+}
+
+/* 8px — an inline mono link. */
+.size8 {
+  width: 8px;
+  height: 8px;
+}
+
+/* 9px — an h24 output-row button. */
+.size9 {
+  width: 9px;
+  height: 9px;
+}
+
+/* 10px — an h26 toolbar button, a 24 × 24 icon button, a value row's trailing slot. */
+.size10 {
+  width: 10px;
+  height: 10px;
+}
+
+/* 11px — an h34 panel or primary button, a 26 × 26 icon button, a node header, the run pill. */
+.size11 {
+  width: 11px;
+  height: 11px;
+}
+
+/*
+ * The `.25` track — every 11 px ring, and the 9 px rings inside the run panel. Written after the
+ * sizes so it wins the tie on source order; `border-top-color` is restated because the shorthand
+ * `border-color` above it would otherwise take the arc back.
+ */
+.trackWide {
+  border-color: var(--jbk-accent-spinner-track);
+  border-top-color: var(--jbk-accent);
+}

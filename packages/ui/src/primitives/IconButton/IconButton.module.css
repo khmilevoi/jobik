@@ -1,0 +1,123 @@
+/*
+ * The two icon-only shapes `3A` draws — 24 × 24 for copy, 26 × 26 for download — and the four
+ * states each is drawn in.
+ *
+ * The box never changes size between states: the border is always there, only its colour and fill
+ * move, which is rule 02 applied to a control that has no label to reserve width for.
+ *
+ * No transition anywhere, for the same reason as `Button.module.css`: foundations §6.4 finds zero
+ * in the design.
+ */
+
+/*
+ * The button and the chip that trails it in the copied state sit in one inline row, gap 8 (3A
+ * §2.2). With no chip the wrapper is transparent and costs a box that lays out identically to the
+ * button alone.
+ */
+.wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.iconButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  padding: 0;
+  border: 1px solid var(--jbk-border-control);
+  border-radius: var(--jbk-radius-small);
+  background: none;
+  color: var(--jbk-text-inactive-list-item);
+}
+
+.size24 {
+  width: 24px;
+  height: 24px;
+}
+
+.size26 {
+  width: 26px;
+  height: 26px;
+}
+
+/* Foundations §6.4 — the icon button's `style-hover`, instant. */
+.iconButton:hover:not(:disabled) {
+  border-color: var(--jbk-primitive-hover-border-icon);
+  background: var(--jbk-primitive-icon-fill);
+  color: var(--jbk-text-primary);
+}
+
+/*
+ * The working state has no chrome of its own — 3A §2.2 says "same box, no colour" — so it gets no
+ * class. The ring carries the whole signal.
+ */
+.progress {
+  position: relative;
+  overflow: hidden;
+  border-color: var(--jbk-accent-chip-border);
+  background: var(--jbk-accent-chip-fill);
+}
+
+.ok {
+  border-color: var(--jbk-primitive-ok-border);
+  background: var(--jbk-primitive-ok-fill);
+  color: var(--jbk-status-ok-label);
+}
+
+.failed {
+  border-color: var(--jbk-primitive-failed-border);
+  background: var(--jbk-primitive-failed-fill);
+  color: var(--jbk-status-error-tag);
+}
+
+/* `3B` — the surrounding surface is the loader, so the button only dims and stops responding. */
+.dimmed {
+  opacity: 0.45;
+}
+
+/*
+ * 3A §2.2, failed — the design's one non-SVG status glyph. Foundations §7 lists it among the
+ * characters used as text rather than drawn: `!` at 12 px, line-height 1, in the failed colour the
+ * button already carries.
+ */
+.glyph {
+  font-size: var(--jbk-size-12);
+  line-height: 1;
+}
+
+/*
+ * 3A §3.3, transferring — the bare numeral, no `%`. The only size in the Studio outside
+ * `typeScale`, which is why it reads a `primitives/` token rather than a shared one.
+ */
+.percent {
+  position: relative;
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-primitive-percent-size);
+  color: var(--jbk-primitive-accent-percent);
+}
+
+/* The 2 px accent bar flush to the bottom edge, exactly as on a toolbar button. */
+.progressBar {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: var(--jbk-icon-button-progress, 0%);
+  height: 2px;
+  background: var(--jbk-accent);
+}
+
+/* 3A §2.2 — the `copied` chip that trails the copied icon button. */
+.chip {
+  display: flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 7px;
+  border: 1px solid var(--jbk-border-control);
+  border-radius: var(--jbk-radius-badge);
+  background: var(--jbk-primitive-icon-fill);
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-9-5);
+  color: var(--jbk-status-ok-label);
+}
