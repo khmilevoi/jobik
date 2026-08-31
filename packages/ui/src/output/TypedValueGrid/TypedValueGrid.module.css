@@ -1,0 +1,37 @@
+/* design 936–947 — the two-column grid of the run's non-binary fields. */
+
+.grid {
+  display: grid;
+  grid-template-columns: var(--jbk-output-typed-values-label-width) 1fr;
+  gap: var(--jbk-output-typed-values-row-gap) var(--jbk-output-typed-values-column-gap);
+  font-size: var(--jbk-size-11-5);
+}
+
+.entry {
+  display: contents;
+}
+
+.name {
+  font-family: var(--jbk-font-mono);
+  color: var(--jbk-text-muted);
+}
+
+/* design 939–946 — the four value cells the grid prints. */
+.text {
+  color: var(--jbk-text-active-field-label);
+}
+
+.url {
+  font-family: var(--jbk-font-mono);
+  color: var(--jbk-accent);
+}
+
+.number {
+  font-family: var(--jbk-font-mono);
+  color: var(--jbk-text-active-field-label);
+}
+
+.opaque {
+  font-family: var(--jbk-font-mono);
+  color: var(--jbk-text-inactive-list-item);
+}

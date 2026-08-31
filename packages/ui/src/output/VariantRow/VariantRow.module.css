@@ -1,0 +1,46 @@
+/* design 911–931 — the row of secondary variants beside the primary image. */
+
+.row {
+  display: flex;
+  gap: var(--jbk-output-variant-gap);
+}
+
+.column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--jbk-output-variant-caption-gap);
+}
+
+.caption,
+.emptyCaption {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-9-5);
+}
+
+.caption {
+  color: var(--jbk-text-type-annotation);
+}
+
+.emptyCaption {
+  color: var(--jbk-text-faintest);
+}
+
+.emptyTile {
+  box-sizing: border-box;
+  height: var(--jbk-output-variant-height);
+  border: 1px dashed var(--jbk-border-dashed);
+  border-radius: var(--jbk-radius-control);
+  background: var(--jbk-surface-top-bar);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.emptyLabel {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-9-5);
+  color: var(--jbk-output-empty-variant-label);
+  text-align: center;
+  line-height: var(--jbk-output-empty-variant-line-height);
+}

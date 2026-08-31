@@ -1,9 +1,8 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { accent, borders, fontFamilies, surfaces, textColors } from '../tokens.js'
-import type { OutputComponentProps } from './flowUi.js'
-import { OutputPreview } from './OutputPreview.js'
+import type { OutputComponentProps } from '../flowUi.js'
+import { OutputPreview } from '../OutputPreview/OutputPreview.js'
 import { OutputViewer } from './OutputViewer.js'
 
 afterEach(cleanup)
@@ -28,30 +27,10 @@ function ArtboardOutput(_props: OutputComponentProps) {
 const descriptor = { nodes: { render: { Output: ArtboardOutput } } }
 
 describe('OutputViewer', () => {
-  it('is a framed panel with a 40px tab bar', () => {
+  it('marks the active tab selected and the others not', () => {
     render(<OutputViewer nodeId="render" output={output} />)
-    expect(screen.getByTestId('output-viewer')).toHaveStyle({
-      background: surfaces.panel,
-      border: `1px solid ${borders.frame}`,
-      borderRadius: '8px',
-      overflow: 'hidden',
-    })
-    expect(screen.getByTestId('output-viewer-header')).toHaveStyle({
-      height: '40px',
-      padding: '0 14px',
-      gap: '16px',
-      borderBottom: `1px solid ${borders.panelHeaderDivider}`,
-      background: surfaces.topBar,
-    })
-  })
-
-  it('underlines the active tab in accent and mutes the other two', () => {
-    render(<OutputViewer nodeId="render" output={output} />)
-    const preview = screen.getByRole('tab', { name: 'Preview' })
-    expect(preview).toHaveAttribute('aria-selected', 'true')
-    expect(preview).toHaveStyle({ color: textColors.primary })
-    expect(preview.style.borderBottom).toBe(`1.5px solid ${accent.cssVar}`)
-    expect(screen.getByRole('tab', { name: 'Raw' })).toHaveStyle({ color: textColors.muted })
+    expect(screen.getByRole('tab', { name: 'Preview' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tab', { name: 'Raw' })).toHaveAttribute('aria-selected', 'false')
   })
 
   it('reproduces the artboard Preview instance: source field and both actions', () => {
@@ -65,13 +44,8 @@ describe('OutputViewer', () => {
         onDownload={() => {}}
       />,
     )
-    const source = screen.getByTestId('output-viewer-source')
-    expect(source).toHaveTextContent('render.image · Buffer[3]')
-    expect(source).toHaveStyle({ fontFamily: fontFamilies.mono, color: textColors.typeAnnotation })
-    expect(screen.getByTestId('output-viewer-divider')).toHaveStyle({
-      background: borders.inset,
-      height: '16px',
-    })
+    expect(screen.getByTestId('output-viewer-source')).toHaveTextContent('render.image · Buffer[3]')
+    expect(screen.getByTestId('output-viewer-divider')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Copy all' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Download' })).toBeInTheDocument()
     expect(screen.getByTestId('output-preview')).toBeInTheDocument()

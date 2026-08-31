@@ -1,7 +1,5 @@
-import type { CSSProperties } from 'react'
-import { accent, fontFamilies, px, textColors } from '../tokens.js'
-import { groupDigits } from './format.js'
-import { outputMetrics } from './outputTokens.js'
+import { groupDigits } from '../format.js'
+import s from './TypedValueGrid.module.css'
 
 /** The four value cells the `Typed values` grid prints (design 939–946). */
 export type TypedValueTone = 'text' | 'url' | 'number' | 'opaque'
@@ -23,37 +21,26 @@ export function resolveTypedValueTone(value: string | number): TypedValueTone {
   return URL.canParse(value) ? 'url' : 'text'
 }
 
-const tones: Record<TypedValueTone, CSSProperties> = {
-  text: { color: textColors.activeFieldLabel },
-  url: { fontFamily: fontFamilies.mono, color: accent.cssVar },
-  number: { fontFamily: fontFamilies.mono, color: textColors.activeFieldLabel },
-  opaque: { fontFamily: fontFamilies.mono, color: textColors.inactiveListItem },
-}
+const tones = {
+  text: s.text,
+  url: s.url,
+  number: s.number,
+  opaque: s.opaque,
+} satisfies Record<TypedValueTone, string>
 
 /** design 936–947 — the two-column grid of the run's non-binary fields. */
 export function TypedValueGrid(props: TypedValueGridProps) {
   return (
-    <div
-      data-testid="output-typed-values"
-      style={{
-        display: 'grid',
-        gridTemplateColumns: `${px(outputMetrics.typedValuesLabelWidth)} 1fr`,
-        gap: `${px(outputMetrics.typedValuesRowGap)} ${px(outputMetrics.typedValuesColumnGap)}`,
-        fontSize: px(11.5),
-      }}
-    >
+    <div data-testid="output-typed-values" className={s.grid}>
       {props.values.map((entry) => {
         const tone = entry.tone ?? resolveTypedValueTone(entry.value)
         const text = typeof entry.value === 'number' ? groupDigits(entry.value) : entry.value
         return (
-          <div key={entry.name} style={{ display: 'contents' }}>
-            <div
-              data-testid="output-typed-name"
-              style={{ fontFamily: fontFamilies.mono, color: textColors.muted }}
-            >
+          <div key={entry.name} className={s.entry}>
+            <div data-testid="output-typed-name" className={s.name}>
               {entry.name}
             </div>
-            <div data-testid="output-typed-value" style={tones[tone]}>
+            <div data-testid="output-typed-value" className={tones[tone]}>
               {text}
             </div>
           </div>

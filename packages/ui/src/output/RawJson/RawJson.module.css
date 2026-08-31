@@ -1,0 +1,42 @@
+/* design 963–976 — the `Raw` tab: the serialised report as line-numbered, coloured mono. */
+
+.rawJson {
+  padding: var(--jbk-output-raw-padding);
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-10-5);
+  line-height: var(--jbk-output-raw-line-height);
+  color: var(--jbk-text-inactive-list-item);
+}
+
+.line {
+  white-space: pre;
+}
+
+.gutter {
+  color: var(--jbk-text-section-label);
+}
+
+/*
+ * The tone a segment is tagged with. `ok` is the one semantic cell the artboard prints — the
+ * `status` value reading `"completed"` — and `failed` mirrors it. No other key is ever semantic.
+ */
+.punctuation,
+.key {
+  color: var(--jbk-text-inactive-list-item);
+}
+
+.string {
+  color: var(--jbk-accent);
+}
+
+.literal {
+  color: var(--jbk-text-active-field-label);
+}
+
+.ok {
+  color: var(--jbk-status-ok);
+}
+
+.failed {
+  color: var(--jbk-status-failed);
+}

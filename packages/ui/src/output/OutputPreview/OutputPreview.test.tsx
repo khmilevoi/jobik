@@ -1,6 +1,5 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
-import { borders } from '../tokens.js'
 import { OutputPreview } from './OutputPreview.js'
 
 afterEach(cleanup)
@@ -30,16 +29,6 @@ function ArtboardPreview() {
 }
 
 describe('OutputPreview', () => {
-  it('is an 18px-padded, 18px-gapped two-column body', () => {
-    render(<ArtboardPreview />)
-    expect(screen.getByTestId('output-preview')).toHaveStyle({
-      padding: '18px',
-      display: 'flex',
-      gap: '18px',
-    })
-    expect(screen.getByTestId('output-preview-column')).toHaveStyle({ flex: '1', gap: '12px' })
-  })
-
   it('counts the primary plus every configured variant in the badge', () => {
     render(<ArtboardPreview />)
     expect(screen.getByTestId('output-primary-badge')).toHaveTextContent('1 / 3')
@@ -51,10 +40,7 @@ describe('OutputPreview', () => {
     expect(screen.getByTestId('output-metadata-trailing')).toHaveTextContent('sRGB')
     expect(screen.getAllByTestId('output-variant')).toHaveLength(2)
     expect(screen.getByTestId('output-variant-empty')).toHaveTextContent('no variant')
-    expect(screen.getByTestId('output-preview-divider')).toHaveStyle({
-      height: '1px',
-      background: borders.inlineHairline,
-    })
+    expect(screen.getByTestId('output-preview-divider')).toBeInTheDocument()
     expect(screen.getByText('Typed values')).toBeInTheDocument()
     expect(screen.getAllByTestId('output-typed-name')).toHaveLength(4)
   })

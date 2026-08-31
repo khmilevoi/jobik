@@ -1,22 +1,13 @@
 import type { AssetDescriptor } from '@jobik/core'
 import { type CSSProperties, useState } from 'react'
-import { Button } from '../primitives/index.js'
-import {
-  accent,
-  borders,
-  fontFamilies,
-  fontWeights,
-  px,
-  radii,
-  surfaces,
-  textColors,
-} from '../tokens.js'
-import type { FlowUiDescriptor, OutputValues } from './flowUi.js'
-import { formatBytes } from './format.js'
-import { resolveOutputComponent } from './GenericOutput.js'
-import { LogLines, type OutputLogLine } from './LogLines.js'
-import { outputMetrics } from './outputTokens.js'
-import { RawJson } from './RawJson.js'
+import { cx } from '../../cx.js'
+import { Button } from '../../primitives/index.js'
+import type { FlowUiDescriptor, OutputValues } from '../flowUi.js'
+import { formatBytes } from '../format.js'
+import { resolveOutputComponent } from '../GenericOutput/GenericOutput.js'
+import { LogLines, type OutputLogLine } from '../LogLines/LogLines.js'
+import { RawJson } from '../RawJson/RawJson.js'
+import s from './OutputViewer.module.css'
 
 export type OutputViewerTab = 'preview' | 'raw' | 'logs'
 
@@ -44,13 +35,12 @@ export interface OutputViewerProps {
   readonly onCopyAll?: () => void
   readonly onDownload?: () => void
   /** Layout only — width and height. Never a colour. */
+  readonly className?: string
+  /**
+   * @deprecated Layout only, kept for `StudioApp`'s inline width/height override until that
+   * directory migrates its own call site to `className`. Merges last onto the root element.
+   */
   readonly style?: CSSProperties
-}
-
-const monoMeta: CSSProperties = {
-  fontFamily: fontFamilies.mono,
-  fontSize: px(10),
-  color: textColors.typeAnnotation,
 }
 
 function noUrl(): undefined {
@@ -77,36 +67,9 @@ export function OutputViewer(props: OutputViewerProps) {
         : undefined
 
   return (
-    <div
-      data-testid="output-viewer"
-      style={{
-        background: surfaces.panel,
-        border: `1px solid ${borders.frame}`,
-        borderRadius: px(radii.panel),
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column',
-        fontFamily: fontFamilies.ui,
-        ...props.style,
-      }}
-    >
-      <div
-        data-testid="output-viewer-header"
-        style={{
-          height: px(outputMetrics.headerHeight),
-          flex: 'none',
-          display: 'flex',
-          alignItems: 'center',
-          gap: px(outputMetrics.headerGap),
-          padding: `0 ${px(outputMetrics.headerPaddingX)}`,
-          borderBottom: `1px solid ${borders.panelHeaderDivider}`,
-          background: surfaces.topBar,
-        }}
-      >
-        <div
-          role="tablist"
-          style={{ display: 'flex', alignItems: 'center', gap: px(outputMetrics.tabGap) }}
-        >
+    <div data-testid="output-viewer" className={cx(s.viewer, props.className)} style={props.style}>
+      <div data-testid="output-viewer-header" className={s.header}>
+        <div role="tablist" className={s.tablist}>
           {TABS.map((entry) => {
             const active = entry.id === tab
             return (
@@ -116,18 +79,7 @@ export function OutputViewer(props: OutputViewerProps) {
                 role="tab"
                 aria-selected={active}
                 onClick={() => select(entry.id)}
-                style={{
-                  border: 'none',
-                  background: 'none',
-                  padding: active ? '0 2px 2px' : 0,
-                  fontFamily: fontFamilies.ui,
-                  fontSize: px(12),
-                  fontWeight: active ? fontWeights.semibold : fontWeights.regular,
-                  color: active ? textColors.primary : textColors.muted,
-                  borderBottom: active
-                    ? `${outputMetrics.tabUnderlineWidth}px solid ${accent.cssVar}`
-                    : undefined,
-                }}
+                className={cx(s.tab, active && s.tabActive)}
               >
                 {entry.label}
               </button>
@@ -137,30 +89,23 @@ export function OutputViewer(props: OutputViewerProps) {
 
         {tab === 'preview' && props.source !== undefined ? (
           <>
-            <div
-              data-testid="output-viewer-divider"
-              style={{
-                width: '1px',
-                height: px(outputMetrics.headerDividerHeight),
-                background: borders.inset,
-              }}
-            />
-            <div data-testid="output-viewer-source" style={monoMeta}>
+            <div data-testid="output-viewer-divider" className={s.divider} />
+            <div data-testid="output-viewer-source" className={s.monoMeta}>
               {props.source}
             </div>
           </>
         ) : null}
 
-        <div style={{ flex: 1 }} />
+        <div className={s.spacer} />
 
         {meta === undefined ? null : (
-          <div data-testid="output-viewer-meta" style={monoMeta}>
+          <div data-testid="output-viewer-meta" className={s.monoMeta}>
             {meta}
           </div>
         )}
 
         {props.onCopyAll === undefined && props.onDownload === undefined ? null : (
-          <div style={{ display: 'flex', alignItems: 'center', gap: px(8) }}>
+          <div className={s.actions}>
             {props.onCopyAll === undefined ? null : (
               <Button variant="quiet" size="md" onClick={props.onCopyAll}>
                 Copy all

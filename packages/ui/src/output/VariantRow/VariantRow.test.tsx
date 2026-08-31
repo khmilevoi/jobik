@@ -1,7 +1,5 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
-import { borders, radii, surfaces, textColors } from '../tokens.js'
-import { outputColors } from './outputTokens.js'
 import { VariantRow } from './VariantRow.js'
 
 afterEach(cleanup)
@@ -12,39 +10,23 @@ const artboardVariants = [
 ]
 
 describe('VariantRow', () => {
-  it('lays the tiles out in equal 12px-gapped columns', () => {
+  it('renders one tile per configured variant', () => {
     render(<VariantRow variants={artboardVariants} />)
-    expect(screen.getByTestId('output-variant-row')).toHaveStyle({ display: 'flex', gap: '12px' })
     expect(screen.getAllByTestId('output-variant')).toHaveLength(2)
-    expect(screen.getAllByTestId('output-variant')[0]).toHaveStyle({ flex: '1', gap: '7px' })
   })
 
-  it('captions each tile in the type-annotation step', () => {
+  it('captions each tile with its own text', () => {
     render(<VariantRow variants={artboardVariants} />)
     const captions = screen.getAllByTestId('output-variant-caption')
     expect(captions[0]).toHaveTextContent('1200×630 · 208 kb')
-    expect(captions[0]).toHaveStyle({ fontSize: '9.5px', color: textColors.typeAnnotation })
     expect(captions[1]).toHaveTextContent('320×320 · 34 kb')
   })
 
   it('renders the dashed no-variant tile after the configured ones', () => {
     render(<VariantRow variants={artboardVariants} emptyVariants={1} />)
     const empty = screen.getByTestId('output-variant-empty')
-    expect(empty).toHaveStyle({
-      height: '112px',
-      border: `1px dashed ${borders.dashed}`,
-      borderRadius: `${radii.control}px`,
-      background: surfaces.topBar,
-    })
     expect(empty).toHaveTextContent('no variant')
     expect(empty).toHaveTextContent('configured')
-    expect(screen.getByTestId('output-variant-empty-label')).toHaveStyle({
-      fontSize: '9.5px',
-      color: outputColors.emptyVariantLabel,
-    })
-    expect(screen.getByTestId('output-variant-empty-caption')).toHaveStyle({
-      color: textColors.faintest,
-    })
     expect(screen.getByTestId('output-variant-empty-caption')).toHaveTextContent('optional')
   })
 

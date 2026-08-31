@@ -1,0 +1,63 @@
+/*
+ * `outputTokens.ts`, as custom properties — the same treatment `tokens.css` gives `tokens.ts`.
+ * `outputTokens.ts` stays the TypeScript-side source: `PrimaryImage.tsx` still asks
+ * `outputMetrics` for the numeric height it hands `StripePlaceholder`. Every `output/*.module.css`
+ * reads this file instead of restating a value. `outputTokens.css.test.ts` proves the two agree in
+ * both directions.
+ *
+ * `outputColors` and `outputMetrics` share no key, so this module needs only one flat
+ * `--jbk-output-*` prefix rather than a group per object the way `tokens.ts` does. Every
+ * `outputMetrics` value is a pixel length except the three line-height ratios, which stay
+ * unitless — the same reasoning `tokens.css` uses for `motion`.
+ *
+ * Scoped to `[data-jobik-studio]`, for the same reason `tokens.css` is.
+ */
+
+[data-jobik-studio] {
+  /* outputColors — design 901, 928 */
+  --jbk-output-badge-scrim: rgba(5, 5, 6, 0.72);
+  --jbk-output-empty-variant-label: #3f4549;
+
+  /* outputMetrics — the tab bar, design 881–887 */
+  --jbk-output-header-height: 40px;
+  --jbk-output-header-padding-x: 14px;
+  --jbk-output-header-gap: 16px;
+  --jbk-output-tab-gap: 14px;
+  --jbk-output-tab-underline-width: 1.5px;
+  --jbk-output-header-divider-height: 16px;
+
+  /* the Preview body, design 896 */
+  --jbk-output-body-padding: 18px;
+  --jbk-output-body-gap: 18px;
+
+  /* the left column, design 897–907 */
+  --jbk-output-primary-column-width: 336px;
+  --jbk-output-primary-column-gap: 8px;
+  --jbk-output-primary-image-height: 236px;
+  --jbk-output-primary-image-radius: 6px;
+  --jbk-output-badge-inset: 8px;
+  --jbk-output-badge-height: 18px;
+  --jbk-output-badge-padding-x: 6px;
+  --jbk-output-metadata-gap: 9px;
+
+  /* the right column and its variant row, design 910–931 */
+  --jbk-output-right-column-gap: 12px;
+  --jbk-output-variant-gap: 12px;
+  --jbk-output-variant-height: 112px;
+  --jbk-output-variant-caption-gap: 7px;
+  --jbk-output-empty-variant-line-height: 1.6;
+
+  /* the `Typed values` block, design 936–947 */
+  --jbk-output-typed-values-gap: 8px;
+  --jbk-output-typed-values-label-width: 110px;
+  --jbk-output-typed-values-row-gap: 8px;
+  --jbk-output-typed-values-column-gap: 14px;
+
+  /* the Raw body, design 963 */
+  --jbk-output-raw-padding: 16px;
+  --jbk-output-raw-line-height: 1.75;
+
+  /* the `Live log` treatment the Logs tab reuses, design 634–639 */
+  --jbk-output-log-gap: 5px;
+  --jbk-output-log-line-height: 1.5;
+}

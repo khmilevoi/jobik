@@ -1,5 +1,4 @@
-import { fontFamilies, px, textColors } from '../tokens.js'
-import { outputMetrics } from './outputTokens.js'
+import s from './LogLines.module.css'
 
 export interface OutputLogLine {
   /** The mono elapsed stamp, e.g. `0.31`. */
@@ -21,23 +20,11 @@ export interface LogLinesProps {
  */
 export function LogLines(props: LogLinesProps) {
   return (
-    <div
-      data-testid="output-logs"
-      style={{
-        padding: px(outputMetrics.rawPadding),
-        display: 'flex',
-        flexDirection: 'column',
-        gap: px(outputMetrics.logGap),
-        fontFamily: fontFamilies.mono,
-        fontSize: px(10),
-        lineHeight: outputMetrics.logLineHeight,
-        color: textColors.muted,
-      }}
-    >
+    <div data-testid="output-logs" className={s.logs}>
       {props.lines.map((line, index) => (
         // biome-ignore lint/suspicious/noArrayIndexKey: log lines have no stable identity of their own
         <div key={`${index}-${line.time}`} data-testid="output-log-line">
-          <span data-testid="output-log-time" style={{ color: textColors.faintest }}>
+          <span data-testid="output-log-time" className={s.time}>
             {line.time}{' '}
           </span>
           {line.message}

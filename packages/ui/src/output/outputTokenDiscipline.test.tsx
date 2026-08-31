@@ -3,8 +3,8 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { canvasColors } from '../canvas/canvasTokens.js'
 import * as tokens from '../tokens.js'
 import type { OutputComponentProps } from './flowUi.js'
-import { OutputPreview } from './OutputPreview.js'
-import { OutputViewer } from './OutputViewer.js'
+import { OutputPreview } from './OutputPreview/OutputPreview.js'
+import { OutputViewer } from './OutputViewer/OutputViewer.js'
 import { outputColors } from './outputTokens.js'
 
 afterEach(cleanup)

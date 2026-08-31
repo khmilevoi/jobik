@@ -1,5 +1,7 @@
-import type { FlowUiDescriptor, FlowUiOutputComponent, OutputComponentProps } from './flowUi.js'
-import { RawJson } from './RawJson.js'
+import { cx } from '../../cx.js'
+import type { FlowUiDescriptor, FlowUiOutputComponent, OutputComponentProps } from '../flowUi.js'
+import { RawJson } from '../RawJson/RawJson.js'
+import s from './GenericOutput.module.css'
 
 /**
  * `## Flow-local output UI`: "An absent renderer falls back to a generic JSON viewer." That viewer
@@ -9,10 +11,7 @@ import { RawJson } from './RawJson.js'
 export function GenericOutput(props: OutputComponentProps) {
   const card = props.surface === 'card'
   return (
-    <div
-      data-testid="generic-output"
-      style={card ? { width: '100%', height: '100%', overflow: 'auto' } : undefined}
-    >
+    <div data-testid="generic-output" className={cx(card && s.card)}>
       <RawJson value={props.output} />
     </div>
   )

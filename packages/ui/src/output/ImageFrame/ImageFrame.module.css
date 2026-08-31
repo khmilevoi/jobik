@@ -1,0 +1,50 @@
+/* The bordered media box. Two cells: the 336px-column primary image, and a variant tile. */
+
+.frame {
+  position: relative;
+  box-sizing: border-box;
+  overflow: hidden;
+  background: var(--jbk-surface-image-placeholder);
+}
+
+/* design 898–900 */
+.primary {
+  height: var(--jbk-output-primary-image-height);
+  border: 1px solid var(--jbk-border-control);
+  /* the only radius the shared ramp does not carry */
+  border-radius: var(--jbk-output-primary-image-radius);
+}
+
+/* design 913–915 */
+.variant {
+  height: var(--jbk-output-variant-height);
+  border: 1px solid var(--jbk-border-inset);
+  border-radius: var(--jbk-radius-control);
+}
+
+.label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--jbk-font-mono);
+}
+
+.labelPrimary {
+  font-size: var(--jbk-size-10);
+  letter-spacing: var(--jbk-tracking-start-tag);
+  color: var(--jbk-canvas-slot-caption);
+}
+
+.labelVariant {
+  font-size: var(--jbk-size-9-5);
+  color: var(--jbk-text-section-label);
+}
+
+.image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}

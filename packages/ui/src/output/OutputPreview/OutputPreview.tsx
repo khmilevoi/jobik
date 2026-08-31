@@ -1,10 +1,8 @@
-import { SectionLabel } from '../primitives/index.js'
-import { borders, px } from '../tokens.js'
-import { outputMetrics } from './outputTokens.js'
-import { type OutputPrimarySpec, PrimaryImage } from './PrimaryImage.js'
-import type { TypedValue } from './TypedValueGrid.js'
-import { TypedValueGrid } from './TypedValueGrid.js'
-import { VariantRow, type VariantSpec } from './VariantRow.js'
+import { SectionLabel } from '../../primitives/index.js'
+import { type OutputPrimarySpec, PrimaryImage } from '../PrimaryImage/PrimaryImage.js'
+import { type TypedValue, TypedValueGrid } from '../TypedValueGrid/TypedValueGrid.js'
+import { VariantRow, type VariantSpec } from '../VariantRow/VariantRow.js'
+import s from './OutputPreview.module.css'
 
 export interface OutputPreviewProps {
   readonly primary: OutputPrimarySpec
@@ -29,40 +27,15 @@ export function OutputPreview(props: OutputPreviewProps) {
   const hasTypedValues = typedValues.length > 0
 
   return (
-    <div
-      data-testid="output-preview"
-      style={{
-        padding: px(outputMetrics.bodyPadding),
-        display: 'flex',
-        gap: px(outputMetrics.bodyGap),
-      }}
-    >
+    <div data-testid="output-preview" className={s.preview}>
       <PrimaryImage {...props.primary} index={1} total={1 + variants.length} />
-      <div
-        data-testid="output-preview-column"
-        style={{
-          flex: 1,
-          minWidth: 0,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: px(outputMetrics.rightColumnGap),
-        }}
-      >
+      <div data-testid="output-preview-column" className={s.column}>
         {hasVariantRow ? <VariantRow variants={variants} emptyVariants={emptyVariants} /> : null}
         {hasVariantRow && hasTypedValues ? (
-          <div
-            data-testid="output-preview-divider"
-            style={{ height: '1px', background: borders.inlineHairline }}
-          />
+          <div data-testid="output-preview-divider" className={s.divider} />
         ) : null}
         {hasTypedValues ? (
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: px(outputMetrics.typedValuesGap),
-            }}
-          >
+          <div className={s.typedBlock}>
             <SectionLabel>Typed values</SectionLabel>
             <TypedValueGrid values={typedValues} />
           </div>

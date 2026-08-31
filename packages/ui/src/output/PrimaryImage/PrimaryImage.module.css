@@ -1,0 +1,51 @@
+/* design 903–907 — the mono metadata row under the primary image. */
+
+.metadataRow {
+  display: flex;
+  align-items: center;
+  gap: var(--jbk-output-metadata-gap);
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-10);
+  color: var(--jbk-canvas-metadata);
+}
+
+.metadataPart {
+  display: contents;
+}
+
+.metadataSeparator {
+  color: var(--jbk-canvas-metadata-separator);
+}
+
+.metadataSpacer {
+  flex: 1;
+}
+
+.metadataTrailing {
+  color: var(--jbk-text-section-label);
+}
+
+/* design 901 — the `n / m` badge over the top left of the frame. */
+.badge {
+  position: absolute;
+  left: var(--jbk-output-badge-inset);
+  top: var(--jbk-output-badge-inset);
+  height: var(--jbk-output-badge-height);
+  padding: 0 var(--jbk-output-badge-padding-x);
+  border-radius: var(--jbk-radius-badge);
+  background: var(--jbk-output-badge-scrim);
+  display: flex;
+  align-items: center;
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-9-5);
+  color: var(--jbk-text-field-label);
+}
+
+/* design 897–907 — the Preview body's 336px left column. */
+.primary {
+  width: var(--jbk-output-primary-column-width);
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--jbk-output-primary-column-gap);
+}

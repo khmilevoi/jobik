@@ -1,0 +1,7 @@
+/* The node card's inline slot: fill it and let the caller's own scroll region clip it. */
+
+.card {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+}

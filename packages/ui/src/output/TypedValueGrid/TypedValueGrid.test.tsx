@@ -1,6 +1,5 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
-import { accent, fontFamilies, textColors } from '../tokens.js'
 import { resolveTypedValueTone, TypedValueGrid } from './TypedValueGrid.js'
 
 afterEach(cleanup)
@@ -25,48 +24,14 @@ describe('resolveTypedValueTone', () => {
 })
 
 describe('TypedValueGrid', () => {
-  it('is a 110px / 1fr grid at 11.5px', () => {
-    render(<TypedValueGrid values={artboardValues} />)
-    expect(screen.getByTestId('output-typed-values')).toHaveStyle({
-      display: 'grid',
-      gridTemplateColumns: '110px 1fr',
-      gap: '8px 14px',
-      fontSize: '11.5px',
-    })
-  })
-
-  it('prints every name in muted mono', () => {
+  it('prints every name in order', () => {
     render(<TypedValueGrid values={artboardValues} />)
     const names = screen.getAllByTestId('output-typed-name')
     expect(names.map((node) => node.textContent)).toEqual(['caption', 'url', 'bytes', 'checksum'])
-    expect(names[0]).toHaveStyle({ fontFamily: fontFamilies.mono, color: textColors.muted })
-  })
-
-  it('paints each of the four artboard tones', () => {
-    render(<TypedValueGrid values={artboardValues} />)
-    const values = screen.getAllByTestId('output-typed-value')
-    expect(values[0]).toHaveStyle({ color: textColors.activeFieldLabel })
-    expect(values[0].style.fontFamily).toBe('')
-    expect(values[1]).toHaveStyle({ fontFamily: fontFamilies.mono, color: accent.cssVar })
-    expect(values[2]).toHaveStyle({
-      fontFamily: fontFamilies.mono,
-      color: textColors.activeFieldLabel,
-    })
-    expect(values[3]).toHaveStyle({
-      fontFamily: fontFamilies.mono,
-      color: textColors.inactiveListItem,
-    })
   })
 
   it('groups a numeric value the way the artboard does', () => {
     render(<TypedValueGrid values={artboardValues} />)
     expect(screen.getAllByTestId('output-typed-value')[2]).toHaveTextContent('654 336')
-  })
-
-  it('honours an explicit tone over the derived one', () => {
-    render(<TypedValueGrid values={[{ name: 'id', value: 'a1b2', tone: 'opaque' }]} />)
-    expect(screen.getByTestId('output-typed-value')).toHaveStyle({
-      color: textColors.inactiveListItem,
-    })
   })
 })

@@ -1,0 +1,20 @@
+/*
+ * The `Logs` tab body. The `Output viewer` artboard fixes no Logs state, so this reuses the same
+ * design file's `Live log` treatment from `Studio — run in progress` (design 634–639) without the
+ * pulsing caret, which belongs to the run panel's live state and is not this directory's.
+ */
+
+.logs {
+  padding: var(--jbk-output-raw-padding);
+  display: flex;
+  flex-direction: column;
+  gap: var(--jbk-output-log-gap);
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-10);
+  line-height: var(--jbk-output-log-line-height);
+  color: var(--jbk-text-muted);
+}
+
+.time {
+  color: var(--jbk-text-faintest);
+}
