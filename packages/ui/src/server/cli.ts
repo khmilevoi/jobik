@@ -67,6 +67,11 @@ function parseArgv(argv: readonly string[]): CliOptions | Error {
       help = true
       continue
     }
+    // A package manager forwards its own end-of-options separator into the script, so
+    // `pnpm dev -- --port 4400` — the invocation the root README and CLAUDE.md document — arrives
+    // here with a bare `--` ahead of the real flags. It marks nothing for a CLI that takes no
+    // positional arguments, so skip it rather than reporting it as an unknown option.
+    if (flag === '--') continue
     const value = argv[index + 1]
     if (flag !== '--config' && flag !== '--host' && flag !== '--port') {
       return new Error(`unknown option '${flag}'`)

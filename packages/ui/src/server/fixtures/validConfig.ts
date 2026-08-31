@@ -7,7 +7,7 @@ import { defineJobikConfig } from '#server/config.js'
  */
 
 const repositoryRoot = path.resolve(import.meta.dirname, '../../../../..')
-const example = path.resolve(repositoryRoot, 'examples/publication')
+const example = path.resolve(repositoryRoot, 'examples/showcase/publication')
 
 export default defineJobikConfig({
   server: { host: '127.0.0.1', port: 0 },

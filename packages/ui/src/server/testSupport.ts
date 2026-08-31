@@ -4,7 +4,7 @@ import {
   bindPublicationTo,
   createPublicationDocumentCopy,
   publicationFixture,
-} from '../../../../examples/publication/fixtures.js'
+} from '../../../../examples/showcase/publication/fixtures.js'
 import { defineJobikConfig } from './config.js'
 import { type DiscoveredFlow, discoverFlows } from './discovery.js'
 

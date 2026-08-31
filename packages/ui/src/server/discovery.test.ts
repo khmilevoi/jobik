@@ -1,6 +1,6 @@
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { publicationFixture } from '../../../../examples/publication/fixtures.js'
+import { publicationFixture } from '../../../../examples/showcase/publication/fixtures.js'
 import { defineJobikConfig } from './config.js'
 import { discoverFlows, loadJobikConfig } from './discovery.js'
 import { uiPath } from './testSupport.js'

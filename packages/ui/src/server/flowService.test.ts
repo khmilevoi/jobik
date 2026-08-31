@@ -1,7 +1,7 @@
 import * as fs from 'node:fs/promises'
 import * as jobik from '@jobik/core'
 import { describe, expect, it } from 'vitest'
-import { publicationFixture } from '../../../../examples/publication/fixtures.js'
+import { publicationFixture } from '../../../../examples/showcase/publication/fixtures.js'
 import { defineJobikConfig } from './config.js'
 import { discoverFlows } from './discovery.js'
 import { listFlows, loadFlow, saveFlow, validateDraft } from './flowService.js'

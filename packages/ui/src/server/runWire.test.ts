@@ -1,7 +1,7 @@
 import path from 'node:path'
 import * as jobik from '@jobik/core'
 import { describe, expect, it } from 'vitest'
-import { ImageRenderError } from '../../../../examples/publication/nodes/index.js'
+import { ImageRenderError } from '../../../../examples/showcase/publication/nodes/index.js'
 import {
   isTaxonomyWireError,
   serialiseNodeOutput,

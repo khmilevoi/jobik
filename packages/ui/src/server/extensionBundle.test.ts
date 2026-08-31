@@ -2,7 +2,7 @@ import * as fs from 'node:fs/promises'
 import * as os from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { publicationFixture } from '../../../../examples/publication/fixtures.js'
+import { publicationFixture } from '../../../../examples/showcase/publication/fixtures.js'
 import {
   buildExtensionBundle,
   clearExtensionBundleCache,

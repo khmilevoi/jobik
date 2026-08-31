@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   publicationFixture,
   publicationSampleInput,
-} from '../../../../examples/publication/fixtures.js'
+} from '../../../../examples/showcase/publication/fixtures.js'
 import type { DiscoveredFlow } from './discovery.js'
 import { type JobikServer, serveFlowRegistry } from './httpServer.js'
 import { jobikAllRoutes } from './runRoutes.js'
