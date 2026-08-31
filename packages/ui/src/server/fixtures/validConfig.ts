@@ -1,5 +1,5 @@
 import path from 'node:path'
-import { defineJobikConfig } from '../config.js'
+import { defineJobikConfig } from '#server/config.js'
 
 /**
  * A config module the discovery tests load through `loadJobikConfig`, exercising the same dynamic
