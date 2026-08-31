@@ -3,13 +3,22 @@ import type { EdgeShape } from '#canvas/index.js'
 import { FlowCanvas, MetadataRow } from '#canvas/index.js'
 import type { JobikClient } from '#client/index.js'
 import { createJobikClient } from '#client/index.js'
-import { OutputViewer, resolveOutputComponent } from '#output/index.js'
-import type { RunOutputField, RunPanelState } from '#run/index.js'
+import type { SwitchFlowBody } from '#modals/index.js'
+import { CancelRunModal, SwitchFlowModal, ValidationModal } from '#modals/index.js'
+import { OutputDock, resolveOutputComponent } from '#output/index.js'
+import { useValidateAction } from '#primitives/index.js'
+import type { RunPanelState } from '#run/index.js'
 import { assetMetaParts, formatRunMeta, RunPanel, validateRunInputs } from '#run/index.js'
-import type { RunDockMetaTone } from '#shell/index.js'
-import { toOutputFields } from '#studio/assets.js'
+import type {
+  RunDockMetaTone,
+  RunDockStatus,
+  RunHistoryEntry,
+  TopBarValidateState,
+} from '#shell/index.js'
+import { ProblemsStrip, StatusStrip } from '#shell/index.js'
+import { unsavedChangeCount } from '#studio/draft.js'
 import type { ExternalModules } from '#studio/extensionLoader.js'
-import { formatElapsed } from '#studio/format.js'
+import { formatElapsed, formatOutputContext, formatOutputSummary } from '#studio/format.js'
 import type { NodeOverlay } from '#studio/graphModel.js'
 import {
   toCanvasEdges,
@@ -20,6 +29,7 @@ import {
   waitingOnField,
 } from '#studio/graphModel.js'
 import { runInputPresentation, toRunInputSchema } from '#studio/inputSchema.js'
+import { NO_PROBLEMS, toFlowProblems } from '#studio/problems.js'
 import { RunningChip, SaveConflictChip, SaveErrorChip } from '#studio/RunningChip/RunningChip.js'
 import {
   toNodeOverlays,
@@ -32,6 +42,7 @@ import {
 import { completedNodeCount } from '#studio/runSession.js'
 import { Studio } from '#studio/Studio/Studio.js'
 import { useStudioSession } from '#studio/useStudioSession.js'
+import { toValidationFindings } from '#studio/validation.js'
 import s from './StudioApp.module.css'
 
 /**
@@ -84,12 +95,160 @@ export function StudioApp(props: StudioAppProps) {
   const [viewerNodeId, setViewerNodeId] = useState<string | undefined>(undefined)
   const closeViewer = useCallback(() => setViewerNodeId(undefined), [])
 
+  /**
+   * `2A`'s `Run history` — `#221 2.4s`, `#220 failed`, `#219 2.4s` — from the runs this browser
+   * session has actually made.
+   *
+   * It is a record, not a navigator: **no row carries an `onSelectRun`**, because v1 has no
+   * endpoint that returns an earlier run's report and nothing client-side keeps one. Restoring
+   * `#219` would mean re-deriving the canvas overlays, the run panel and the dock from a report the
+   * app no longer has. Every value shown is real — the server's own run number, the status it
+   * settled with, and its elapsed — and the selected row is the run currently on screen.
+   */
+  const [runHistory, setRunHistory] = useState<readonly RunHistoryEntry[]>([])
+
+  /**
+   * `3C`: cancelling asks first. Every affordance that used to call `cancel()` — the run panel's
+   * `Cancel run`, the running chip's `Cancel`, and `Escape` — now opens `Cancel run #219?`, and the
+   * dialog's own destructive primary is the only thing that actually cancels.
+   */
+  const [cancelPrompt, setCancelPrompt] = useState(false)
+  const askToCancel = useCallback(() => setCancelPrompt(true), [])
+  const keepRunning = useCallback(() => setCancelPrompt(false), [])
+
+  /**
+   * `3F`: switching flows asks first too, whenever the switch would lose something. The flow whose
+   * row was pressed is held here while the dialog stands; `undefined` is the whole of "no dialog",
+   * the same way `cancelPrompt` above is.
+   *
+   * `saveAndSwitchTo` is the one answer that cannot be given synchronously. `Save and switch` must
+   * complete the write before it leaves — and must not leave at all if the write is rejected — and
+   * `studio.save()` is fire-and-forget, so the target is parked here and the effect below reads the
+   * outcome off `saveState`, which is where the hook already models it.
+   */
+  const [pendingFlowId, setPendingFlowId] = useState<string | undefined>(undefined)
+  const [saveAndSwitchTo, setSaveAndSwitchTo] = useState<string | undefined>(undefined)
+
   const { descriptor, draft, session, running, extension, assetUrl } = studio
   const document = draft?.document
+  const validation = studio.validation
+
+  /**
+   * `3D`, from the one finding the wire carries. `toFlowProblems` is where the honesty lives: the
+   * strip's rows, the node and port marks and the failing edge all come out of the server's own
+   * answer and the document, and everything the wire cannot say — a second finding, a severity, a
+   * `flow.ts:41` — is simply absent rather than invented.
+   */
+  const problems = useMemo(() => {
+    if (validation?.kind !== 'invalid' || document === undefined) return NO_PROBLEMS
+    return toFlowProblems({ error: validation.error, document })
+  }, [validation, document])
+
+  const errorCount = useMemo(
+    () => problems.problems.filter((problem) => problem.severity === 'error').length,
+    [problems],
+  )
+
+  /**
+   * `3D`'s invalid-board caption, which the design states in prose and draws nowhere: *"Run is
+   * disabled while any error stands; warnings never block it."* Counted off the findings rather
+   * than off `validation.kind`, so the day the wire learns to send a warning it will not block a
+   * run by accident.
+   */
+  const runBlocked = errorCount > 0
+
+  /**
+   * The `idle → checking → valid|invalid → idle` sequence, with `3D`'s 4 s hold on the resolved
+   * chip. Only the chip returns to idle on that timer — the findings themselves persist until the
+   * flow changes, which `useStudioSession` owns.
+   */
+  const validateAction = useValidateAction()
+  const validatePress = validateAction.press
+  const validateSettle = validateAction.settle
+  const validateReset = validateAction.reset
+
+  const requestValidate = useCallback(() => {
+    // §3D.4's own `if (this.state[key] !== 'idle') return`: a press while the check runs, or while
+    // a result still stands, does nothing at all.
+    if (running || !validatePress()) return
+    studio.validate()
+  }, [running, validatePress, studio.validate])
+
+  // The design's `later(1200, …)` is how the artboard fakes a round trip; here the server ends the
+  // checking phase whenever it actually answers. `unreachable` resolves to nothing: the check
+  // never ran, so there is no result to hold.
+  useEffect(() => {
+    if (validation === undefined || validation.kind === 'unreachable') {
+      validateReset()
+      return
+    }
+    if (validation.kind === 'valid') validateSettle('valid')
+    if (validation.kind === 'invalid') validateSettle('invalid')
+  }, [validation, validateSettle, validateReset])
+
+  /**
+   * `3C`'s Validation dialog, as a surface of its own rather than as the validation state itself.
+   * `3D` makes the findings outlive the dialog — the strip and the canvas marks stand until the
+   * flow changes — so dismissing the dialog must not throw the result away, which is what wiring
+   * `onDismiss` to `dismissValidation` used to do.
+   */
+  const [reportOpen, setReportOpen] = useState(false)
+  const openReport = useCallback(() => setReportOpen(true), [])
+  const closeReport = useCallback(() => setReportOpen(false), [])
+  useEffect(() => setReportOpen(validation?.kind === 'invalid'), [validation])
 
   const startNode = useMemo(
     () => descriptor?.nodes.find((node) => node.id === studio.startId),
     [descriptor, studio.startId],
+  )
+
+  /**
+   * Switching flows, and the four pieces of state that are `StudioApp`'s rather than the hook's.
+   *
+   * Written here, synchronously, in the same event as the hook's own reset — not in an effect
+   * keyed on `flowId`, because an effect commits a frame later and that frame paints flow `#1`'s
+   * run history, open output and validate chip under flow `#2`'s name. React batches the whole
+   * click into one commit instead.
+   *
+   * `reportOpen` needs no line of its own: it is driven by an effect on `validation`, which
+   * `selectFlow` clears unconditionally.
+   */
+  const switchTo = useCallback(
+    (nextFlowId: string) => {
+      setViewerNodeId(undefined)
+      setRunHistory([])
+      setCancelPrompt(false)
+      setPendingFlowId(undefined)
+      setSaveAndSwitchTo(undefined)
+      validateReset()
+      studio.selectFlow(nextFlowId)
+    },
+    [studio.selectFlow, validateReset],
+  )
+
+  /**
+   * `3F` — the guard, and the reason it lives here rather than in `useStudioSession`.
+   *
+   * The hook's `selectFlow` is the *transition*: it resets every per-flow field and ref
+   * synchronously so no frame paints one flow's state under another's id, and its doc comment is
+   * explicit that it is "immediate and never blocked". Asking a question first is not a second
+   * kind of transition, it is a surface — a modal, held-back state, and an answer — and every
+   * other confirmation in the Studio (`cancelPrompt` above) is already owned here. Keeping the
+   * hook unconditional also means the two cannot disagree about what a switch resets.
+   *
+   * A clean draft with no run in flight loses nothing, so it goes straight through: the common
+   * case never sees a dialog.
+   */
+  const selectFlow = useCallback(
+    (nextFlowId: string) => {
+      if (nextFlowId === studio.flowId) return
+      if (running || draft?.dirty === true) {
+        setPendingFlowId(nextFlowId)
+        return
+      }
+      switchTo(nextFlowId)
+    },
+    [studio.flowId, running, draft?.dirty, switchTo],
   )
 
   // R7: `Cmd/Ctrl+Enter`, the docked run button (which the top bar also renders once the dock is
@@ -122,10 +281,14 @@ export function StudioApp(props: StudioAppProps) {
   // contains a node with the same id as `viewerNodeId`, it silently reopens with no user action.
   const startRun = useCallback(
     (values: Record<string, unknown>) => {
+      // `3D`: no affordance starts a run while an error stands. The docked control and the run
+      // chip also *look* blocked (`runBlocked` below); this is the guard behind all of them,
+      // including `RunIdleView`'s own button, whose chrome `run/` owns.
+      if (runBlocked) return
       closeViewer()
       studio.run(values)
     },
-    [studio.run, closeViewer],
+    [studio.run, closeViewer, runBlocked],
   )
 
   // R35: the one place `runInputValues()`'s result is actually turned into a run. Used by the
@@ -135,6 +298,27 @@ export function StudioApp(props: StudioAppProps) {
     const values = runInputValues()
     if (values !== undefined) startRun(values)
   }, [runInputValues, startRun])
+
+  // Append each run to the history as it settles, newest first, exactly once per run number.
+  const settledReport = session?.report
+  useEffect(() => {
+    if (settledReport === undefined) return
+    setRunHistory((previous) => {
+      const id = String(settledReport.runNumber)
+      if (previous.some((entry) => entry.id === id)) return previous
+      return [
+        {
+          id,
+          label: `#${settledReport.runNumber}`,
+          status: settledReport.status === 'ok' ? 'ok' : 'failed',
+          ...(settledReport.status === 'ok'
+            ? { elapsed: formatElapsed(settledReport.elapsedMs) }
+            : {}),
+        },
+        ...previous,
+      ]
+    })
+  }, [settledReport])
 
   const overlays = useMemo<ReadonlyMap<string, NodeOverlay> | undefined>(() => {
     if (session === undefined) return undefined
@@ -183,6 +367,8 @@ export function StudioApp(props: StudioAppProps) {
       const producedBy = descriptor?.nodes.find((node) => node.id === nodeId)?.title
       enriched.set(nodeId, {
         ...overlay,
+        // `Studio — default` and `2A` both draw a settled card's status as `● ok · 2.1s`.
+        statusDot: true,
         outputSlot: {
           content: (
             <Output
@@ -192,6 +378,11 @@ export function StudioApp(props: StudioAppProps) {
               assetUrl={assetUrl}
             />
           ),
+          // `2A` puts an accent `inspect` in the caption row's trailing cell where
+          // `Studio — default` puts the producing node's name. `NodeOutputSlot` treats them as
+          // alternatives and `onInspect` wins, so a card that can open the viewer offers it and
+          // one that cannot still names its source.
+          onInspect: () => setViewerNodeId(nodeId),
           ...(asset === undefined
             ? {}
             : {
@@ -214,27 +405,14 @@ export function StudioApp(props: StudioAppProps) {
       document,
       ...(studio.selectedNodeId === undefined ? {} : { selectedNodeId: studio.selectedNodeId }),
       ...(overlays === undefined ? {} : { overlays }),
+      problems,
     })
-  }, [descriptor, document, studio.selectedNodeId, overlays])
+  }, [descriptor, document, studio.selectedNodeId, overlays, problems])
 
-  const edges = useMemo(() => (document === undefined ? [] : toCanvasEdges(document)), [document])
-
-  const outputs = useMemo<readonly RunOutputField[]>(() => {
-    const report = studio.lastReport
-    if (report === undefined) return []
-    // R2: `toOutputFields` takes no `assetUrl` — it never built one. `thumbnail` stays `undefined`
-    // (the striped placeholder).
-    //
-    // R37: `field.field` can be QUALIFIED (`render.image`) whenever two nodes share a field name, so
-    // recovering the owning node by searching `node.assets` for that (possibly qualified) label —
-    // as this used to do — silently fails whenever qualification actually fires, and `Open` does
-    // nothing. `onOpenAsset` is called from inside `toOutputFields`'s own per-node loop, which
-    // already has the real `node.nodeId` in hand and never has to guess it back out of a label.
-    return toOutputFields({
-      nodes: report.nodes,
-      onOpenAsset: (nodeId) => () => setViewerNodeId(nodeId),
-    })
-  }, [studio.lastReport])
+  const edges = useMemo(
+    () => (document === undefined ? [] : toCanvasEdges(document, problems)),
+    [document, problems],
+  )
 
   const runPanelState = useMemo<RunPanelState | undefined>(() => {
     if (descriptor === undefined || startNode === undefined || studio.startId === undefined) {
@@ -256,7 +434,7 @@ export function StudioApp(props: StudioAppProps) {
         nodes: toRunNodeTimings(session, order),
         log: toRunLog(session),
         partialOutput: true,
-        onCancel: studio.cancel,
+        onCancel: askToCancel,
       }
     }
 
@@ -297,18 +475,35 @@ export function StudioApp(props: StudioAppProps) {
       studio.lastReport.status === 'ok' &&
       session !== undefined
     ) {
+      // `2A`, the newest artboard, draws the completed panel as: node timings, the inputs still
+      // shown and still editable, `Re-run start1 ⌘↵`, then `Log` / `tail`. The run's OUTPUTS are
+      // not here — they are in the bottom output dock, which `canvas`'s `inspect` opens. So
+      // `outputs` is deliberately not passed: passing it would draw the older
+      // `Run panel — states` section as well and the panel would say everything twice.
       return {
         kind: 'completed',
         runNumber: studio.lastReport.runNumber,
         elapsed: formatElapsed(studio.lastReport.elapsedMs),
         nodes: toRunNodeTimings(session, order),
-        outputs,
+        entryNodeId: studio.startId,
+        inputs: {
+          descriptor: startNode.input,
+          draft: studio.inputDraft,
+          presentation: runInputPresentation(startNode.input, studio.inputDraft),
+          onDraftChange: studio.setInputField,
+        },
+        log: { ...toRunLog(session), followLabel: 'tail' },
+        onRerun: runFromDraft,
       }
     }
 
     return {
       kind: 'idle',
       entryNodeId: studio.startId,
+      // Every start the descriptor declares. `RunIdleView` draws a chooser only past the first,
+      // so `publication` — and every artboard — is unchanged.
+      startIds: descriptor.startIds,
+      onSelectStart: studio.selectStart,
       note: IDLE_NOTE,
       descriptor: startNode.input,
       input: toRunInputSchema(startNode.input),
@@ -316,6 +511,9 @@ export function StudioApp(props: StudioAppProps) {
       presentation: runInputPresentation(startNode.input, studio.inputDraft),
       onDraftChange: studio.setInputField,
       onRun: startRun,
+      // The same predicate the docked control and the top-bar pill read, not a second one: two
+      // places deciding whether this is runnable would drift.
+      blocked: runBlocked,
       ...(studio.lastReport === undefined ? {} : { lastRun: toRunSummary(studio.lastReport) }),
     }
     // Depend on the specific `studio` fields this memo actually reads, not on `studio` itself —
@@ -328,13 +526,14 @@ export function StudioApp(props: StudioAppProps) {
     session,
     studio.startId,
     studio.elapsedMs,
-    studio.cancel,
+    askToCancel,
     studio.lastReport,
     studio.inputDraft,
     studio.setInputField,
+    studio.selectStart,
     startRun,
-    outputs,
     runFromDraft,
+    runBlocked,
   ])
 
   /**
@@ -358,6 +557,18 @@ export function StudioApp(props: StudioAppProps) {
     }
   }, [runPanelState])
 
+  /**
+   * `2A`: once a run settles, the dock header's left half is `● Completed` or `● Run failed`
+   * rather than `Run <entry>`. `Studio — run in progress` keeps the entry point while the run is in
+   * flight, and the idle artboard has no state at all, so this is `undefined` in both.
+   */
+  const runDockStatus = useMemo<RunDockStatus | undefined>(() => {
+    if (runPanelState === undefined) return undefined
+    if (runPanelState.kind === 'completed') return 'completed'
+    if (runPanelState.kind === 'failed') return 'failed'
+    return undefined
+  }, [runPanelState])
+
   // `### Run panel`: P11 renders `⌘↵` and `esc` and binds neither.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -369,12 +580,22 @@ export function StudioApp(props: StudioAppProps) {
         }
         return
       }
+      // `3D`'s status strip is the only place the design names this shortcut.
+      if (meta && event.shiftKey && event.key.toLowerCase() === 'v') {
+        event.preventDefault()
+        requestValidate()
+        return
+      }
       if (meta && event.key.toLowerCase() === 's') {
         event.preventDefault()
         studio.save()
         return
       }
       if (event.key === 'Escape') {
+        // A modal that answered `esc` has already called `preventDefault()` on the way up (see
+        // `ModalShell`). Without this, dismissing `3F`'s dialog while a run streamed also opened
+        // `Cancel run #221?` off the same press, and `esc` out of that one re-opened it forever.
+        if (event.defaultPrevented) return
         // R33: the `Output viewer` artboard (design lines 484–491) draws `Copy all` / `Download`
         // and no close control of its own. `Escape` is the least-invented way to keep it
         // closable without inventing a button the design does not have; it takes priority over
@@ -383,13 +604,22 @@ export function StudioApp(props: StudioAppProps) {
           closeViewer()
           return
         }
-        if (running) studio.cancel()
+        if (running) askToCancel()
       }
     }
 
     globalThis.addEventListener('keydown', onKeyDown)
     return () => globalThis.removeEventListener('keydown', onKeyDown)
-  }, [running, startNode, studio.save, studio.cancel, runFromDraft, viewerNodeId, closeViewer])
+  }, [
+    running,
+    startNode,
+    studio.save,
+    askToCancel,
+    runFromDraft,
+    viewerNodeId,
+    closeViewer,
+    requestValidate,
+  ])
 
   const openViewerNode = useMemo(
     () => studio.lastReport?.nodes.find((node) => node.nodeId === viewerNodeId),
@@ -398,6 +628,37 @@ export function StudioApp(props: StudioAppProps) {
 
   const onNodeLayoutChange = studio.moveNode
   const onConnectFields = studio.connect
+
+  /**
+   * `2A`'s two mono strings for the dock — `render.image · Buffer[3] · run #221` open, and
+   * `render.image · 3 files · run #221` collapsed.
+   *
+   * Every part is read off the report and the descriptor: the node, its first asset-bearing output
+   * field, that field's own annotation, the number of asset fields the node actually produced, and
+   * the run number. A node that produced no asset falls to the short form rather than a fabricated
+   * one.
+   */
+  const outputDockStrings = useMemo(() => {
+    if (openViewerNode === undefined) return undefined
+    const fields = Object.keys(openViewerNode.assets)
+    const field = fields[0]
+    const annotation = descriptor?.nodes
+      .find((node) => node.id === openViewerNode.nodeId)
+      ?.output.fields.find((entry) => entry.field === field)?.annotation
+    const args = {
+      nodeId: openViewerNode.nodeId,
+      fileCount: fields.length,
+      ...(field === undefined ? {} : { field }),
+      ...(studio.lastReport === undefined ? {} : { runNumber: studio.lastReport.runNumber }),
+    }
+    return {
+      context: formatOutputContext({
+        ...args,
+        ...(annotation === undefined ? {} : { annotation }),
+      }),
+      summary: formatOutputSummary(args),
+    }
+  }, [openViewerNode, descriptor, studio.lastReport])
 
   const viewerLogs = useMemo(
     () =>
@@ -433,32 +694,38 @@ export function StudioApp(props: StudioAppProps) {
     }
   }, [studio.lastReport, openViewerNode])
 
+  // `FlowCanvas`'s `startNodeId` stays singular on purpose, and stays correct now that a flow may
+  // declare several starts: it means "the selected entry point" — the node whose outgoing edges
+  // take the accent tone — not "the flow's only start". `selectStart` is what moves it.
   const canvas = (
     <div className={s.canvas}>
-      <FlowCanvas
-        nodes={nodes}
-        edges={edges}
-        {...(studio.startId === undefined ? {} : { startNodeId: studio.startId })}
-        {...(studio.selectedNodeId === undefined ? {} : { selectedNodeId: studio.selectedNodeId })}
-        {...(props.edgeShape === undefined ? {} : { edgeShape: props.edgeShape })}
-        {...(props.showDotGrid === undefined ? {} : { showDotGrid: props.showDotGrid })}
-        onNodeLayoutChange={onNodeLayoutChange}
-        onConnectFields={onConnectFields}
-      />
+      <div className={s.canvasSurface}>
+        <FlowCanvas
+          nodes={nodes}
+          edges={edges}
+          {...(studio.startId === undefined ? {} : { startNodeId: studio.startId })}
+          {...(studio.selectedNodeId === undefined
+            ? {}
+            : { selectedNodeId: studio.selectedNodeId })}
+          {...(props.edgeShape === undefined ? {} : { edgeShape: props.edgeShape })}
+          {...(props.showDotGrid === undefined ? {} : { showDotGrid: props.showDotGrid })}
+          onNodeLayoutChange={onNodeLayoutChange}
+          onConnectFields={onConnectFields}
+        />
+      </div>
       {openViewerNode === undefined ? null : (
-        <div className={s.viewerBackdrop}>
-          <OutputViewer
-            nodeId={openViewerNode.nodeId}
-            output={{ ...(openViewerNode.output ?? {}), ...openViewerNode.assets }}
-            {...(extension === undefined ? {} : { descriptor: extension })}
-            assetUrl={assetUrl}
-            raw={studio.lastReport}
-            logs={viewerLogs}
-            onCopyAll={onCopyAllOutput}
-            onDownload={onDownloadOutput}
-            className={s.viewer}
-          />
-        </div>
+        <OutputDock
+          nodeId={openViewerNode.nodeId}
+          output={{ ...(openViewerNode.output ?? {}), ...openViewerNode.assets }}
+          {...(extension === undefined ? {} : { descriptor: extension })}
+          assetUrl={assetUrl}
+          {...(outputDockStrings === undefined ? {} : outputDockStrings)}
+          raw={studio.lastReport}
+          logs={viewerLogs}
+          onCopyAll={onCopyAllOutput}
+          onDownload={onDownloadOutput}
+          onClose={closeViewer}
+        />
       )}
     </div>
   )
@@ -477,7 +744,7 @@ export function StudioApp(props: StudioAppProps) {
       <RunningChip
         startId={studio.startId}
         elapsed={formatElapsed(studio.elapsedMs)}
-        onCancel={studio.cancel}
+        onCancel={askToCancel}
       />
     ) : undefined
 
@@ -503,25 +770,238 @@ export function StudioApp(props: StudioAppProps) {
     [descriptor],
   )
 
+  const confirmCancel = useCallback(() => {
+    setCancelPrompt(false)
+    studio.cancel()
+  }, [studio.cancel])
+
+  // The node the `Cancel run` dialog names twice — the one still working. `2A`'s stream reports at
+  // most one at a time; the first is the honest answer either way.
+  const runningNodeId = useMemo(() => {
+    if (session === undefined) return undefined
+    for (const [nodeId, record] of session.nodes) {
+      if (record.status === 'running') return nodeId
+    }
+    return undefined
+  }, [session])
+
+  /**
+   * `3F`'s four answers. `esc` and both "switch now" buttons are synchronous; the other two each
+   * do one thing to the flow being left before the switch is allowed to happen.
+   */
+  const stayOnFlow = useCallback(() => {
+    setPendingFlowId(undefined)
+    setSaveAndSwitchTo(undefined)
+  }, [])
+
+  /** `Switch and keep running` and `Discard changes`: one behaviour, two labels for what it costs. */
+  const switchToPending = useCallback(() => {
+    if (pendingFlowId === undefined) return
+    switchTo(pendingFlowId)
+  }, [pendingFlowId, switchTo])
+
+  /**
+   * `cancel()` reads `runTokenRef` and issues the request before its first `await`, so the request
+   * is already aimed at the run being left by the time `switchTo` clears that ref. Reversing these
+   * two lines would cancel nothing.
+   */
+  const cancelAndSwitch = useCallback(() => {
+    if (pendingFlowId === undefined) return
+    studio.cancel()
+    switchTo(pendingFlowId)
+  }, [pendingFlowId, studio.cancel, switchTo])
+
+  const saveAndSwitch = useCallback(() => {
+    // `save()` refuses while a run streams and with no draft loaded; parking a target it will
+    // never move would leave the effect below switching on a write that never happened. The second
+    // clause is the double-click guard: `save()` has no re-entrancy check of its own, and a second
+    // write against the same `baseRevision` would come back a conflict.
+    if (pendingFlowId === undefined || saveAndSwitchTo !== undefined) return
+    if (running || draft === undefined) return
+    setSaveAndSwitchTo(pendingFlowId)
+    studio.save()
+  }, [pendingFlowId, saveAndSwitchTo, running, draft, studio.save])
+
+  /**
+   * The other half of `Save and switch`. `save()` sets `saveState` to `saving` synchronously, in
+   * the same event as the state above, so the first render after the click is already past the
+   * early return and every later one carries the outcome.
+   *
+   * A rejected write — a revision conflict above all — does not switch. It also closes the dialog,
+   * because the conflict chip's own `Reload` and `Copy draft` sit behind the scrim and are the
+   * only way out of that state.
+   */
+  useEffect(() => {
+    if (saveAndSwitchTo === undefined || studio.saveState.kind === 'saving') return
+    setSaveAndSwitchTo(undefined)
+    if (studio.saveState.kind !== 'idle') {
+      setPendingFlowId(undefined)
+      return
+    }
+    switchTo(saveAndSwitchTo)
+  }, [saveAndSwitchTo, studio.saveState, switchTo])
+
+  /**
+   * The dialog asks about a state that can end on its own — a run settles, a save lands. Once
+   * nothing is at risk the question has answered itself, so the switch the user asked for happens
+   * rather than the dialog vanishing and leaving them where they were.
+   */
+  useEffect(() => {
+    if (pendingFlowId === undefined || saveAndSwitchTo !== undefined) return
+    if (running || draft?.dirty === true) return
+    switchTo(pendingFlowId)
+  }, [pendingFlowId, saveAndSwitchTo, running, draft?.dirty, switchTo])
+
+  const pendingFlowName =
+    pendingFlowId === undefined
+      ? undefined
+      : (studio.flows.find((flow) => flow.id === pendingFlowId)?.name ?? pendingFlowId)
+
+  /**
+   * Which body `3F` draws, recomputed rather than frozen at the click: a dialog still claiming a
+   * run is in flight after it has settled would be printing a stale elapsed time.
+   *
+   * **A run in flight wins over an unsaved draft.** `3F` draws the two bodies apart and does not
+   * say which one a flow in both states gets; the tie-break is that `save()` refuses while a run
+   * streams — the top bar hides both `Save` and the dirty dot for the same reason — so an unsaved
+   * body offered here would carry a primary that does nothing at all.
+   */
+  const switchFlowBody: SwitchFlowBody | undefined =
+    pendingFlowId === undefined
+      ? undefined
+      : running && session !== undefined
+        ? {
+            kind: 'running',
+            runNumber: session.runNumber ?? 0,
+            elapsed: formatElapsed(studio.elapsedMs),
+            nodeId: runningNodeId ?? studio.startId ?? '',
+            onCancelAndSwitch: cancelAndSwitch,
+            onSwitchAndKeepRunning: switchToPending,
+          }
+        : draft?.dirty === true
+          ? {
+              kind: 'unsaved',
+              documentFile: descriptor?.documentFile ?? '',
+              unsavedChanges: unsavedChangeCount(draft),
+              onDiscardChanges: switchToPending,
+              onSaveAndSwitch: saveAndSwitch,
+            }
+          : undefined
+
+  const validationFindings = useMemo(() => {
+    if (validation?.kind !== 'invalid') return undefined
+    return toValidationFindings({ error: validation.error })
+  }, [validation])
+
+  /**
+   * `3D` §3D.3 — the strip that replaces the bottom edge of the shell once a check has answered.
+   * Absent before that, which is what every other artboard draws.
+   *
+   * `2 nodes · 2 connections` is the descriptor and the document; `checked <n> s ago` counts from
+   * the moment the answer landed. Nothing here is a fixture.
+   */
+  const statusStrip = useMemo(() => {
+    if (validation?.kind === 'valid' && descriptor !== undefined && document !== undefined) {
+      return (
+        <StatusStrip
+          nodeCount={descriptor.nodes.length}
+          connectionCount={document.connections.length}
+          checkedAt={validation.checkedAt}
+        />
+      )
+    }
+    if (validation?.kind === 'invalid' && problems.problems.length > 0) {
+      return <ProblemsStrip problems={problems.problems} onOpenReport={openReport} />
+    }
+    return undefined
+  }, [validation, descriptor, document, problems, openReport])
+
+  /**
+   * The control's cell. `invalid` needs a count, so a state that has lost its findings — the one
+   * frame between the flow changing and the sequence being reset — falls back to `idle` rather
+   * than printing `0 errors`.
+   */
+  const validateState = useMemo<TopBarValidateState>(() => {
+    if (validateAction.state === 'invalid') {
+      return errorCount > 0 ? { state: 'invalid', errorCount } : { state: 'idle' }
+    }
+    return { state: validateAction.state }
+  }, [validateAction.state, errorCount])
+
   return (
-    <Studio
-      {...(props.accent === undefined ? {} : { accent: props.accent })}
-      flows={flowSummaries}
-      {...(loaded && studio.flowId !== undefined ? { activeFlowId: studio.flowId } : {})}
-      {...(descriptor === undefined ? {} : { flowFile: descriptor.documentFile })}
-      dirty={draft?.dirty ?? false}
-      nodes={flowNodeSummaries}
-      {...(studio.selectedNodeId === undefined ? {} : { selectedNodeId: studio.selectedNodeId })}
-      inventory={inventory}
-      {...(studio.startId === undefined ? {} : { entryNodeId: studio.startId })}
-      running={running}
-      {...(runningChip === undefined ? {} : { runningChip })}
-      canvas={canvas}
-      {...(runPanelState === undefined ? {} : { runPanel: <RunPanel state={runPanelState} /> })}
-      {...(runMeta === undefined ? {} : { runMeta: runMeta.text, runMetaTone: runMeta.tone })}
-      onValidate={studio.validate}
-      onSave={studio.save}
-      onRun={runFromDraft}
-    />
+    <>
+      <Studio
+        {...(props.accent === undefined ? {} : { accent: props.accent })}
+        flows={flowSummaries}
+        {...(loaded && studio.flowId !== undefined ? { activeFlowId: studio.flowId } : {})}
+        onSelectFlow={selectFlow}
+        {...(descriptor === undefined ? {} : { flowFile: descriptor.documentFile })}
+        dirty={draft?.dirty ?? false}
+        nodes={flowNodeSummaries}
+        {...(studio.selectedNodeId === undefined ? {} : { selectedNodeId: studio.selectedNodeId })}
+        inventory={inventory}
+        {...(studio.startId === undefined ? {} : { entryNodeId: studio.startId })}
+        running={running}
+        {...(runningChip === undefined ? {} : { runningChip })}
+        canvas={canvas}
+        {...(runPanelState === undefined ? {} : { runPanel: <RunPanel state={runPanelState} /> })}
+        {...(runMeta === undefined ? {} : { runMeta: runMeta.text, runMetaTone: runMeta.tone })}
+        {...(runDockStatus === undefined ? {} : { runStatus: runDockStatus })}
+        {...(runHistory.length === 0
+          ? {}
+          : {
+              runs: runHistory,
+              ...(runHistory[0] === undefined ? {} : { selectedRunId: runHistory[0].id }),
+            })}
+        validate={validateState}
+        runBlocked={runBlocked}
+        {...(statusStrip === undefined ? {} : { status: statusStrip })}
+        onValidate={requestValidate}
+        onOpenReport={openReport}
+        onSave={studio.save}
+        onRun={runFromDraft}
+      />
+      {/*
+        `3C`'s `Validation`. It opens only on a rejected document: the wire answers
+        `{ valid: true }` with no findings, and no artboard draws an all-clear dialog, so a passing
+        check stays as quiet as it was before. `flowFile` is the document's own name, which is what
+        the top bar's badge already shows.
+      */}
+      {reportOpen && validationFindings !== undefined ? (
+        <ValidationModal
+          context={`${descriptor?.name ?? ''} · ${descriptor?.documentFile ?? ''}`}
+          findings={validationFindings}
+          onRevalidate={requestValidate}
+          onDismiss={closeReport}
+        />
+      ) : null}
+      {/*
+        `3C`'s `Cancel run #219?`. Destructive, so a backdrop click does not dismiss it — only
+        `esc`, `Keep running`, or the cancel itself.
+      */}
+      {cancelPrompt && running && session !== undefined ? (
+        <CancelRunModal
+          runNumber={session.runNumber ?? 0}
+          elapsed={formatElapsed(studio.elapsedMs)}
+          nodeId={runningNodeId ?? studio.startId ?? ''}
+          onKeepRunning={keepRunning}
+          onCancelRun={confirmCancel}
+          onDismiss={keepRunning}
+        />
+      ) : null}
+      {/*
+        `3F`'s `Switch to <flow>?`. Destructive for the same reason `Cancel run` is: both of its
+        ghosts give something up, so a stray backdrop click must not stand in for one. `esc` is the
+        third action, and the footer hint names the flow it keeps.
+      */}
+      {switchFlowBody === undefined || pendingFlowName === undefined ? null : (
+        <SwitchFlowModal
+          currentFlowName={descriptor?.name ?? studio.flowId ?? ''}
+          targetFlowName={pendingFlowName}
+          body={switchFlowBody}
+          onDismiss={stayOnFlow}
+        />
+      )}
+    </>
   )
 }

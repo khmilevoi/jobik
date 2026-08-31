@@ -1,9 +1,10 @@
 import type { FlowDocument } from '@jobik/core'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { JobikClient, RunStreamEvent, WireRunReportPayload } from '#client/index.js'
 import { JobikServerError, JobikTransportError } from '#client/index.js'
+import { dragNode } from '#studio/canvasDragTestSupport.js'
 import { StudioApp } from './StudioApp.js'
 
 afterEach(cleanup)
@@ -192,8 +193,15 @@ describe('running from the panel', () => {
     await userEvent.type(screen.getByTestId('run-input-title'), 'A post')
     await userEvent.click(screen.getByTestId('run-start-button'))
 
-    await waitFor(() => expect(screen.getByTestId('run-outputs-label')).toBeInTheDocument())
-    expect(screen.getByTestId('run-output-name-image')).toBeInTheDocument()
+    // `2A`'s completed panel: node timings, the inputs still editable, `Re-run start1`, then the
+    // `Log` block. The run's OUTPUTS are deliberately NOT here — they live in the bottom output
+    // dock, which the settled card's `inspect` opens.
+    await waitFor(() => expect(screen.getByTestId('run-rerun-button')).toBeInTheDocument())
+    expect(screen.getByTestId('run-log-label')).toHaveTextContent('Log')
+    expect(screen.getByTestId('run-log-follow')).toHaveTextContent('tail')
+    expect(screen.getByTestId('run-input-title')).toBeInTheDocument()
+    expect(screen.queryByTestId('run-outputs-label')).toBeNull()
+    expect(screen.queryByTestId('run-output-name-image')).toBeNull()
     // R30: `RunDock` already draws the dock's one header; `Studio`'s `runPanel` must be `RunPanel`
     // (no header, no card frame), never the standalone `RunPanelCard` — which would stack a second
     // header and a fixed-size card inside the dock.
@@ -262,9 +270,88 @@ describe('running from the panel', () => {
     await userEvent.click(screen.getByTestId('run-start-button'))
     await waitFor(() => expect(screen.getByTestId('studio-running-cancel')).toBeInTheDocument())
 
+    // `3C`: the chip asks first. Clicking `Cancel` opens `Cancel run #N?` and cancels nothing;
+    // only the dialog's own destructive primary reaches the server.
     await userEvent.click(screen.getByTestId('studio-running-cancel'))
+    expect(cancelRun).not.toHaveBeenCalled()
+
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog).toHaveTextContent('Cancel run #')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel run' }))
 
     expect(cancelRun).toHaveBeenCalledWith('tok-9')
+    release()
+  })
+
+  it('opens the Validation dialog on a rejected document and stays quiet on a valid one', async () => {
+    mount(
+      stubClient({
+        validate: async () => ({
+          valid: false,
+          error: {
+            _tag: 'ConnectionError',
+            message: 'render.markdown expects string',
+            nodeId: 'render',
+          },
+        }),
+      }),
+    )
+
+    await waitFor(() => expect(screen.getByTestId('studio-top-bar')).toBeInTheDocument())
+    expect(screen.queryByRole('dialog')).toBeNull()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Validate' }))
+
+    const dialog = await screen.findByRole('dialog')
+    // The server's own tag and its own words, never re-humanised.
+    expect(dialog).toHaveTextContent('ConnectionError')
+    expect(dialog).toHaveTextContent('render.markdown expects string')
+  })
+
+  it('draws no dialog when the document validates', async () => {
+    // No artboard draws an all-clear dialog, and the wire sends no findings to fill one, so a
+    // passing check stays as quiet as it was before `3C` existed.
+    mount(stubClient())
+
+    await waitFor(() => expect(screen.getByTestId('studio-top-bar')).toBeInTheDocument())
+    await userEvent.click(screen.getByRole('button', { name: 'Validate' }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  })
+
+  it('keeps the run alive when the cancel dialog is dismissed', async () => {
+    const cancelRun = vi.fn(async () => true as const)
+    let release = () => {}
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    mount(
+      stubClient({
+        cancelRun,
+        startRun: async () =>
+          (async function* () {
+            yield { type: 'run-accepted', runToken: 'tok-9' } as RunStreamEvent
+            await gate
+            yield {
+              type: 'run-settled',
+              report: { ...REPORT, status: 'cancelled' as const },
+            } as RunStreamEvent
+          })(),
+      }),
+    )
+
+    await waitFor(() => expect(screen.getByTestId('run-input-title')).toBeInTheDocument())
+    await userEvent.type(screen.getByTestId('run-input-title'), 'A post')
+    await userEvent.click(screen.getByTestId('run-start-button'))
+    await waitFor(() => expect(screen.getByTestId('studio-running-cancel')).toBeInTheDocument())
+
+    await userEvent.click(screen.getByTestId('studio-running-cancel'))
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Keep running' }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(cancelRun).not.toHaveBeenCalled()
+    expect(screen.getByTestId('studio-running-cancel')).toBeInTheDocument()
     release()
   })
 
@@ -619,9 +706,17 @@ describe('the output viewer', () => {
     await userEvent.type(screen.getByTestId('run-input-title'), 'A post')
     await userEvent.click(screen.getByTestId('run-start-button'))
 
-    await waitFor(() => expect(screen.getByTestId('run-output-open-image')).toBeInTheDocument())
-    await userEvent.click(screen.getByTestId('run-output-open-image'))
-    await waitFor(() => expect(screen.getByTestId('output-viewer')).toBeInTheDocument())
+    // `2A`: the dock is opened from the settled card's own `inspect`, not from the run panel —
+    // the panel no longer lists outputs at all.
+    await waitFor(() =>
+      expect(
+        within(screen.getByTestId('node-card-render')).getByTestId('node-output-inspect'),
+      ).toBeInTheDocument(),
+    )
+    await userEvent.click(
+      within(screen.getByTestId('node-card-render')).getByTestId('node-output-inspect'),
+    )
+    await waitFor(() => expect(screen.getByTestId('output-dock')).toBeInTheDocument())
   }
 
   it('wires Copy all to the clipboard, not to closing', async () => {
@@ -636,7 +731,7 @@ describe('the output viewer', () => {
 
     expect(writeText).toHaveBeenCalledTimes(1)
     expect(writeText.mock.calls[0]?.[0]).toContain('"runNumber": 219')
-    expect(screen.getByTestId('output-viewer')).toBeInTheDocument()
+    expect(screen.getByTestId('output-dock')).toBeInTheDocument()
   })
 
   // R38: this used to assert only that the viewer stayed open, which passes even against an empty
@@ -660,7 +755,7 @@ describe('the output viewer', () => {
       const blob = createObjectURL.mock.calls[0]?.[0] as Blob
       expect(blob.type).toBe('application/json')
       expect(revokeObjectURL).toHaveBeenCalledWith(objectUrl)
-      expect(screen.getByTestId('output-viewer')).toBeInTheDocument()
+      expect(screen.getByTestId('output-dock')).toBeInTheDocument()
     } finally {
       globalThis.URL.createObjectURL = originalCreate
       globalThis.URL.revokeObjectURL = originalRevoke
@@ -671,7 +766,7 @@ describe('the output viewer', () => {
     await openViewer()
     await userEvent.keyboard('{Escape}')
 
-    expect(screen.queryByTestId('output-viewer')).toBeNull()
+    expect(screen.queryByTestId('output-dock')).toBeNull()
   })
 
   // R37: `assets.ts:41-42` qualifies a duplicated field name to `${nodeId}.${field}`. `onOpen` used
@@ -711,13 +806,19 @@ describe('the output viewer', () => {
     await userEvent.type(screen.getByTestId('run-input-title'), 'A post')
     await userEvent.click(screen.getByTestId('run-start-button'))
 
-    // Qualified: `render.image` (the asset) and `publish.image` (the string output).
+    // Two nodes both have an `image` output — `render`'s is the asset, `publish`'s a string. The
+    // dock is opened from the card itself, so the node is never inferred from a field label and
+    // the collision cannot mis-route it.
     await waitFor(() =>
-      expect(screen.getByTestId('run-output-open-render.image')).toBeInTheDocument(),
+      expect(
+        within(screen.getByTestId('node-card-render')).getByTestId('node-output-inspect'),
+      ).toBeInTheDocument(),
     )
-    await userEvent.click(screen.getByTestId('run-output-open-render.image'))
+    await userEvent.click(
+      within(screen.getByTestId('node-card-render')).getByTestId('node-output-inspect'),
+    )
 
-    await waitFor(() => expect(screen.getByTestId('output-viewer')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByTestId('output-dock')).toBeInTheDocument())
     // Opened `render` (the asset descriptor's own id), never `publish` (the string).
     expect(screen.getByTestId('output-viewer-panel').textContent).toContain('asset-1')
     expect(screen.getByTestId('output-viewer-panel').textContent).not.toContain(
@@ -806,7 +907,9 @@ describe('the treatments a real run builds', () => {
       expect(within(card).getByTestId('node-output-caption')).toHaveTextContent('png · 402 kb')
     })
     const card = screen.getByTestId('node-card-render')
-    expect(within(card).getByTestId('node-output-source')).toHaveTextContent('imageOut')
+    // `2A` replaces `Studio — default`'s producing-node name with an accent `inspect` that opens
+    // the output dock. The two artboards never draw both, and the newer one wins.
+    expect(within(card).getByTestId('node-output-inspect')).toHaveTextContent('inspect')
     expect(within(card).getByTestId('node-output-caption').textContent).not.toContain('×')
   })
 
@@ -833,5 +936,616 @@ describe('the treatments a real run builds', () => {
 
     expect(screen.getByLabelText('Collapse run panel')).toBeInTheDocument()
     expect(screen.queryByTestId('studio-dock-run-meta')).toBeNull()
+  })
+})
+
+/**
+ * Artboard `3D`, end to end through the real app.
+ *
+ * `POST /api/flows/:id/validate` answers with at most one finding, so every count asserted here is
+ * `1 error`. The design writes `2 errors, 1 warning` because its board has three findings; a
+ * Studio that printed that from one would be lying, and the test is what pins that it does not.
+ */
+const INVALID = stubClient({
+  validate: async () => ({
+    valid: false,
+    error: {
+      _tag: 'ConnectionError',
+      message: "required input field 'render.title' is neither connected nor given a literal",
+      from: null,
+      to: { node: 'render', field: 'title' },
+    },
+  }),
+})
+
+async function validateFrom(client: JobikClient) {
+  mount(client)
+  await waitFor(() => expect(screen.getByTestId('studio-top-bar')).toBeInTheDocument())
+  await userEvent.click(screen.getByTestId('studio-validate'))
+}
+
+describe('3D — validate', () => {
+  it('draws the status strip on a valid flow, counting what it actually checked', async () => {
+    await validateFrom(stubClient())
+
+    const strip = await screen.findByTestId('studio-status-strip')
+    expect(strip).toHaveTextContent('No issues')
+    // Two nodes and one connection is what DESCRIPTOR and DOCUMENT hold — not the artboard's two.
+    expect(screen.getByTestId('studio-status-meta')).toHaveTextContent('2 nodes · 1 connection')
+  })
+
+  it('draws no strip at all until a check has answered', async () => {
+    mount(stubClient())
+    await waitFor(() => expect(screen.getByTestId('studio-top-bar')).toBeInTheDocument())
+
+    expect(screen.queryByTestId('studio-status-strip')).toBeNull()
+    expect(screen.queryByTestId('studio-problems-strip')).toBeNull()
+  })
+
+  it('replaces it with the problems strip on a rejected flow, counting only what it was sent', async () => {
+    await validateFrom(INVALID)
+
+    const strip = await screen.findByTestId('studio-problems-strip')
+    expect(screen.queryByTestId('studio-status-strip')).toBeNull()
+    // One finding on the wire is one row and one error — never the artboard's `2 errors, 1 warning`.
+    expect(screen.getByTestId('studio-problems-count')).toHaveTextContent('1 error')
+    expect(screen.getAllByTestId('studio-problem-row')).toHaveLength(1)
+    expect(strip).toHaveTextContent('ConnectionError')
+  })
+
+  it('says `1 error` on the Validate control and opens the report from it', async () => {
+    await validateFrom(INVALID)
+
+    const control = await screen.findByTestId('studio-validate')
+    await waitFor(() => expect(control).toHaveTextContent('1 error'))
+    expect(within(control).getByTestId('validate-report')).toHaveTextContent('report')
+
+    // The dialog opens with the finding; dismissing it leaves the strip standing.
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Close' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(screen.getByTestId('studio-problems-strip')).toBeInTheDocument()
+
+    // `Open report` puts it back — the findings outlive the dialog.
+    await userEvent.click(screen.getByTestId('studio-problems-open-report'))
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+  })
+
+  it('marks both ends of the failing connection, and nothing else', async () => {
+    await validateFrom(INVALID)
+    await screen.findByTestId('studio-problems-strip')
+
+    // `render.title` IS connected in DOCUMENT, so the port keeps its declared type and is marked
+    // as a mismatch — scoped to the card the finding names, since `start1` has a `title` too.
+    const receiving = within(screen.getByTestId('node-card-render')).getByTestId(
+      'field-row-target-title',
+    )
+    expect(within(receiving).getByTestId('field-annotation-problem')).toHaveTextContent('string')
+
+    // The sending end of the same connection is marked as well: `3D` marks the port, its type
+    // label, the edge and the node border.
+    const sending = within(screen.getByTestId('node-card-start1')).getByTestId(
+      'field-row-source-title',
+    )
+    expect(within(sending).getByTestId('field-annotation-problem')).toBeInTheDocument()
+
+    // `start1` own unconnected input is not part of the finding and stays untouched.
+    const untouched = within(screen.getByTestId('node-card-start1')).getByTestId(
+      'field-row-target-title',
+    )
+    expect(within(untouched).queryByTestId('field-annotation-problem')).toBeNull()
+  })
+
+  it('says `no source` on a port the document leaves unconnected', async () => {
+    await validateFrom(
+      stubClient({
+        validate: async () => ({
+          valid: false,
+          error: {
+            _tag: 'ConnectionError',
+            message: "required input field 'start1.title' is neither connected nor given a literal",
+            from: null,
+            // Nothing in DOCUMENT connects into `start1`, so this port genuinely has no source —
+            // which is the whole difference between the artboard's two failure treatments.
+            to: { node: 'start1', field: 'title' },
+          },
+        }),
+      }),
+    )
+    await screen.findByTestId('studio-problems-strip')
+
+    const row = within(screen.getByTestId('node-card-start1')).getByTestId('field-row-target-title')
+    expect(within(row).getByTestId('field-annotation-problem')).toHaveTextContent('no source')
+  })
+
+  it('blocks Run while an error stands, and lets it through once the flow is valid again', async () => {
+    const startRun = vi.fn(async () => streamOf([{ type: 'run-accepted' as const, runToken: 't' }]))
+    await validateFrom(stubClient({ ...INVALID, startRun }))
+
+    await screen.findByTestId('studio-problems-strip')
+    const run = within(screen.getByTestId('studio-docked-run')).getByRole('button', { name: 'Run' })
+    expect(run).toBeDisabled()
+
+    await userEvent.click(screen.getByTestId('run-start-button'))
+    expect(startRun).not.toHaveBeenCalled()
+  })
+
+  it('validates from ⌘⇧V', async () => {
+    const validate = vi.fn(async () => ({ valid: true }) as const)
+    mount(stubClient({ validate }))
+    await waitFor(() => expect(screen.getByTestId('studio-top-bar')).toBeInTheDocument())
+
+    await userEvent.keyboard('{Meta>}{Shift>}v{/Shift}{/Meta}')
+
+    await waitFor(() => expect(validate).toHaveBeenCalledTimes(1))
+    expect(await screen.findByTestId('studio-status-strip')).toBeInTheDocument()
+  })
+
+  it('ignores a second press while the check is still running', async () => {
+    let release = () => {}
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const validate = vi.fn(async () => {
+      await gate
+      return { valid: true } as const
+    })
+    mount(stubClient({ validate }))
+    await waitFor(() => expect(screen.getByTestId('studio-top-bar')).toBeInTheDocument())
+
+    await userEvent.click(screen.getByTestId('studio-validate'))
+    await waitFor(() => expect(screen.getByTestId('validate-sweep')).toBeInTheDocument())
+    await userEvent.keyboard('{Meta>}{Shift>}v{/Shift}{/Meta}')
+
+    expect(validate).toHaveBeenCalledTimes(1)
+    release()
+  })
+})
+
+/**
+ * The config now declares three flows and the Studio could only ever load, run and save the first.
+ * These cover the whole switch as the user meets it: the row, the reset, and a run in flight.
+ */
+const POKEDEX_DOCUMENT = {
+  format: 'jobik.flow',
+  version: 1,
+  connections: [],
+  literals: {},
+  layout: { byName: { x: 0, y: 0 }, byNumber: { x: 0, y: 140 } },
+} as unknown as FlowDocument
+
+/** The repository's only two-start descriptor. Every other fixture declares `['start1']`. */
+const POKEDEX_DESCRIPTOR = {
+  id: 'pokedex',
+  name: 'pokedex',
+  documentFile: 'flow.jobik.json',
+  startIds: ['byName', 'byNumber'],
+  nodes: [
+    {
+      id: 'byName',
+      kind: 'start' as const,
+      title: 'start',
+      input: {
+        nodeId: 'byName',
+        fields: [
+          {
+            field: 'name',
+            required: true,
+            annotation: 'string',
+            control: { kind: 'string' as const },
+          },
+        ],
+      },
+      output: {
+        nodeId: 'byName',
+        fields: [{ field: 'name', required: true, annotation: 'string' }],
+      },
+    },
+    {
+      id: 'byNumber',
+      kind: 'start' as const,
+      title: 'start',
+      input: {
+        nodeId: 'byNumber',
+        fields: [
+          {
+            field: 'number',
+            required: true,
+            annotation: 'number',
+            control: { kind: 'number' as const, integer: true },
+            default: 25,
+          },
+        ],
+      },
+      output: {
+        nodeId: 'byNumber',
+        fields: [{ field: 'number', required: true, annotation: 'number' }],
+      },
+    },
+  ],
+}
+
+function twoFlowClient(overrides: Partial<JobikClient> = {}): JobikClient {
+  return stubClient({
+    listFlows: async () => [
+      { id: 'publication', name: 'publication', nodeCount: 2 },
+      { id: 'pokedex', name: 'pokedex', nodeCount: 2 },
+    ],
+    loadFlow: async (id: string) =>
+      id === 'pokedex'
+        ? { descriptor: POKEDEX_DESCRIPTOR, document: POKEDEX_DOCUMENT, revision: 'rev-p1' }
+        : { descriptor: DESCRIPTOR, document: DOCUMENT, revision: 'rev-1' },
+    ...overrides,
+  })
+}
+
+describe('switching the active flow', () => {
+  it('lists every flow and loads the one whose row is pressed', async () => {
+    mount(twoFlowClient())
+    await waitFor(() => expect(screen.getByTestId('studio-flow-row-pokedex')).toBeInTheDocument())
+    expect(screen.getByTestId('studio-top-bar')).toHaveTextContent('publication')
+
+    await userEvent.click(screen.getByTestId('studio-flow-row-pokedex'))
+
+    await waitFor(() => expect(screen.getByTestId('studio-top-bar')).toHaveTextContent('pokedex'))
+    // The graph really changed: the previous flow's nodes are gone and this one's are listed.
+    expect(await screen.findByTestId('studio-node-row-byName')).toBeInTheDocument()
+    expect(screen.queryByTestId('studio-node-row-render')).toBeNull()
+    // `3F` guards a switch that would lose something; a clean draft and no run loses nothing, so
+    // the common case never sees a dialog.
+    expect(screen.queryByTestId('switch-flow-modal')).toBeNull()
+  })
+
+  it('drops the previous flow run history, output dock and validation strip', async () => {
+    mount(
+      twoFlowClient({
+        startRun: async () =>
+          streamOf([
+            { type: 'run-accepted', runToken: 'tok' },
+            {
+              type: 'run-started',
+              runNumber: 219,
+              flowName: 'publication',
+              startId: 'start1',
+              nodeCount: 2,
+            },
+            { type: 'run-settled', report: REPORT },
+          ]),
+        validate: async () => ({ valid: true }) as const,
+      }),
+    )
+    await waitFor(() => expect(screen.getByTestId('studio-flow-row-pokedex')).toBeInTheDocument())
+
+    await userEvent.click(screen.getByTestId('run-start-button'))
+    await waitFor(() => expect(screen.getByTestId('studio-run-row-219')).toBeInTheDocument())
+    await userEvent.click(screen.getByTestId('studio-validate'))
+    await screen.findByTestId('studio-status-strip')
+
+    await userEvent.click(screen.getByTestId('studio-flow-row-pokedex'))
+
+    await waitFor(() => expect(screen.getByTestId('studio-top-bar')).toHaveTextContent('pokedex'))
+    expect(screen.queryByTestId('studio-run-row-219')).toBeNull()
+    expect(screen.getByText('Inventory')).toBeInTheDocument()
+    expect(screen.queryByTestId('studio-status-strip')).toBeNull()
+    expect(screen.queryByTestId('studio-problems-strip')).toBeNull()
+  })
+
+  it('never paints a run started under the previous flow onto the new one', async () => {
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    mount(
+      twoFlowClient({
+        startRun: async () =>
+          (async function* () {
+            yield { type: 'run-accepted', runToken: 'tok' } as RunStreamEvent
+            await gate
+            yield {
+              type: 'run-started',
+              runNumber: 219,
+              flowName: 'publication',
+              startId: 'start1',
+              nodeCount: 2,
+            } as RunStreamEvent
+            yield { type: 'run-settled', report: REPORT } as RunStreamEvent
+          })(),
+      }),
+    )
+    await waitFor(() => expect(screen.getByTestId('studio-flow-row-pokedex')).toBeInTheDocument())
+
+    await userEvent.click(screen.getByTestId('run-start-button'))
+    await waitFor(() => expect(screen.getByTestId('studio-running-chip')).toBeInTheDocument())
+
+    // `3F`: a run in flight is confirmed rather than walked past, and keeping it running is the
+    // primary. The running chip goes with the flow it belonged to.
+    await userEvent.click(screen.getByTestId('studio-flow-row-pokedex'))
+    await userEvent.click(screen.getByRole('button', { name: 'Switch and keep running' }))
+    await waitFor(() => expect(screen.getByTestId('studio-top-bar')).toHaveTextContent('pokedex'))
+    expect(screen.queryByTestId('studio-running-chip')).toBeNull()
+
+    release()
+    await waitFor(() => expect(screen.getByTestId('studio-node-row-byName')).toBeInTheDocument())
+
+    // The stream ran to its terminal line and none of it reached the new flow's panel.
+    expect(screen.queryByTestId('studio-run-row-219')).toBeNull()
+    expect(screen.getByTestId('run-start-button')).toHaveTextContent('Run byName')
+  })
+})
+
+/**
+ * Artboard `3F` — the two switches that lose something, and the dialog that stands in front of
+ * them. The unguarded switch above stays unguarded; these are the two states that were dropping a
+ * draft on the floor and leaving a server-side run with nothing left to cancel it.
+ */
+describe('3F — switching away from a run in flight', () => {
+  async function mountMidRun(overrides: Partial<JobikClient> = {}) {
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const view = mount(
+      twoFlowClient({
+        startRun: async () =>
+          (async function* () {
+            yield { type: 'run-accepted', runToken: 'tok' } as RunStreamEvent
+            yield {
+              type: 'run-started',
+              runNumber: 221,
+              flowName: 'publication',
+              startId: 'start1',
+              nodeCount: 2,
+            } as RunStreamEvent
+            await gate
+            yield { type: 'run-settled', report: REPORT } as RunStreamEvent
+          })(),
+        ...overrides,
+      }),
+    )
+    await waitFor(() => expect(screen.getByTestId('studio-flow-row-pokedex')).toBeInTheDocument())
+    await userEvent.click(screen.getByTestId('run-start-button'))
+    await waitFor(() => expect(screen.getByTestId('studio-running-chip')).toBeInTheDocument())
+    return { ...view, release }
+  }
+
+  it('asks first, on the run body, and stays where it is until it is answered', async () => {
+    const { release } = await mountMidRun()
+
+    await userEvent.click(screen.getByTestId('studio-flow-row-pokedex'))
+
+    expect(await screen.findByTestId('switch-flow-modal')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Switch to pokedex?' })).toBeInTheDocument()
+    expect(screen.getByTestId('switch-flow-meta')).toHaveTextContent('run #221')
+    expect(screen.getByTestId('switch-flow-message')).toHaveTextContent(
+      'keeps running on the server',
+    )
+    expect(screen.getByTestId('modal-hint')).toHaveTextContent('esc stays in publication')
+    expect(screen.getByTestId('studio-top-bar')).toHaveTextContent('publication')
+    release()
+  })
+
+  it('esc stays in the flow and leaves the run alone', async () => {
+    const cancelRun = vi.fn(async (_runToken: string) => true as const)
+    const { release } = await mountMidRun({ cancelRun })
+    await userEvent.click(screen.getByTestId('studio-flow-row-pokedex'))
+    await screen.findByTestId('switch-flow-modal')
+
+    fireEvent.keyDown(screen.getByTestId('switch-flow-modal'), { key: 'Escape' })
+
+    await waitFor(() => expect(screen.queryByTestId('switch-flow-modal')).toBeNull())
+    expect(screen.getByTestId('studio-top-bar')).toHaveTextContent('publication')
+    expect(screen.getByTestId('studio-running-chip')).toBeInTheDocument()
+    expect(cancelRun).not.toHaveBeenCalled()
+    // The switch dialog is not the cancel dialog: esc out of one must not open the other.
+    expect(screen.queryByTestId('cancel-run-modal')).toBeNull()
+    release()
+  })
+
+  it('`Switch and keep running` switches at once and cancels nothing', async () => {
+    const cancelRun = vi.fn(async (_runToken: string) => true as const)
+    const { release } = await mountMidRun({ cancelRun })
+    await userEvent.click(screen.getByTestId('studio-flow-row-pokedex'))
+    await screen.findByTestId('switch-flow-modal')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Switch and keep running' }))
+
+    await waitFor(() => expect(screen.getByTestId('studio-top-bar')).toHaveTextContent('pokedex'))
+    expect(screen.queryByTestId('switch-flow-modal')).toBeNull()
+    expect(cancelRun).not.toHaveBeenCalled()
+    release()
+  })
+
+  it('`Cancel and switch` stops the run on the server before it leaves', async () => {
+    const cancelRun = vi.fn(async (_runToken: string) => true as const)
+    const { release } = await mountMidRun({ cancelRun })
+    await userEvent.click(screen.getByTestId('studio-flow-row-pokedex'))
+    await screen.findByTestId('switch-flow-modal')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel and switch' }))
+
+    // The token is the one the run was accepted with — the cancel is aimed at the run being left,
+    // not at whatever `runTokenRef` holds once the switch has cleared it.
+    expect(cancelRun).toHaveBeenCalledWith('tok')
+    await waitFor(() => expect(screen.getByTestId('studio-top-bar')).toHaveTextContent('pokedex'))
+    expect(screen.queryByTestId('switch-flow-modal')).toBeNull()
+    release()
+  })
+})
+
+describe('3F — switching away from an unsaved draft', () => {
+  async function mountDirty(overrides: Partial<JobikClient> = {}) {
+    const view = mount(twoFlowClient(overrides))
+    await waitFor(() => expect(screen.getByTestId('studio-flow-row-pokedex')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByTestId('node-card-render')).toBeInTheDocument())
+    dragNode(view.container, 'render', 64, -24)
+    await waitFor(() => expect(screen.getByTestId('studio-dirty')).toBeInTheDocument())
+    return view
+  }
+
+  it('asks first, on the unsaved body, counting what the draft is holding back', async () => {
+    const save = vi.fn(async (_id: string, _document: FlowDocument, _revision: string) => ({
+      revision: 'rev-2',
+    }))
+    await mountDirty({ save })
+
+    await userEvent.click(screen.getByTestId('studio-flow-row-pokedex'))
+
+    expect(await screen.findByTestId('switch-flow-modal')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Switch to pokedex?' })).toBeInTheDocument()
+    expect(screen.getByTestId('switch-flow-meta')).toHaveTextContent('1 unsaved change')
+    expect(screen.getByTestId('switch-flow-message')).toHaveTextContent('flow.jobik.json')
+    expect(screen.getByTestId('studio-top-bar')).toHaveTextContent('publication')
+    expect(save).not.toHaveBeenCalled()
+  })
+
+  /**
+   * The dialog above painted *bare* in a real browser — serif text, no card, no scrim, the copy
+   * lying straight on the canvas — while every assertion in this file passed.
+   *
+   * Every `--jbk-*` custom property (`tokens.css` and each directory's `*Tokens.css`) and the reset
+   * that sets the UI font stack are declared under `[data-jobik-studio]`, and `StudioApp` renders
+   * its dialogs as siblings of `<Studio />` — outside `StudioFrame`, which used to be that
+   * attribute's only carrier. Nothing resolved.
+   *
+   * jsdom evaluates no CSS, so appearance is not assertable here and asserting it would only
+   * restate the stylesheet. The *structure* the appearance depends on is assertable, and this is
+   * it: an open dialog must sit in a token scope. `ModalShell` marks its own root, so `closest`
+   * finds the dialog itself; a modal nested inside the frame would satisfy this too. Either way it
+   * is styled, and outside every scope it is not. All five `3C`/`3F` dialogs share `ModalShell`,
+   * so this one covers the mechanism behind every one of them.
+   */
+  it('opens the dialog inside a `data-jobik-studio` token scope', async () => {
+    await mountDirty()
+    await userEvent.click(screen.getByTestId('studio-flow-row-pokedex'))
+
+    const modal = await screen.findByTestId('switch-flow-modal')
+    expect(modal.closest('[data-jobik-studio]')).not.toBeNull()
+  })
+
+  it('esc stays in the flow and leaves the draft dirty', async () => {
+    const save = vi.fn(async (_id: string, _document: FlowDocument, _revision: string) => ({
+      revision: 'rev-2',
+    }))
+    await mountDirty({ save })
+    await userEvent.click(screen.getByTestId('studio-flow-row-pokedex'))
+    await screen.findByTestId('switch-flow-modal')
+
+    fireEvent.keyDown(screen.getByTestId('switch-flow-modal'), { key: 'Escape' })
+
+    await waitFor(() => expect(screen.queryByTestId('switch-flow-modal')).toBeNull())
+    expect(screen.getByTestId('studio-top-bar')).toHaveTextContent('publication')
+    expect(screen.getByTestId('studio-dirty')).toBeInTheDocument()
+    expect(save).not.toHaveBeenCalled()
+  })
+
+  it('`Discard changes` leaves the draft behind and switches at once', async () => {
+    const save = vi.fn(async (_id: string, _document: FlowDocument, _revision: string) => ({
+      revision: 'rev-2',
+    }))
+    await mountDirty({ save })
+    await userEvent.click(screen.getByTestId('studio-flow-row-pokedex'))
+    await screen.findByTestId('switch-flow-modal')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Discard changes' }))
+
+    await waitFor(() => expect(screen.getByTestId('studio-top-bar')).toHaveTextContent('pokedex'))
+    expect(save).not.toHaveBeenCalled()
+    expect(screen.queryByTestId('studio-dirty')).toBeNull()
+  })
+
+  it('`Save and switch` writes the draft first, then switches', async () => {
+    const save = vi.fn(async (_id: string, _document: FlowDocument, _revision: string) => ({
+      revision: 'rev-2',
+    }))
+    await mountDirty({ save })
+    await userEvent.click(screen.getByTestId('studio-flow-row-pokedex'))
+    await screen.findByTestId('switch-flow-modal')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Save and switch' }))
+
+    await waitFor(() => expect(screen.getByTestId('studio-top-bar')).toHaveTextContent('pokedex'))
+    expect(save).toHaveBeenCalledTimes(1)
+    // The write went to the flow the edit was made in, against the revision it was loaded at.
+    expect(save.mock.calls[0]?.[0]).toBe('publication')
+    expect(save.mock.calls[0]?.[2]).toBe('rev-1')
+    expect(screen.queryByTestId('switch-flow-modal')).toBeNull()
+  })
+
+  it('`Save and switch` stays put when the write is rejected, and says why', async () => {
+    const save = vi.fn(
+      async () =>
+        new JobikServerError({
+          reason: 'changed on disk',
+          status: 409,
+          payload: {
+            _tag: 'FlowRevisionConflictError',
+            message: 'changed on disk',
+            expectedRevision: 'rev-1',
+            actualRevision: 'rev-9',
+          },
+        }),
+    )
+    await mountDirty({ save })
+    await userEvent.click(screen.getByTestId('studio-flow-row-pokedex'))
+    await screen.findByTestId('switch-flow-modal')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Save and switch' }))
+
+    await waitFor(() => expect(screen.getByTestId('studio-conflict-chip')).toBeInTheDocument())
+    expect(screen.getByTestId('studio-top-bar')).toHaveTextContent('publication')
+    expect(screen.getByTestId('studio-dirty')).toBeInTheDocument()
+    // The dialog gets out of the way, so the conflict's own reload and copy-draft are reachable.
+    expect(screen.queryByTestId('switch-flow-modal')).toBeNull()
+    expect(save).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('choosing a start', () => {
+  it('offers no chooser for the single-start flow every artboard draws', async () => {
+    mount(twoFlowClient())
+    await waitFor(() => expect(screen.getByTestId('run-start-button')).toBeInTheDocument())
+
+    expect(screen.queryByTestId('run-start-chooser')).toBeNull()
+  })
+
+  it('offers one for a flow that declares two, and re-seeds the inputs on a change', async () => {
+    mount(twoFlowClient())
+    await waitFor(() => expect(screen.getByTestId('studio-flow-row-pokedex')).toBeInTheDocument())
+    await userEvent.click(screen.getByTestId('studio-flow-row-pokedex'))
+
+    const chooser = await screen.findByTestId('run-start-chooser')
+    expect(within(chooser).getByRole('radio', { name: 'byName' })).toBeChecked()
+    expect(screen.getByTestId('run-input-name')).toBeInTheDocument()
+    expect(screen.getByTestId('run-start-button')).toHaveTextContent('Run byName')
+
+    await userEvent.click(within(chooser).getByRole('radio', { name: 'byNumber' }))
+
+    await waitFor(() =>
+      expect(screen.getByTestId('run-start-button')).toHaveTextContent('Run byNumber'),
+    )
+    // The second start's own field, seeded from its own default — not the first start's draft.
+    expect(screen.getByTestId('run-input-number')).toHaveValue(25)
+    expect(screen.queryByTestId('run-input-name')).toBeNull()
+  })
+
+  it('runs the start it is pointed at', async () => {
+    const startRun = vi.fn(async () => streamOf([{ type: 'run-accepted' as const, runToken: 't' }]))
+    mount(twoFlowClient({ startRun }))
+    await waitFor(() => expect(screen.getByTestId('studio-flow-row-pokedex')).toBeInTheDocument())
+    await userEvent.click(screen.getByTestId('studio-flow-row-pokedex'))
+
+    const chooser = await screen.findByTestId('run-start-chooser')
+    await userEvent.click(within(chooser).getByRole('radio', { name: 'byNumber' }))
+    await waitFor(() =>
+      expect(screen.getByTestId('run-start-button')).toHaveTextContent('Run byNumber'),
+    )
+    await userEvent.click(screen.getByTestId('run-start-button'))
+
+    await waitFor(() => expect(startRun).toHaveBeenCalledTimes(1))
+    expect(startRun).toHaveBeenCalledWith({
+      flowId: 'pokedex',
+      startId: 'byNumber',
+      input: { number: 25 },
+    })
   })
 })

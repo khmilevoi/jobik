@@ -9,6 +9,7 @@ import {
   toInventory,
   waitingOnField,
 } from './graphModel.js'
+import { toFlowProblems } from './problems.js'
 
 const DESCRIPTOR: SafeFlowDescriptorPayload = {
   id: 'publication',
@@ -337,5 +338,72 @@ describe('waitingOnField', () => {
   it('has nothing to say about a node with no incoming connection', () => {
     expect(waitingOnField(CHAIN, 'start1')).toBeUndefined()
     expect(waitingOnField(EMPTY_DOCUMENT, 'render')).toBeUndefined()
+  })
+})
+
+/**
+ * `3D` — the marks a validation result puts on the canvas. What is asserted is that the model
+ * reaches the card and the edge; which colours those resolve to is `canvas/`'s to decide.
+ */
+describe('the 3D validation marks', () => {
+  const mismatch = toFlowProblems({
+    error: {
+      _tag: 'ConnectionError',
+      message: 'the flow graph is invalid',
+      from: { node: 'start1', field: 'title' },
+      to: { node: 'render', field: 'title' },
+    },
+    document: DOCUMENT,
+  })
+
+  it('puts the marked node on the solid card and prints its count', () => {
+    const nodes = toCanvasNodes({ descriptor: DESCRIPTOR, document: DOCUMENT, problems: mismatch })
+    const render = nodes.find((node) => node.id === 'render')
+
+    expect(render?.data.problem).toBe('error')
+    expect(render?.data.problemCount).toBe('1 error')
+    expect(nodes.find((node) => node.id === 'start1')?.data.problem).toBeUndefined()
+  })
+
+  it('marks the two ports and leaves every other field alone', () => {
+    const nodes = toCanvasNodes({ descriptor: DESCRIPTOR, document: DOCUMENT, problems: mismatch })
+    const render = nodes.find((node) => node.id === 'render')
+    const start1 = nodes.find((node) => node.id === 'start1')
+
+    expect(render?.data.inputs?.find((field) => field.name === 'title')?.problem).toBe('mismatch')
+    expect(render?.data.inputs?.find((field) => field.name === 'markdown')?.problem).toBeUndefined()
+    expect(start1?.data.outputs?.find((field) => field.name === 'title')?.problem).toBe('linked')
+  })
+
+  it('paints only the failing edge', () => {
+    const edges = toCanvasEdges(DOCUMENT, mismatch)
+    expect(edges).toHaveLength(1)
+    expect(edges[0]?.tone).toBe('error')
+    expect(toCanvasEdges(DOCUMENT)[0]?.tone).toBeUndefined()
+  })
+
+  it('says `no source` where the port has none, and gives its card the blocked treatment', () => {
+    const blocked = toFlowProblems({
+      error: {
+        _tag: 'ConnectionError',
+        message: "required input field 'render.markdown' is neither connected nor given a literal",
+        to: { node: 'render', field: 'markdown' },
+      },
+      document: DOCUMENT,
+    })
+    const nodes = toCanvasNodes({ descriptor: DESCRIPTOR, document: DOCUMENT, problems: blocked })
+    const render = nodes.find((node) => node.id === 'render')
+
+    expect(render?.data.problem).toBe('blocked')
+    // The blocked card's trailing cell is empty on the artboard.
+    expect(render?.data.problemCount).toBeUndefined()
+    const markdown = render?.data.inputs?.find((field) => field.name === 'markdown')
+    expect(markdown?.problem).toBe('unsourced')
+    expect(markdown?.annotation).toBe('no source')
+  })
+
+  it('marks nothing when no check has run', () => {
+    const nodes = toCanvasNodes({ descriptor: DESCRIPTOR, document: DOCUMENT })
+    for (const node of nodes) expect(node.data.problem).toBeUndefined()
   })
 })

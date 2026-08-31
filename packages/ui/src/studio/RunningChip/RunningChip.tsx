@@ -1,4 +1,5 @@
 import { cx } from '#cx.js'
+import { Spinner } from '#primitives/Spinner/Spinner.js'
 // The one component that reads `studioTokens.css`, so it is what puts the file in the module
 // graph — the studio directory has no barrel to hang the import on.
 import '../studioTokens.css'
@@ -32,7 +33,7 @@ export interface RunningChipProps {
 export function RunningChip(props: RunningChipProps) {
   return (
     <div data-testid="studio-running-chip" className={cx(s.chip, s.running, props.className)}>
-      <div data-testid="studio-running-spinner" className={s.spinner} />
+      <Spinner size={11} data-testid="studio-running-spinner" />
       <div className={s.runningLabel}>
         Running{' '}
         <span data-testid="studio-running-start" className={s.startId}>

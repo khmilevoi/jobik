@@ -128,13 +128,20 @@ export function initialRunInputDraft(descriptor: NodeInputDescriptor): RunInputD
 /**
  * `### Run panel` idle: `title` is a single line and `markdown` a 118px monospace area.
  *
- * `InputFieldDescriptor` carries no signal that separates them — both are a bare `z.string()` in the
- * example flow — so the rule is the draft's own shape: a value that already spans lines, or is long
- * enough that a single-line input cannot show it, gets the area. A `json` control is always an area,
- * which P11's `RunInputControl` enforces regardless of what is passed here.
+ * Three rules, in falling order of authority:
  *
- * Reproducing the artboard on FIRST render would need a signal the descriptor does not carry. That
- * is recorded as a spec gap for closeout, not worked around with a field-name heuristic here.
+ * 1. A `json` control is always an area — `RunInputControl` enforces that regardless of what is
+ *    passed here.
+ * 2. A `string` control the author **declared** multi-line, `z.string().meta({ multiline: true })`,
+ *    is an area. This is the rule that makes the artboard right on FIRST render, when the draft is
+ *    still empty; the descriptor now carries the signal, so nothing has to be guessed.
+ * 3. Otherwise the draft's own shape decides: a value that already spans lines, or is long enough
+ *    that a single-line input cannot show it, gets the area. This keeps a flow that declares
+ *    nothing behaving as it did, and it is what turns a pasted block into an area mid-edit.
+ *
+ * Rule 2 closes DEFERRED finding 6-#6, which recorded that `RunInputPresentation` could not be
+ * derived on first render because `@jobik/core` carried no such signal. It carries one now — and
+ * deliberately not a field-name heuristic, which would have been worse than the gap.
  */
 export function runInputPresentation(
   descriptor: NodeInputDescriptor,
@@ -143,12 +150,17 @@ export function runInputPresentation(
   const presentation: Record<string, RunInputPresentation> = {}
 
   for (const field of descriptor.fields) {
-    if (field.control.kind === 'json') {
+    const control = field.control
+    if (control.kind === 'json') {
       presentation[field.field] = 'area'
       continue
     }
-    if (field.control.kind !== 'string') {
+    if (control.kind !== 'string') {
       presentation[field.field] = 'line'
+      continue
+    }
+    if (control.multiline === true) {
+      presentation[field.field] = 'area'
       continue
     }
 

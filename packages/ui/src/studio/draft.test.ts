@@ -1,6 +1,14 @@
 import type { FlowDocument } from '@jobik/core'
 import { describe, expect, it } from 'vitest'
-import { connectFields, createDraft, markSaved, moveNode } from './draft.js'
+import {
+  connectFields,
+  createDraft,
+  type FlowDraft,
+  markSaved,
+  moveNode,
+  sameFlowShape,
+  unsavedChangeCount,
+} from './draft.js'
 
 const DOCUMENT = {
   format: 'jobik.flow',
@@ -222,5 +230,156 @@ describe('markSaved', () => {
     expect(saved.dirty).toBe(false)
     expect(saved.baseRevision).toBe('rev-9')
     expect(saved.baseRevision).not.toBe(clean.baseRevision)
+  })
+})
+
+/**
+ * `3D` — *"errors persist until the flow changes"*. This is what "the flow" means: the graph, not
+ * where the cards sit on the canvas.
+ */
+describe('sameFlowShape', () => {
+  it('holds across a drag, so a move never throws away a validation result', () => {
+    const draft = createDraft(DOCUMENT, 'rev-1')
+    const moved = moveNode(draft, { nodeId: 'start1', position: { x: 100, y: 100 } })
+
+    expect(moved.document).not.toBe(draft.document)
+    expect(sameFlowShape(draft.document, moved.document)).toBe(true)
+  })
+
+  it('breaks the moment a connection changes', () => {
+    const draft = createDraft(DOCUMENT, 'rev-1')
+    const connected = connectFields(draft, {
+      source: 'start1',
+      sourceField: 'markdown',
+      target: 'render',
+      targetField: 'markdown',
+    })
+
+    expect(sameFlowShape(draft.document, connected.document)).toBe(false)
+  })
+
+  it('breaks against a document read fresh off the disk, even an identical one', () => {
+    const reloaded = { ...DOCUMENT, connections: [...DOCUMENT.connections] } as FlowDocument
+    expect(sameFlowShape(DOCUMENT, reloaded)).toBe(false)
+  })
+
+  it('holds against itself', () => {
+    expect(sameFlowShape(DOCUMENT, DOCUMENT)).toBe(true)
+  })
+})
+
+/**
+ * `3F`'s `4 unsaved changes` — the one number the Switch-flow dialog prints that nothing else in
+ * the Studio already carried. It is a diff against the document on disk, never a tally of edits.
+ */
+describe('unsavedChangeCount', () => {
+  it('counts nothing on a freshly loaded draft', () => {
+    expect(unsavedChangeCount(createDraft(DOCUMENT, 'rev-1'))).toBe(0)
+  })
+
+  it('counts one per moved node', () => {
+    const draft = moveNode(createDraft(DOCUMENT, 'rev-1'), {
+      nodeId: 'render',
+      position: { x: 400, y: 160 },
+    })
+
+    expect(unsavedChangeCount(draft)).toBe(1)
+  })
+
+  it('counts a node dragged twice once — it is a diff, not a tally of edits', () => {
+    const once = moveNode(createDraft(DOCUMENT, 'rev-1'), {
+      nodeId: 'render',
+      position: { x: 400, y: 160 },
+    })
+    const twice = moveNode(once, { nodeId: 'render', position: { x: 500, y: 200 } })
+
+    expect(unsavedChangeCount(twice)).toBe(1)
+  })
+
+  it('counts a node dragged back to where it started as nothing', () => {
+    const away = moveNode(createDraft(DOCUMENT, 'rev-1'), {
+      nodeId: 'render',
+      position: { x: 400, y: 160 },
+    })
+    const back = moveNode(away, { nodeId: 'render', position: { x: 386, y: 150 } })
+
+    expect(unsavedChangeCount(back)).toBe(0)
+  })
+
+  it('counts a node the saved layout never held', () => {
+    const draft = moveNode(createDraft(DOCUMENT, 'rev-1'), {
+      nodeId: 'publish',
+      position: { x: 700, y: 150 },
+    })
+
+    expect(unsavedChangeCount(draft)).toBe(1)
+  })
+
+  it('counts an added connection', () => {
+    const draft = connectFields(createDraft(DOCUMENT, 'rev-1'), {
+      source: 'render',
+      sourceField: 'image',
+      target: 'publish',
+      targetField: 'image',
+    })
+
+    expect(unsavedChangeCount(draft)).toBe(1)
+  })
+
+  it('counts a rewired target once, not as a removal plus an addition', () => {
+    const draft = connectFields(createDraft(DOCUMENT, 'rev-1'), {
+      source: 'other',
+      sourceField: 'title',
+      target: 'render',
+      targetField: 'title',
+    })
+
+    expect(unsavedChangeCount(draft)).toBe(1)
+  })
+
+  it('counts a connection the draft no longer carries', () => {
+    const loaded = createDraft(DOCUMENT, 'rev-1')
+    const dropped: FlowDraft = {
+      ...loaded,
+      dirty: true,
+      document: { ...loaded.document, connections: [] },
+    }
+
+    expect(unsavedChangeCount(dropped)).toBe(1)
+  })
+
+  it('adds the two kinds together', () => {
+    const moved = moveNode(createDraft(DOCUMENT, 'rev-1'), {
+      nodeId: 'render',
+      position: { x: 400, y: 160 },
+    })
+    const wired = connectFields(moved, {
+      source: 'render',
+      sourceField: 'image',
+      target: 'publish',
+      targetField: 'image',
+    })
+
+    expect(unsavedChangeCount(wired)).toBe(2)
+  })
+
+  it('drops back to nothing once the draft is written', () => {
+    const edited = moveNode(createDraft(DOCUMENT, 'rev-1'), {
+      nodeId: 'render',
+      position: { x: 400, y: 160 },
+    })
+
+    expect(unsavedChangeCount(markSaved(edited, edited.document, 'rev-2'))).toBe(0)
+  })
+
+  it('counts only what is still unwritten when an edit lands while the save is in flight', () => {
+    const sent = moveNode(createDraft(DOCUMENT, 'rev-1'), {
+      nodeId: 'render',
+      position: { x: 400, y: 160 },
+    })
+    const current = moveNode(sent, { nodeId: 'start1', position: { x: 60, y: 260 } })
+
+    // `render` reached the disk; `start1` did not.
+    expect(unsavedChangeCount(markSaved(current, sent.document, 'rev-2'))).toBe(1)
   })
 })

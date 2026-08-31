@@ -30,16 +30,6 @@
   padding: 0 10px;
 }
 
-.spinner {
-  flex: none;
-  width: var(--jbk-studio-chip-spinner-size);
-  height: var(--jbk-studio-chip-spinner-size);
-  border: var(--jbk-studio-chip-spinner-border-width) solid var(--jbk-accent-spinner-track);
-  border-top-color: var(--jbk-accent);
-  border-radius: var(--jbk-radius-round);
-  animation: var(--jbk-motion-spinner);
-}
-
 .runningLabel {
   font-size: var(--jbk-size-11-5);
   color: var(--jbk-text-action-label);

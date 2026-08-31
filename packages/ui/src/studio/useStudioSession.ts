@@ -1,4 +1,4 @@
-import type { AssetDescriptor } from '@jobik/core'
+import type { AssetDescriptor, FlowDocument } from '@jobik/core'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { FieldConnection, NodeLayoutChange } from '#canvas/index.js'
 import type {
@@ -12,7 +12,14 @@ import type {
 import { isRevisionConflictPayload, JobikServerError } from '#client/index.js'
 import type { FlowUiDescriptor } from '#output/index.js'
 import type { RunInputDraft, RunInputDraftValue } from '#run/index.js'
-import { connectFields, createDraft, type FlowDraft, markSaved, moveNode } from './draft.js'
+import {
+  connectFields,
+  createDraft,
+  type FlowDraft,
+  markSaved,
+  moveNode,
+  sameFlowShape,
+} from './draft.js'
 import { type ExternalModules, loadFlowUi } from './extensionLoader.js'
 import { initialRunInputDraft } from './inputSchema.js'
 import {
@@ -32,13 +39,17 @@ import {
  * flight, and can be cancelled from the editor.
  *
  * R10 — `selectFlow`, `selectNode`, a `validation` state field, `loading` and `loadError` were all
- * dropped from this module's public surface. `StudioApp` (task 12) never wires a selection
- * callback (`Studio`/`FlowsSidebar` expose none) and never renders anything derived from a
- * validation result or a loading/load-error flag, so all five were produced with no consumer.
- * `selectedNodeId` itself stays — `StudioApp` reads it — only the setter is gone. `validate()`
- * stays too, wired to the Validate button; it fires the request and does not keep the result,
- * because nothing downstream has anywhere left to show it. `isSettled` (R21) was deleted from
- * `runSession.ts` for the same reason and is neither imported nor re-exported here.
+ * dropped from this module's public surface, because nothing downstream consumed any of them.
+ * `selectedNodeId` itself stayed — `StudioApp` reads it — only the setter went. `isSettled` (R21)
+ * was deleted from `runSession.ts` for the same reason and is neither imported nor re-exported
+ * here.
+ *
+ * **Two of those five have since come back, and R10's sentence no longer describes this module.**
+ * `validation` returned with `3C`'s dialog and `3D`'s problems strip — see the field's own doc
+ * below. `selectFlow` returned because the config now declares three flows and the Studio could
+ * only ever load, run and save `flows[0]`: `FlowsSidebar`'s flow rows are real buttons now, and
+ * this is what they call. `selectNode`, `loading` and `loadError` are still absent and still have
+ * no consumer.
  *
  * R25 — `runError` is deleted too. A start that fails used to null the session and stash the
  * failure only in `runError`, which nothing consumed: `runPanelState` fell through to `kind:
@@ -90,12 +101,34 @@ export type SaveState =
     }
   | { readonly kind: 'error'; readonly error: WireErrorPayload }
 
+/**
+ * What `validate()` last found.
+ *
+ * `unreachable` is kept apart from `invalid` on purpose: the first means the check never ran, the
+ * second means it ran and rejected the document, and the `Validation` dialog must not present a
+ * transport failure as a finding about the flow.
+ */
+export type ValidationState =
+  | { readonly kind: 'checking' }
+  /** `checkedAt` is when the answer landed — `3D`'s status strip counts up from it. */
+  | { readonly kind: 'valid'; readonly checkedAt: number }
+  | { readonly kind: 'invalid'; readonly error: WireErrorPayload }
+  | { readonly kind: 'unreachable'; readonly message: string }
+
 export type StudioSession = {
   readonly flows: readonly FlowListItem[]
   readonly flowId: string | undefined
   readonly descriptor: SafeFlowDescriptorPayload | undefined
   readonly draft: FlowDraft | undefined
   readonly selectedNodeId: string | undefined
+  /**
+   * The start the run panel and the canvas are pointed at — one of `descriptor.startIds`, seeded
+   * with the first and moved by `selectStart`.
+   *
+   * It used to be `descriptor?.startIds[0]`, which made every flow with more than one start
+   * unrunnable past its first: the server, the wire and core have accepted any start id all
+   * along, and the whole gap was here.
+   */
   readonly startId: string | undefined
   readonly inputDraft: RunInputDraft
   readonly session: RunSession | undefined
@@ -105,10 +138,51 @@ export type StudioSession = {
   readonly elapsedMs: number
   readonly saveState: SaveState
   readonly extension: FlowUiDescriptor | undefined
+  /**
+   * Points the whole Studio at another flow. Immediate and never blocked — not by a dirty draft,
+   * and not by a run in flight.
+   *
+   * **A dirty draft is discarded, silently.** No artboard draws a confirmation dialog, and one
+   * would have to be invented whole; the honest alternative — refusing the switch — would make a
+   * flow unreachable because of an edit made in another. Save is `⌘S` and one click away, and the
+   * top bar's dirty dot says the draft is unsaved before the switch is made.
+   *
+   * **A run in flight keeps going server-side and is never orphaned**; only its events stop
+   * reaching the UI. See `runGenerationRef`.
+   *
+   * Every piece of per-flow state is written here, synchronously, in the same event as the id —
+   * so there is no frame in which the previous flow's descriptor, draft, selection, inputs, run,
+   * save state, extension or validation result is on screen under the new flow's id. An effect
+   * would have left exactly that frame.
+   */
+  readonly selectFlow: (flowId: string) => void
+  /**
+   * Points the run panel at another of the flow's declared starts, re-seeding the input draft from
+   * that start's own descriptor. Ignored while a run is in flight, and ignored for an id the
+   * descriptor does not declare.
+   */
+  readonly selectStart: (startId: string) => void
   readonly moveNode: (change: NodeLayoutChange) => void
   readonly connect: (connection: FieldConnection) => void
   readonly setInputField: (field: string, value: RunInputDraftValue) => void
   readonly validate: () => void
+  /**
+   * The last check's outcome, or `undefined` before one has been asked for — **and `undefined`
+   * again the moment the flow changes under it.**
+   *
+   * R10 removed this field as state nothing read. Artboard `3C` gave it a consumer — the
+   * `Validation` dialog — so it is back, with exactly the shape that dialog needs and nothing
+   * more: the check is running, it passed, or it produced the one error the wire carries.
+   *
+   * `3D` adds the lifetime: *"errors persist until the flow changes"*. A result is therefore kept
+   * against the document it was produced for and withheld the moment that document's graph stops
+   * matching the draft's — `sameFlowShape` in `draft.js` is what "the flow" means, and it
+   * deliberately ignores `layout`, so dragging a card does not throw away a report the user is
+   * still reading. This is a derivation, not an effect: there is no frame in which a stale result
+   * is still on screen.
+   */
+  readonly validation: ValidationState | undefined
+  readonly dismissValidation: () => void
   readonly save: () => void
   readonly reloadFromDisk: () => void
   readonly copyDraft: () => void
@@ -161,10 +235,14 @@ export function useStudioSession(args: {
   const [descriptor, setDescriptor] = useState<SafeFlowDescriptorPayload | undefined>(undefined)
   const [draft, setDraft] = useState<FlowDraft | undefined>(undefined)
   const [selectedNodeId, setSelectedNodeId] = useState<string | undefined>(undefined)
+  const [startId, setStartId] = useState<string | undefined>(undefined)
   const [inputDraft, setInputDraft] = useState<RunInputDraft>({})
   const [session, setSession] = useState<RunSession | undefined>(undefined)
   const [running, setRunning] = useState(false)
   const [saveState, setSaveState] = useState<SaveState>({ kind: 'idle' })
+  const [validation, setValidation] = useState<ValidationState | undefined>(undefined)
+  /** The document the current `validation` was produced for. See `validation` above. */
+  const [validatedFor, setValidatedFor] = useState<FlowDocument | undefined>(undefined)
   const [extension, setExtension] = useState<FlowUiDescriptor | undefined>(undefined)
   const [tick, setTick] = useState(0)
 
@@ -186,6 +264,22 @@ export function useStudioSession(args: {
    */
   const loadGenerationRef = useRef(0)
   /**
+   * The run's counterpart to `loadGenerationRef`, and the whole of the "a run in flight must not
+   * corrupt the flow you switched to" rule.
+   *
+   * `run()` reads this ref once, before its first `await`, and every write it would make
+   * afterwards — the session fold, the dropped-stream repair, the parse-error failure, and the
+   * closing `setRunning(false)` — is gated on the ref still holding that number. `selectFlow`
+   * bumps it, and so does the next `run()`. So a run started under flow A stops painting the
+   * instant the user leaves flow A, while the `for await` keeps draining: the request is never
+   * aborted, the server settles the run and writes its report, and nothing is orphaned.
+   *
+   * **Accepted limitation:** coming back to flow A shows a fresh load, not the run that is still
+   * live. Keeping a live session per flow would mean a map of sessions, a map of tokens and a
+   * clock per entry, and no artboard draws a second flow's run at all. Out of scope, deliberately.
+   */
+  const runGenerationRef = useRef(0)
+  /**
    * R29: `externals`/`importModule` are read through refs, not the effect's dependency list.
    * `StudioApp` (task 13) passes both as fresh object/function literals on every render, and
    * `StudioApp` itself re-renders every `TICK_MS` while a run is in flight — a dependency list
@@ -195,8 +289,6 @@ export function useStudioSession(args: {
   externalsRef.current = args.externals
   const importModuleRef = useRef(args.importModule)
   importModuleRef.current = args.importModule
-
-  const startId = descriptor?.startIds[0]
 
   /**
    * Derived, never stored. `lastReport` used to be its own `useState`, written after the stream
@@ -212,15 +304,88 @@ export function useStudioSession(args: {
    */
   const lastReport = session?.report
 
-  const adopt = useCallback((loaded: LoadedFlowPayload) => {
-    setDescriptor(loaded.descriptor)
-    setDraft(createDraft(loaded.document, loaded.revision))
-    setSaveState({ kind: 'idle' })
-    const start = loaded.descriptor.startIds[0]
-    const startNode = loaded.descriptor.nodes.find((node) => node.id === start)
-    setSelectedNodeId(start)
-    setInputDraft(startNode === undefined ? {} : initialRunInputDraft(startNode.input))
-  }, [])
+  /**
+   * Pointing the panel at a start: the id itself, the node the canvas and sidebar mark, and the
+   * input draft seeded from that start's own descriptor.
+   *
+   * Extracted out of `adopt`, which used to be its only caller and did all three inline against
+   * `startIds[0]`. `selectStart` needs the identical three writes against a different id, and two
+   * copies of "what it means to choose a start" would have drifted the first time one of them
+   * gained a fourth.
+   */
+  const seedStart = useCallback(
+    (loadedDescriptor: SafeFlowDescriptorPayload, start: string | undefined) => {
+      const startNode = loadedDescriptor.nodes.find((node) => node.id === start)
+      setStartId(start)
+      setSelectedNodeId(start)
+      setInputDraft(startNode === undefined ? {} : initialRunInputDraft(startNode.input))
+    },
+    [],
+  )
+
+  const adopt = useCallback(
+    (loaded: LoadedFlowPayload) => {
+      setDescriptor(loaded.descriptor)
+      setDraft(createDraft(loaded.document, loaded.revision))
+      setSaveState({ kind: 'idle' })
+      seedStart(loaded.descriptor, loaded.descriptor.startIds[0])
+    },
+    [seedStart],
+  )
+
+  const selectStart = useCallback(
+    (nextStartId: string) => {
+      // The draft lock a run holds covers the start too: the run in flight *is* a run of the start
+      // currently selected, and moving it under the stream would leave the panel describing one
+      // start and the canvas another.
+      if (running || descriptor === undefined) return
+      if (nextStartId === startId) return
+      if (!descriptor.startIds.includes(nextStartId)) return
+      seedStart(descriptor, nextStartId)
+    },
+    [descriptor, running, seedStart, startId],
+  )
+
+  /**
+   * See `selectFlow` in `StudioSession` for what this guarantees and why the writes are here
+   * rather than in an effect keyed on `flowId`.
+   *
+   * The two generation bumps are the load and the run: an in-flight `GET /api/flows/:id` for the
+   * previous flow can no longer adopt over this one, and an in-flight run can no longer paint
+   * over it. The three refs are cleared for the same reason as their state counterparts —
+   * `runTokenRef` in particular, because `cancel()` reads it without a render dependency and must
+   * not aim a cancel request at the flow the user just left.
+   *
+   * `validation` is dropped **unconditionally**, not through `sameFlowShape`: that comparison
+   * exists so a drag does not throw away findings the user is still reading *within one flow*, and
+   * a finding about flow `#1` says nothing at all about flow `#2`. Clearing it here is what also
+   * clears `checkedAt` and the problems strip, both of which are derived from it.
+   */
+  const selectFlow = useCallback(
+    (nextFlowId: string) => {
+      if (nextFlowId === flowId) return
+
+      loadGenerationRef.current += 1
+      runGenerationRef.current += 1
+      runTokenRef.current = undefined
+      runningRef.current = false
+      startedAtRef.current = 0
+
+      setDescriptor(undefined)
+      setDraft(undefined)
+      setStartId(undefined)
+      setSelectedNodeId(undefined)
+      setInputDraft({})
+      setSaveState({ kind: 'idle' })
+      setSession(undefined)
+      setRunning(false)
+      setValidation(undefined)
+      setValidatedFor(undefined)
+      setExtension(undefined)
+      setFlowId(nextFlowId)
+    },
+    [flowId],
+  )
 
   // R5: discovery and load are two effects, not one. A single effect that reads `flowId`, sets it,
   // and lists `flowId` in its own dependencies double-fires on mount: pass 1 lists the flows, sets
@@ -329,11 +494,42 @@ export function useStudioSession(args: {
 
   const validate = useCallback(() => {
     if (running || flowId === undefined || draft === undefined) return
-    // Fires the check and stops there: R10 deleted the `validation` state nothing downstream
-    // reads. `client.validate` follows the `T | Error` contract and never throws, so this is a
-    // legitimate fire-and-forget.
-    void client.validate(flowId, draft.document)
-  }, [client, draft, flowId, running])
+    // Captured now, not when the answer lands: an edit made while the request is in flight is
+    // exactly the case the result must not survive, and this comparison is what catches it.
+    setValidatedFor(draft.document)
+    setValidation({ kind: 'checking' })
+    void (async () => {
+      // `client.validate` follows the `T | Error` contract and never throws, so an `Error` here is
+      // a transport failure rather than a rejected document — the two are kept apart because the
+      // dialog says different things about them.
+      const result = await client.validate(flowId, draft.document)
+      if (result instanceof Error) {
+        setValidation({ kind: 'unreachable', message: result.message })
+        return
+      }
+      setValidation(
+        result.valid
+          ? { kind: 'valid', checkedAt: now() }
+          : { kind: 'invalid', error: result.error },
+      )
+    })()
+  }, [client, draft, flowId, running, now])
+
+  const dismissValidation = useCallback(() => {
+    setValidation(undefined)
+    setValidatedFor(undefined)
+  }, [])
+
+  /**
+   * `3D` — the result, withheld once the flow it describes no longer exists. See `validation` in
+   * `StudioSession` for why this is derived rather than cleared by an effect.
+   */
+  const activeValidation = useMemo(() => {
+    if (validation === undefined || validatedFor === undefined || draft === undefined) {
+      return validation
+    }
+    return sameFlowShape(validatedFor, draft.document) ? validation : undefined
+  }, [validation, validatedFor, draft])
 
   const save = useCallback(() => {
     if (running || flowId === undefined || draft === undefined) return
@@ -400,6 +596,11 @@ export function useStudioSession(args: {
         return
       }
       runningRef.current = true
+      // Read once, before the first `await`. Everything below asks `live()` whether the flow this
+      // run belongs to is still the one on screen; see `runGenerationRef`.
+      runGenerationRef.current += 1
+      const generation = runGenerationRef.current
+      const live = () => runGenerationRef.current === generation
 
       void (async () => {
         startedAtRef.current = now()
@@ -420,6 +621,7 @@ export function useStudioSession(args: {
         if (stream instanceof Error) {
           // R25: a rejected start no longer nulls the session — it ends it as a failure, the
           // same surface every other failure path below uses.
+          if (!live()) return
           const payload = toFailurePayload(stream)
           setSession((current) =>
             current === undefined ? current : { ...current, failure: payload },
@@ -431,6 +633,10 @@ export function useStudioSession(args: {
 
         try {
           for await (const event of stream) {
+            // `continue`, not `break`: the flow changed under this run, so nothing it says may
+            // reach the panel any more — but the stream is still drained to completion so the
+            // server settles the run rather than being left with a reader that walked away.
+            if (!live()) continue
             if (event.type === 'run-accepted') runTokenRef.current = event.runToken
             setSession((current) =>
               current === undefined ? current : applyRunEvent(current, event),
@@ -442,30 +648,43 @@ export function useStudioSession(args: {
           // The test for it is inside the updater because that is the only place that can see
           // the session as it actually stands (see the note on functional updaters at the top of
           // this module).
-          setSession((current) => {
-            if (current === undefined) return current
-            if (current.report !== undefined || current.failure !== undefined) return current
-            return { ...current, failure: DROPPED_STREAM_PAYLOAD }
-          })
+          if (live()) {
+            setSession((current) => {
+              if (current === undefined) return current
+              if (current.report !== undefined || current.failure !== undefined) return current
+              return { ...current, failure: DROPPED_STREAM_PAYLOAD }
+            })
+          }
         } catch (cause) {
           // R16: `readNdjsonStream` throws `NdjsonParseError` mid-iteration on a protocol
           // violation, and `JobikClient.startRun` deliberately does not catch it — this `for
           // await` is the one place that owns the failure.
           const error = cause instanceof Error ? cause : new Error(String(cause))
           const payload = toFailurePayload(error)
-          setSession((current) =>
-            current === undefined ? current : { ...current, failure: payload },
-          )
+          if (live()) {
+            setSession((current) =>
+              current === undefined ? current : { ...current, failure: payload },
+            )
+          }
         }
 
-        setRunning(false)
-        runningRef.current = false
+        // Guarded like every write above: `selectFlow` has already put `running` back to `false`
+        // for this run, and a run started under the new flow owns the flag now — clearing it from
+        // here would unlock a draft the live run is still holding.
+        if (live()) {
+          setRunning(false)
+          runningRef.current = false
+        }
       })()
     },
     [client, descriptor, flowId, now, startId],
   )
 
   const cancel = useCallback(() => {
+    // The ref is deliberately not a render dependency, so it is `selectFlow` that keeps this
+    // honest across a flow switch: it clears the token, and the stale run's `for await` can no
+    // longer write a new one (`live()`), so a cancel issued after a switch aims at nothing rather
+    // than at the run belonging to the flow the user just left.
     const token = runTokenRef.current
     if (token === undefined) return
     setSession((current) => (current === undefined ? current : markCancelling(current)))
@@ -514,10 +733,14 @@ export function useStudioSession(args: {
     elapsedMs,
     saveState,
     extension,
+    selectFlow,
+    selectStart,
     moveNode: onMoveNode,
     connect: onConnect,
     setInputField,
     validate,
+    validation: activeValidation,
+    dismissValidation,
     save,
     reloadFromDisk,
     copyDraft,

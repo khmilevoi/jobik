@@ -1,29 +1,26 @@
 /*
- * `StudioApp` is a wiring component: the only two boxes it draws itself are the canvas slot it
- * hands to `Studio` and the backdrop the output viewer opens over.
+ * `StudioApp` is a wiring component: the only boxes it draws itself are the centre column it hands
+ * to `Studio` as `canvas`, and the two rows inside it.
+ *
+ * `2A` (`Studio — full page, output open`) settles a question `Output viewer` left open — the
+ * output is a dock along the BOTTOM of the centre column, a sibling of the canvas rather than an
+ * overlay over it. So the column is `flex-direction: column` and the dock displaces the canvas
+ * instead of covering it; the left sidebar and the right run dock keep their full height beside it.
+ * `OutputDock` is `flex: none` and owns its own height, which is why only the canvas row grows.
  */
 .canvas {
   position: relative;
   display: flex;
   flex: 1;
+  flex-direction: column;
   min-width: 0;
 }
 
-/*
- * R6: `surfaces.appShell` does not exist. The backdrop reuses `--jbk-surface-shell` — the same
- * token `StudioFrame` already draws the app shell in; the viewer card's own panel background comes
- * from `OutputViewer` itself.
- */
-.viewerBackdrop {
-  position: absolute;
-  inset: 0;
-  z-index: 10;
+/* The canvas row. `min-height: 0` so the dock can take its height out of a flex parent. */
+.canvasSurface {
+  position: relative;
   display: flex;
-  background: var(--jbk-surface-shell);
-}
-
-/* The viewer fills the backdrop. Layout only — `OutputViewer` owns everything it paints. */
-.viewer {
-  width: 100%;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
 }

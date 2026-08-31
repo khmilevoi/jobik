@@ -38,14 +38,22 @@ describe('Studio', () => {
   })
 
   it('docks the run panel into the top bar and brings it back', async () => {
+    // The run control is in the top bar in BOTH states — `2A` draws it there with the dock open —
+    // so its presence no longer distinguishes them. What distinguishes them is the expand
+    // affordance: collapsed, the label is the button that brings the dock back; open, the label is
+    // inert text and only the accent `Run` chip acts.
     render(<Studio />)
+    expect(screen.getByTestId('studio-dock')).toBeInTheDocument()
+    expect(screen.getByTestId('studio-docked-run')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Expand run panel' })).toBeNull()
+
     await userEvent.click(screen.getByRole('button', { name: 'Collapse run panel' }))
     expect(screen.queryByTestId('studio-dock')).not.toBeInTheDocument()
     expect(screen.getByTestId('studio-docked-run')).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Expand run panel' }))
     expect(screen.getByTestId('studio-dock')).toBeInTheDocument()
-    expect(screen.queryByTestId('studio-docked-run')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Expand run panel' })).toBeNull()
   })
 
   it('collapses both panels and gives the whole body to the canvas', async () => {

@@ -21,11 +21,6 @@ export const studioColors = {
 export const studioMetrics = {
   /** `Studio — run in progress` (473): `height:28px`. Also the collapsed docked-control height. */
   chipHeight: 28,
-  /** `Studio — run in progress` (474): the spinner ring, `width:11px;height:11px` — larger than
-   *  the run panel's 9px. */
-  chipSpinnerSize: 11,
-  /** `Studio — run in progress` (474): `border:1.5px solid ...`. */
-  chipSpinnerBorderWidth: 1.5,
   /** `Studio — run in progress` (479): the inline `Cancel` cell, `height:20px`. */
   chipActionHeight: 20,
 } as const

@@ -8,8 +8,10 @@ import type {
   NodeOutputSlotSpec,
   NodeRunState,
 } from '#canvas/index.js'
+import { endpointKey } from '#canvas/index.js'
 import type { FlowListItem, SafeFlowDescriptorPayload } from '#client/index.js'
 import type { FlowNodeSummary, FlowSummary, InventoryEntry } from '#shell/index.js'
+import type { FlowProblemModel } from './problems.js'
 
 /**
  * The safe flow descriptor and the JSON document, mapped onto P7's canvas props.
@@ -31,6 +33,14 @@ export type NodeOverlay = {
   readonly outputAnnotation?: string
   readonly detail?: NodeCardDetail
   readonly outputSlot?: NodeOutputSlotSpec
+  /**
+   * Draw the status as `● ok · 2.1s` rather than as a bare `ok · 2.1s`.
+   *
+   * `Studio — default`'s settled `render` card carries the dot; `2A`'s carries it on all three.
+   * `NodeCardHeader` owns the two-part treatment — the dot takes the status colour and the label
+   * drops to `#79828a` — so this only says which form the card is in.
+   */
+  readonly statusDot?: boolean
 }
 
 /** A fallback column for a node the document has never placed. Not a layout algorithm. */
@@ -41,11 +51,16 @@ export function toCanvasNodes(args: {
   document: FlowDocument
   selectedNodeId?: string
   overlays?: ReadonlyMap<string, NodeOverlay>
+  /** `3D` — what the last validation marked. Absent means nothing has been checked. */
+  problems?: FlowProblemModel
 }): readonly FlowCanvasNode[] {
   const startIds = new Set(args.descriptor.startIds)
 
   return args.descriptor.nodes.map((node, index) => {
     const overlay = args.overlays?.get(node.id)
+    const mark = args.problems?.nodes.get(node.id)
+
+    // `3D` marks a port, not a node, so each field looks its own mark up on the side it sits on.
 
     // Tone is left unset here: `resolveFieldTone` (`canvas/fields.ts`) already derives it from
     // `isStart`, which is what the `Studio — default` artboard actually renders — a start node's
@@ -53,15 +68,25 @@ export function toCanvasNodes(args: {
     // (`#aab1b7`) even where the artboard draws an accent connection straight into them. Setting
     // `tone` here from connection/literal satisfaction would both contradict the design and shadow
     // that default.
-    const inputs: readonly NodeFieldSpec[] = node.input.fields.map((field) => ({
-      name: field.field,
-      annotation: overlay?.inputAnnotation ?? field.annotation,
-    }))
+    const inputs: readonly NodeFieldSpec[] = node.input.fields.map((field) => {
+      const problem = args.problems?.fields.get(endpointKey(node.id, 'target', field.field))
+      return {
+        name: field.field,
+        // A port with no source says so where its type would be — the one annotation `3D`
+        // replaces that the wire can actually justify.
+        annotation: problem?.annotation ?? overlay?.inputAnnotation ?? field.annotation,
+        ...(problem === undefined ? {} : { problem: problem.problem }),
+      }
+    })
 
-    const outputs: readonly NodeFieldSpec[] = node.output.fields.map((field) => ({
-      name: field.field,
-      annotation: overlay?.outputAnnotation ?? field.annotation,
-    }))
+    const outputs: readonly NodeFieldSpec[] = node.output.fields.map((field) => {
+      const problem = args.problems?.fields.get(endpointKey(node.id, 'source', field.field))
+      return {
+        name: field.field,
+        annotation: problem?.annotation ?? overlay?.outputAnnotation ?? field.annotation,
+        ...(problem === undefined ? {} : { problem: problem.problem }),
+      }
+    })
 
     const data: NodeCardData = {
       id: node.id,
@@ -75,6 +100,11 @@ export function toCanvasNodes(args: {
       ...(overlay?.progress === undefined ? {} : { progress: overlay.progress }),
       ...(overlay?.detail === undefined ? {} : { detail: overlay.detail }),
       ...(overlay?.outputSlot === undefined ? {} : { outputSlot: overlay.outputSlot }),
+      ...(overlay?.statusDot === undefined ? {} : { statusDot: overlay.statusDot }),
+      ...(mark === undefined ? {} : { problem: mark.problem }),
+      // Only the card that carries the finding prints a count; `3D`'s blocked card's trailing
+      // cell is empty.
+      ...(mark?.problem === 'error' ? { problemCount: mark.count } : {}),
     }
 
     return {
@@ -108,14 +138,23 @@ export function waitingOnField(
   return waiting === undefined ? undefined : `${waiting.from.node}.${waiting.from.field}`
 }
 
-export function toCanvasEdges(document: FlowDocument): readonly FlowCanvasEdge[] {
-  return document.connections.map((connection) => ({
-    id: `${connection.from.node}.${connection.from.field}->${connection.to.node}.${connection.to.field}`,
-    source: connection.from.node,
-    sourceField: connection.from.field,
-    target: connection.to.node,
-    targetField: connection.to.field,
-  }))
+export function toCanvasEdges(
+  document: FlowDocument,
+  problems?: FlowProblemModel,
+): readonly FlowCanvasEdge[] {
+  return document.connections.map((connection) => {
+    const id = `${connection.from.node}.${connection.from.field}->${connection.to.node}.${connection.to.field}`
+    return {
+      id,
+      source: connection.from.node,
+      sourceField: connection.from.field,
+      target: connection.to.node,
+      targetField: connection.to.field,
+      // `3D`: the failing edge is the failure hue at 1.4, where an accent edge is 1.3. Every other
+      // edge keeps whatever tone `resolveEdgeTone` derives from the start node.
+      ...(problems?.edges.has(id) === true ? { tone: 'error' as const } : {}),
+    }
+  })
 }
 
 /**

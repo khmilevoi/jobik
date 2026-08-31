@@ -1,5 +1,13 @@
 import { type ReactNode, useState } from 'react'
-import type { FlowNodeSummary, FlowSummary, InventoryEntry, RunDockMetaTone } from '#shell/index.js'
+import type {
+  FlowNodeSummary,
+  FlowSummary,
+  InventoryEntry,
+  RunDockMetaTone,
+  RunDockStatus,
+  RunHistoryEntry,
+  TopBarValidateState,
+} from '#shell/index.js'
 import {
   DockedFlowsControl,
   DockedRunControl,
@@ -33,6 +41,8 @@ const FIXTURE_INVENTORY: readonly InventoryEntry[] = [
 export interface StudioProps {
   readonly flows?: readonly FlowSummary[]
   readonly activeFlowId?: string
+  /** Points the Studio at the flow a sidebar row names. Absent leaves the rows inert. */
+  readonly onSelectFlow?: (flowId: string) => void
   readonly flowFile?: string
   readonly dirty?: boolean
   readonly nodes?: readonly FlowNodeSummary[]
@@ -51,10 +61,35 @@ export interface StudioProps {
    */
   readonly runMeta?: string
   readonly runMetaTone?: RunDockMetaTone
+  /**
+   * `2A`: once a run has settled the dock header's left half becomes `● Completed` / `● Run failed`
+   * rather than `Run <entry>`. Absent while idle or in flight, which is what both other artboards
+   * draw.
+   */
+  readonly runStatus?: RunDockStatus
+  /** `2A`'s left-sidebar `Run history` rows. Absent leaves the `Inventory` section in place. */
+  readonly runs?: readonly RunHistoryEntry[]
+  readonly selectedRunId?: string
+  readonly onSelectRun?: (id: string) => void
   readonly running?: boolean
   /** The slot the running chip occupies. No plan owns the chip's markup yet. */
   readonly runningChip?: ReactNode
+  /** `3D` — the Validate control's cell. Absent is `idle`, which every artboard but `3D` draws. */
+  readonly validate?: TopBarValidateState
+  /**
+   * `3D` §3D.3 — the status or problems strip, across the bottom of the frame. Absent until a
+   * check has produced a result; see `shell/StatusStrip`.
+   */
+  readonly status?: ReactNode
+  /**
+   * `3D` — *"Run is disabled while any error stands; warnings never block it."* Dims the run chip
+   * to 45 % and stops it responding, which is `3B`'s treatment for a button the surface has
+   * already spoken for.
+   */
+  readonly runBlocked?: boolean
   readonly onValidate?: () => void
+  /** `3D` — the invalid cell's `report` chip and the strip's `Open report` both land here. */
+  readonly onOpenReport?: () => void
   readonly onSave?: () => void
   readonly onRun?: () => void
 }
@@ -80,21 +115,37 @@ export function Studio(props: StudioProps) {
           dirty={props.dirty ?? true}
           running={props.running}
           runningChip={props.runningChip}
+          {...(props.validate === undefined ? {} : { validate: props.validate })}
           onValidate={props.onValidate}
+          onOpenReport={props.onOpenReport}
           onSave={props.onSave}
           dockedLeft={
             leftCollapsed ? (
               <DockedFlowsControl onExpand={() => setLeftCollapsed(false)} />
             ) : undefined
           }
+          // The same control in both places, and the difference is `onExpand`. Collapsed, it is
+          // `Studio — panels collapsed`'s docked control and its label expands the dock; open, it
+          // is `2A`'s top-bar run pill, whose label is inert and whose accent chip is the only
+          // thing that acts. `2A` is why it is present at all while the dock is open.
           dockedRight={
             rightCollapsed ? (
               <DockedRunControl
                 entryNodeId={entryNodeId}
                 onExpand={() => setRightCollapsed(false)}
                 onRun={props.onRun}
+                runBlocked={props.runBlocked}
               />
             ) : undefined
+          }
+          runControl={
+            rightCollapsed ? undefined : (
+              <DockedRunControl
+                entryNodeId={entryNodeId}
+                onRun={props.onRun}
+                runBlocked={props.runBlocked}
+              />
+            )
           }
         />
       }
@@ -103,9 +154,13 @@ export function Studio(props: StudioProps) {
           <FlowsSidebar
             flows={flows}
             activeFlowId={activeFlowId}
+            {...(props.onSelectFlow === undefined ? {} : { onSelectFlow: props.onSelectFlow })}
             nodes={nodes}
             selectedNodeId={props.selectedNodeId ?? entryNodeId}
             inventory={inventory}
+            {...(props.runs === undefined ? {} : { runs: props.runs })}
+            {...(props.selectedRunId === undefined ? {} : { selectedRunId: props.selectedRunId })}
+            {...(props.onSelectRun === undefined ? {} : { onSelectRun: props.onSelectRun })}
             onCollapse={() => setLeftCollapsed(true)}
           />
         )
@@ -118,11 +173,13 @@ export function Studio(props: StudioProps) {
             onCollapse={() => setRightCollapsed(true)}
             {...(props.runMeta === undefined ? {} : { runMeta: props.runMeta })}
             {...(props.runMetaTone === undefined ? {} : { runMetaTone: props.runMetaTone })}
+            {...(props.runStatus === undefined ? {} : { runStatus: props.runStatus })}
           >
             {props.runPanel}
           </RunDock>
         )
       }
+      {...(props.status === undefined ? {} : { status: props.status })}
     />
   )
 }

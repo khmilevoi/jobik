@@ -166,6 +166,61 @@ describe('validate and save', () => {
     expect(validate).toHaveBeenCalledWith('publication', DOCUMENT)
   })
 
+  /**
+   * `3D` fixes the result's lifetime: *"errors persist until the flow changes"*. The check itself
+   * is a request; how long its answer is allowed to describe the flow is this hook's rule.
+   */
+  it('keeps the result across a drag, which changes only where the card sits', async () => {
+    const { result } = setup(
+      stubClient({
+        validate: async () => ({
+          valid: false,
+          error: { _tag: 'ConnectionError', message: 'render.markdown expects string' },
+        }),
+      }),
+    )
+    await waitForReady(result)
+
+    await act(async () => result.current.validate())
+    expect(result.current.validation?.kind).toBe('invalid')
+
+    act(() => result.current.moveNode({ nodeId: 'start1', position: { x: 40, y: 40 } }))
+    expect(result.current.validation?.kind).toBe('invalid')
+  })
+
+  it('drops the result the moment the flow itself changes', async () => {
+    const { result } = setup(
+      stubClient({
+        validate: async () => ({
+          valid: false,
+          error: { _tag: 'ConnectionError', message: 'render.markdown expects string' },
+        }),
+      }),
+    )
+    await waitForReady(result)
+    await act(async () => result.current.validate())
+
+    act(() =>
+      result.current.connect({
+        source: 'start1',
+        sourceField: 'title',
+        target: 'render',
+        targetField: 'title',
+      }),
+    )
+
+    expect(result.current.validation).toBeUndefined()
+  })
+
+  it('stamps a passing check with the moment it answered, for the status strip', async () => {
+    const { result } = setup(stubClient())
+    await waitForReady(result)
+
+    await act(async () => result.current.validate())
+
+    expect(result.current.validation).toEqual({ kind: 'valid', checkedAt: 1000 })
+  })
+
   it('clears dirty and adopts the new revision on save', async () => {
     const { result } = setup(stubClient())
     await waitForReady(result)
@@ -949,6 +1004,389 @@ describe('running', () => {
     expect(result.current.session?.report).toEqual(REPORT)
     expect(result.current.session?.failure).toBeUndefined()
     expect(result.current.lastReport).toEqual(REPORT)
+  })
+})
+
+/**
+ * The repository's only two-start fixture, and the reason Part 3 exists at all: every other
+ * fixture in `packages/ui` declares `startIds: ['start1']`, which is why the browser could get
+ * away with `descriptor.startIds[0]` for as long as it did. `byNumber`'s default is what makes a
+ * re-seed observable — without it both starts would seed the same empty draft.
+ */
+const TWO_START_DOCUMENT = {
+  format: 'jobik.flow',
+  version: 1,
+  connections: [],
+  literals: {},
+  layout: { byName: { x: 0, y: 0 }, byNumber: { x: 0, y: 120 } },
+} as unknown as FlowDocument
+
+const TWO_START_DESCRIPTOR = {
+  id: 'pokedex',
+  name: 'pokedex',
+  documentFile: 'flow.jobik.json',
+  startIds: ['byName', 'byNumber'],
+  nodes: [
+    {
+      id: 'byName',
+      kind: 'start' as const,
+      title: 'start',
+      input: {
+        nodeId: 'byName',
+        fields: [
+          {
+            field: 'name',
+            required: true,
+            annotation: 'string',
+            control: { kind: 'string' as const },
+          },
+        ],
+      },
+      output: {
+        nodeId: 'byName',
+        fields: [{ field: 'name', required: true, annotation: 'string' }],
+      },
+    },
+    {
+      id: 'byNumber',
+      kind: 'start' as const,
+      title: 'start',
+      input: {
+        nodeId: 'byNumber',
+        fields: [
+          {
+            field: 'number',
+            required: true,
+            annotation: 'number',
+            control: { kind: 'number' as const, integer: true },
+            default: 25,
+          },
+        ],
+      },
+      output: {
+        nodeId: 'byNumber',
+        fields: [{ field: 'number', required: true, annotation: 'number' }],
+      },
+    },
+  ],
+}
+
+/** Two flows behind one client, each answering with its own descriptor and document. */
+function twoFlowClient(overrides: Partial<JobikClient> = {}): JobikClient {
+  return stubClient({
+    listFlows: async () => [
+      { id: 'publication', name: 'publication', nodeCount: 1 },
+      { id: 'pokedex', name: 'pokedex', nodeCount: 2 },
+    ],
+    loadFlow: async (id: string) =>
+      id === 'pokedex'
+        ? { descriptor: TWO_START_DESCRIPTOR, document: TWO_START_DOCUMENT, revision: 'rev-p1' }
+        : { descriptor: DESCRIPTOR, document: DOCUMENT, revision: 'rev-1' },
+    ...overrides,
+  })
+}
+
+/** A settled report, for the tests below that need a run to have something to settle with. */
+const SWITCH_REPORT = {
+  flowName: 'publication',
+  startId: 'start1',
+  runNumber: 219,
+  status: 'ok' as const,
+  elapsedMs: 2400,
+  nodes: [
+    {
+      nodeId: 'start1',
+      status: 'ok' as const,
+      elapsedMs: 10,
+      output: { title: 't' },
+      assets: {},
+      error: null,
+    },
+  ],
+  logs: [],
+  error: null,
+}
+
+describe('switching flows', () => {
+  it('loads the flow it is pointed at', async () => {
+    const { result } = setup(twoFlowClient())
+    await waitForReady(result)
+    expect(result.current.descriptor?.id).toBe('publication')
+
+    act(() => result.current.selectFlow('pokedex'))
+    await waitFor(() => expect(result.current.descriptor?.id).toBe('pokedex'))
+
+    expect(result.current.flowId).toBe('pokedex')
+    expect(result.current.draft?.baseRevision).toBe('rev-p1')
+    expect(result.current.startId).toBe('byName')
+  })
+
+  /**
+   * The whole reset, in one assertion set. Each of these leaked before: `session`, `running` and
+   * `validation` were never cleared at all, and the rest stayed on the previous flow's values
+   * until its replacement's fetch resolved — a window in which the old flow renders under the new
+   * flow's id.
+   */
+  it('clears every piece of the previous flow before the new one lands', async () => {
+    const { result } = setup(
+      twoFlowClient({
+        startRun: async () =>
+          streamOf([
+            { type: 'run-accepted', runToken: 'tok' },
+            { type: 'run-settled', report: SWITCH_REPORT },
+          ]),
+        validate: async () => ({
+          valid: false,
+          error: { _tag: 'ConnectionError', message: 'render.markdown expects string' },
+        }),
+      }),
+    )
+    await waitForReady(result)
+
+    await act(async () => result.current.run({ title: 't' }))
+    await waitFor(() => expect(result.current.running).toBe(false))
+    await act(async () => result.current.validate())
+    act(() => result.current.moveNode({ nodeId: 'start1', position: { x: 5, y: 5 } }))
+    act(() => result.current.setInputField('title', 'typed'))
+
+    expect(result.current.session).toBeDefined()
+    expect(result.current.validation?.kind).toBe('invalid')
+    expect(result.current.draft?.dirty).toBe(true)
+
+    // Asserted on the frame the switch itself commits, before the new flow's load resolves —
+    // the exact window the old code left the previous flow standing in.
+    act(() => result.current.selectFlow('pokedex'))
+
+    expect(result.current.flowId).toBe('pokedex')
+    expect(result.current.descriptor).toBeUndefined()
+    expect(result.current.draft).toBeUndefined()
+    expect(result.current.startId).toBeUndefined()
+    expect(result.current.selectedNodeId).toBeUndefined()
+    expect(result.current.inputDraft).toEqual({})
+    expect(result.current.saveState).toEqual({ kind: 'idle' })
+    expect(result.current.session).toBeUndefined()
+    expect(result.current.lastReport).toBeUndefined()
+    expect(result.current.running).toBe(false)
+    expect(result.current.validation).toBeUndefined()
+  })
+
+  /**
+   * `3D` withholds a validation result once the flow's *shape* changes, deliberately ignoring
+   * `layout` so a drag does not throw away findings. A flow *switch* is not that case: findings
+   * about flow `#1` say nothing about flow `#2`, so the result is dropped outright rather than
+   * compared — and the problems strip and `checkedAt`, both derived from it, go with it.
+   */
+  it('drops a standing validation result outright, not through sameFlowShape', async () => {
+    const { result } = setup(
+      twoFlowClient({
+        validate: async () => ({
+          valid: false,
+          error: { _tag: 'ConnectionError', message: 'render.markdown expects string' },
+        }),
+      }),
+    )
+    await waitForReady(result)
+    await act(async () => result.current.validate())
+    expect(result.current.validation?.kind).toBe('invalid')
+
+    act(() => result.current.selectFlow('pokedex'))
+    expect(result.current.validation).toBeUndefined()
+
+    await waitFor(() => expect(result.current.descriptor?.id).toBe('pokedex'))
+    expect(result.current.validation).toBeUndefined()
+  })
+
+  /**
+   * Decided behaviour, recorded as a test so it cannot drift into a dialog nobody drew: a dirty
+   * draft does not block the switch and is not preserved. Save is `⌘S`; the top bar's dirty dot
+   * says the draft is unsaved before the row is pressed.
+   */
+  it('discards a dirty draft rather than blocking the switch', async () => {
+    const save = vi.fn(async () => ({ revision: 'rev-2' }))
+    const { result } = setup(twoFlowClient({ save }))
+    await waitForReady(result)
+    act(() => result.current.moveNode({ nodeId: 'start1', position: { x: 5, y: 5 } }))
+    expect(result.current.draft?.dirty).toBe(true)
+
+    act(() => result.current.selectFlow('pokedex'))
+    await waitFor(() => expect(result.current.descriptor?.id).toBe('pokedex'))
+
+    expect(result.current.draft?.dirty).toBe(false)
+    expect(result.current.draft?.baseRevision).toBe('rev-p1')
+    expect(save).not.toHaveBeenCalled()
+  })
+
+  /**
+   * Part 2. The switch is immediate; the run keeps going server-side and is drained to completion
+   * so the server settles it; its events simply stop reaching the panel.
+   */
+  it('never blocks on a run in flight, and that run never paints the new flow', async () => {
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const drained: string[] = []
+    const { result } = setup(
+      twoFlowClient({
+        startRun: async () =>
+          (async function* () {
+            yield { type: 'run-accepted', runToken: 'tok' } as RunStreamEvent
+            drained.push('run-accepted')
+            await gate
+            yield {
+              type: 'run-started',
+              runNumber: 219,
+              flowName: 'publication',
+              startId: 'start1',
+              nodeCount: 1,
+            } as RunStreamEvent
+            drained.push('run-started')
+            yield { type: 'run-settled', report: SWITCH_REPORT } as RunStreamEvent
+            drained.push('run-settled')
+          })(),
+      }),
+    )
+    await waitForReady(result)
+
+    act(() => result.current.run({ title: 't' }))
+    await waitFor(() => expect(result.current.running).toBe(true))
+
+    act(() => result.current.selectFlow('pokedex'))
+    expect(result.current.running).toBe(false)
+    expect(result.current.session).toBeUndefined()
+
+    await act(async () => {
+      release()
+      await gate
+      await flush()
+    })
+    await waitFor(() => expect(result.current.descriptor?.id).toBe('pokedex'))
+
+    // Drained to the end — the server settles the run rather than being left with a reader that
+    // walked away — and not one of those events reached the panel.
+    expect(drained).toEqual(['run-accepted', 'run-started', 'run-settled'])
+    expect(result.current.session).toBeUndefined()
+    expect(result.current.lastReport).toBeUndefined()
+    expect(result.current.running).toBe(false)
+  })
+
+  it('does not let the previous flow’s load land on the flow that replaced it', async () => {
+    let resolveFirst: (value: {
+      descriptor: typeof DESCRIPTOR
+      document: typeof DOCUMENT
+      revision: string
+    }) => void = () => {}
+    const firstGate = new Promise<{
+      descriptor: typeof DESCRIPTOR
+      document: typeof DOCUMENT
+      revision: string
+    }>((resolve) => {
+      resolveFirst = resolve
+    })
+    const loadFlow = vi.fn(async (id: string) =>
+      id === 'pokedex'
+        ? { descriptor: TWO_START_DESCRIPTOR, document: TWO_START_DOCUMENT, revision: 'rev-p1' }
+        : firstGate,
+    )
+    const { result } = setup(twoFlowClient({ loadFlow }))
+    await waitFor(() => expect(loadFlow).toHaveBeenCalledTimes(1))
+
+    act(() => result.current.selectFlow('pokedex'))
+    await waitFor(() => expect(result.current.descriptor?.id).toBe('pokedex'))
+
+    await act(async () => {
+      resolveFirst({ descriptor: DESCRIPTOR, document: DOCUMENT, revision: 'rev-1' })
+      await flush()
+    })
+
+    expect(result.current.descriptor?.id).toBe('pokedex')
+    expect(result.current.draft?.baseRevision).toBe('rev-p1')
+  })
+})
+
+describe('choosing a start', () => {
+  it('seeds the first declared start and its input draft', async () => {
+    const { result } = setup(twoFlowClient())
+    await waitForReady(result)
+    act(() => result.current.selectFlow('pokedex'))
+    await waitFor(() => expect(result.current.descriptor?.id).toBe('pokedex'))
+
+    expect(result.current.startId).toBe('byName')
+    expect(result.current.inputDraft).toEqual({ name: '' })
+  })
+
+  it('re-seeds the input draft from the start it is moved to', async () => {
+    const { result } = setup(twoFlowClient())
+    await waitForReady(result)
+    act(() => result.current.selectFlow('pokedex'))
+    await waitFor(() => expect(result.current.startId).toBe('byName'))
+    act(() => result.current.setInputField('name', 'pikachu'))
+
+    act(() => result.current.selectStart('byNumber'))
+
+    expect(result.current.startId).toBe('byNumber')
+    expect(result.current.selectedNodeId).toBe('byNumber')
+    expect(result.current.inputDraft).toEqual({ number: '25' })
+  })
+
+  it('runs the start it is pointed at, not the first one', async () => {
+    const startRun = vi.fn(async () => streamOf([{ type: 'run-accepted' as const, runToken: 't' }]))
+    const { result } = setup(twoFlowClient({ startRun }))
+    await waitForReady(result)
+    act(() => result.current.selectFlow('pokedex'))
+    await waitFor(() => expect(result.current.startId).toBe('byName'))
+    act(() => result.current.selectStart('byNumber'))
+
+    await act(async () => result.current.run({ number: 25 }))
+    await waitFor(() => expect(result.current.running).toBe(false))
+
+    expect(startRun).toHaveBeenCalledWith({
+      flowId: 'pokedex',
+      startId: 'byNumber',
+      input: { number: 25 },
+    })
+  })
+
+  it('ignores a start the descriptor does not declare', async () => {
+    const { result } = setup(twoFlowClient())
+    await waitForReady(result)
+    act(() => result.current.selectFlow('pokedex'))
+    await waitFor(() => expect(result.current.startId).toBe('byName'))
+
+    act(() => result.current.selectStart('byColour'))
+
+    expect(result.current.startId).toBe('byName')
+  })
+
+  it('ignores a start change while a run is in flight', async () => {
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const { result } = setup(
+      twoFlowClient({
+        startRun: async () =>
+          (async function* () {
+            yield { type: 'run-accepted', runToken: 'tok' } as RunStreamEvent
+            await gate
+          })(),
+      }),
+    )
+    await waitForReady(result)
+    act(() => result.current.selectFlow('pokedex'))
+    await waitFor(() => expect(result.current.startId).toBe('byName'))
+
+    act(() => result.current.run({ name: 'pikachu' }))
+    await waitFor(() => expect(result.current.running).toBe(true))
+
+    act(() => result.current.selectStart('byNumber'))
+    expect(result.current.startId).toBe('byName')
+
+    await act(async () => {
+      release()
+      await gate
+      await flush()
+    })
   })
 })
 

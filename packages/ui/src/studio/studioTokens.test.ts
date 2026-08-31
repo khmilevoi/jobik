@@ -11,8 +11,6 @@ describe('studioColors', () => {
 describe('studioMetrics', () => {
   it('matches the Studio — run in progress artboard', () => {
     expect(studioMetrics.chipHeight).toBe(28)
-    expect(studioMetrics.chipSpinnerSize).toBe(11)
-    expect(studioMetrics.chipSpinnerBorderWidth).toBe(1.5)
     expect(studioMetrics.chipActionHeight).toBe(20)
   })
 })

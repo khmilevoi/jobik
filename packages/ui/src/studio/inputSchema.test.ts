@@ -263,6 +263,27 @@ describe('runInputPresentation', () => {
     expect(presentation.title).toBe('line')
   })
 
+  it('makes a declared-multiline string an area on first render, with an empty draft', () => {
+    // The artboard draws `markdown` as an area before anything is typed. Nothing in the draft can
+    // say so, which is why the signal is on the descriptor — see DEFERRED 6-#6.
+    const descriptor: NodeInputDescriptor = {
+      nodeId: 'start1',
+      fields: [
+        { field: 'title', required: true, annotation: 'string', control: { kind: 'string' } },
+        {
+          field: 'markdown',
+          required: true,
+          annotation: 'string',
+          control: { kind: 'string', multiline: true },
+        },
+      ],
+    }
+
+    const presentation = runInputPresentation(descriptor, initialRunInputDraft(descriptor))
+
+    expect(presentation).toStrictEqual({ title: 'line', markdown: 'area' })
+  })
+
   it('makes a multi-line or long string an area', () => {
     const presentation = runInputPresentation(DESCRIPTOR, {
       ...initialRunInputDraft(DESCRIPTOR),

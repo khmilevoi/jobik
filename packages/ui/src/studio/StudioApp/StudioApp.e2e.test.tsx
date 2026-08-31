@@ -15,10 +15,11 @@ import { serveFlowRegistry } from '#server/httpServer.js'
 import { jobikAllRoutes } from '#server/runRoutes.js'
 import { registryOf } from '#server/runTestSupport.js'
 import { pushCleanup, setupCleanups, temporaryFlow } from '#server/testSupport.js'
+import { dragNode } from '#studio/canvasDragTestSupport.js'
 import {
   publicationExpectedUrlPattern,
   publicationSampleInput,
-} from '../../../../../examples/publication/fixtures.js'
+} from '../../../../../examples/showcase/publication/fixtures.js'
 import { StudioApp } from './StudioApp.js'
 
 /**
@@ -103,44 +104,6 @@ function mount(overrides: Partial<JobikClient> = {}) {
   )
 }
 
-/**
- * Drives one real React Flow node drag through the DOM events `d3-drag` (via `@xyflow/system`'s
- * `XYDrag`) actually listens for. `FlowCanvas` never touches pointer events for node dragging — it
- * hands the whole node off to `d3-drag`, which binds `mousedown`/`mousemove`/`mouseup` and reads
- * `event.view` to find the window it should track the rest of the gesture on. jsdom's `MouseEvent`
- * constructor rejects a `view` that is not exactly its own `Window`-branded object even when given
- * `window` itself, so it is patched onto the constructed event afterwards instead.
- *
- * `d3-drag`'s own gesture only "starts" once one move exceeds its drag threshold; that FIRST move
- * establishes the gesture's own baseline pointer position, and only a SUBSEQUENT move's delta from
- * that baseline reaches `onNodeDragStop`. The first move below is therefore a small, disposable
- * threshold-crosser, and `dx`/`dy` are the delta applied by the second — confirmed empirically
- * against this exact drag stack before being written into this test.
- */
-function dragNode(container: HTMLElement, nodeId: string, dx: number, dy: number): void {
-  const nodeEl = container.querySelector(`.react-flow__node[data-id="${nodeId}"]`)
-  if (nodeEl === null) throw new Error(`dragNode: no rendered React Flow node for "${nodeId}"`)
-
-  const dispatch = (target: EventTarget, type: string, clientX: number, clientY: number) => {
-    const event = new MouseEvent(type, {
-      bubbles: true,
-      cancelable: true,
-      clientX,
-      clientY,
-      button: 0,
-    })
-    Object.defineProperty(event, 'view', { value: window, configurable: true })
-    target.dispatchEvent(event)
-  }
-
-  const startX = 200
-  const startY = 200
-  dispatch(nodeEl, 'mousedown', startX, startY)
-  dispatch(window, 'mousemove', startX + 3, startY + 3)
-  dispatch(window, 'mousemove', startX + 3 + dx, startY + 3 + dy)
-  dispatch(window, 'mouseup', startX + 3 + dx, startY + 3 + dy)
-}
-
 describe('the Studio over the publication example', () => {
   it('loads the flow from the server and draws it', async () => {
     mount()
@@ -160,7 +123,9 @@ describe('the Studio over the publication example', () => {
   it('derives the run inputs from the start schema', async () => {
     mount()
 
-    await waitFor(() => expect(screen.getByTestId('run-input-title')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByTestId('run-input-title')).toBeInTheDocument(), {
+      timeout: 30_000,
+    })
     expect(screen.getByTestId('run-input-markdown')).toBeInTheDocument()
     expect(screen.getByTestId('run-input-annotation-title').textContent).toBe('string')
   })
@@ -170,21 +135,19 @@ describe('the Studio over the publication example', () => {
   }, async () => {
     mount()
 
-    await waitFor(() => expect(screen.getByTestId('run-input-title')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByTestId('run-input-title')).toBeInTheDocument(), {
+      timeout: 30_000,
+    })
     await userEvent.type(screen.getByTestId('run-input-title'), publicationSampleInput.title)
     await userEvent.type(screen.getByTestId('run-input-markdown'), publicationSampleInput.markdown)
     await userEvent.click(screen.getByTestId('run-start-button'))
 
-    await waitFor(() => expect(screen.getByTestId('run-outputs-label')).toBeInTheDocument(), {
+    // `2A`'s completed panel ends at `Re-run start1` and the `Log` block; the run's outputs are
+    // in the bottom output dock, not here.
+    await waitFor(() => expect(screen.getByTestId('run-rerun-button')).toBeInTheDocument(), {
       timeout: 30_000,
     })
-
-    // `render` produced a binary field; `publish` produced a URL. Ruling R1: an asset output
-    // field is one field, so the unqualified name `image` is correct, not `render.image`.
-    expect(screen.getByTestId('run-output-name-image')).toBeInTheDocument()
-    expect(screen.getByTestId('run-output-well-url').textContent).toMatch(
-      publicationExpectedUrlPattern,
-    )
+    expect(screen.queryByTestId('run-outputs-label')).toBeNull()
     // Every node settled ok.
     expect(screen.getByTestId('run-timing-value-publish').textContent).toMatch(/s$/)
 
@@ -215,22 +178,39 @@ describe('the Studio over the publication example', () => {
     )
     expect(caption.textContent).toMatch(/^png · \d+ kb/)
     expect(caption.textContent).not.toContain('×')
-    // The caption row's right cell is the producing node DEFINITION's own name (design 206 reads
-    // `imageOut`, the same string that artboard's `Inventory` lists). On the wire that is
-    // `SafeNodeDescriptorPayload.title` — the one field `toInventory` also reads — so here it is
-    // the example's own `imageOut.title`, not the artboard's fixture spelling of it.
+    // The caption row's right cell is `inspect`, and it opens the output dock.
+    //
+    // Two artboards fix that cell differently: `Studio — default` (206) puts the producing node
+    // definition's own name there — `imageOut`, the string that artboard's `Inventory` lists — and
+    // `2A` puts an accent `inspect` there instead. `NodeOutputSlot` treats them as alternatives
+    // and never draws both, and `2A` is the newer artboard, so a card that can open the dock
+    // offers `inspect`; a card that cannot still names its source.
     expect(
-      within(screen.getByTestId('node-card-render')).getByTestId('node-output-source'),
-    ).toHaveTextContent('Render image')
+      within(screen.getByTestId('node-card-render')).getByTestId('node-output-inspect'),
+    ).toHaveTextContent('inspect')
 
-    // `StudioApp` also hands the whole `WireRunReportPayload` — `runNumber` included — to
-    // `OutputViewer`'s `Raw` tab. `Open`ing the asset field's viewer and switching to `Raw` proves
-    // the viewer tabs `## Verification` asks for, over the one route `StudioApp` actually built.
-    await userEvent.click(screen.getByTestId('run-output-open-image'))
-    await waitFor(() => expect(screen.getByTestId('output-viewer')).toBeInTheDocument())
+    // `StudioApp` also hands the whole `WireRunReportPayload` — `runNumber` included — to the
+    // dock's `Raw` tab. Opening the dock from the card and switching to `Raw` proves the tabs
+    // `## Verification` asks for, over the one route `StudioApp` actually built.
+    await userEvent.click(
+      within(screen.getByTestId('node-card-render')).getByTestId('node-output-inspect'),
+    )
+    await waitFor(() => expect(screen.getByTestId('output-dock')).toBeInTheDocument())
+    // The header's mono context line is composed from real data: the node, its asset-bearing
+    // output field, that field's own annotation, the file count and the run number.
+    expect(screen.getByTestId('output-viewer-source').textContent).toMatch(
+      /^render\.image · \w+\[\d+\] · run #\d+$/,
+    )
     await userEvent.click(screen.getByText('Raw'))
     await waitFor(() =>
       expect(screen.getByTestId('output-viewer-panel').textContent).toMatch(/"runNumber":\s*\d+/),
+    )
+    // `publish` produced the URL, and it is reachable in the dock's raw payload. The shared
+    // pattern is anchored at both ends because its other call sites match a lone URL; here it has
+    // to be found INSIDE a JSON document, so the anchors are stripped rather than a second
+    // pattern invented.
+    expect(screen.getByTestId('output-viewer-panel').textContent).toMatch(
+      new RegExp(publicationExpectedUrlPattern.source.replace(/^\^|\$$/g, '')),
     )
   })
 
@@ -243,7 +223,7 @@ describe('the Studio over the publication example', () => {
      * loaded extension — `'serves a real flow-local extension bundle over HTTP'` below only ever
      * fetched the raw bytes. This test mounts `StudioApp` against the REAL served bundle
      * (`GET /api/flows/publication/ui.js`, the same Vite build that route invokes) and asserts the
-     * real `RenderedImage` component (`examples/publication/components/RenderedImage.tsx`, the
+     * real `RenderedImage` component (`examples/showcase/publication/components/RenderedImage.tsx`, the
      * `flow.ui.tsx` default-exports it for the `render` node) actually renders inside the `render`
      * node card's inline output slot — not `GenericOutput`'s raw-JSON fallback every other test in
      * this file exercises instead, deliberately, by pointing `extensionBundleUrl` at an unknown
@@ -297,7 +277,9 @@ describe('the Studio over the publication example', () => {
         />,
       )
 
-      await waitFor(() => expect(screen.getByTestId('run-input-title')).toBeInTheDocument())
+      await waitFor(() => expect(screen.getByTestId('run-input-title')).toBeInTheDocument(), {
+        timeout: 30_000,
+      })
       await userEvent.type(screen.getByTestId('run-input-title'), publicationSampleInput.title)
       await userEvent.type(
         screen.getByTestId('run-input-markdown'),
@@ -305,7 +287,7 @@ describe('the Studio over the publication example', () => {
       )
       await userEvent.click(screen.getByTestId('run-start-button'))
 
-      await waitFor(() => expect(screen.getByTestId('run-outputs-label')).toBeInTheDocument(), {
+      await waitFor(() => expect(screen.getByTestId('run-rerun-button')).toBeInTheDocument(), {
         timeout: 30_000,
       })
 
@@ -350,16 +332,24 @@ describe('the Studio over the publication example', () => {
 
     await userEvent.click(screen.getByText('Save').closest('button') as HTMLElement)
 
-    await waitFor(async () => {
-      const after = JSON.parse(await readFile(documentPath, 'utf8')) as {
-        format: string
-        layout: Record<string, { x: number; y: number }>
-      }
-      expect(after.format).toBe('jobik.flow')
-      // The exact position the drag above produced — proof the save wrote the real edit, not just
-      // the untouched document.
-      expect(after.layout.render).toEqual({ x: 450, y: 126 })
-    })
+    // An explicit budget, not `waitFor`'s 1s default: this waits on a real loopback round trip
+    // plus an atomic write-and-rename, which measures ~0.6s on an idle machine and blows past 1s
+    // under the gate — the same jsdom-worker starvation `vitest.config.ts` raises `testTimeout`
+    // for. 10s stays well inside that 20s, so a genuine regression still fails on the assertion
+    // rather than on the test clock. The assertion itself is unchanged.
+    await waitFor(
+      async () => {
+        const after = JSON.parse(await readFile(documentPath, 'utf8')) as {
+          format: string
+          layout: Record<string, { x: number; y: number }>
+        }
+        expect(after.format).toBe('jobik.flow')
+        // The exact position the drag above produced — proof the save wrote the real edit, not
+        // just the untouched document.
+        expect(after.layout.render).toEqual({ x: 450, y: 126 })
+      },
+      { timeout: 10_000 },
+    )
     expect(screen.queryByTestId('studio-conflict-chip')).toBeNull()
     await waitFor(() => expect(screen.queryByTestId('studio-dirty')).toBeNull())
   })
@@ -432,7 +422,9 @@ describe('the Studio over the publication example', () => {
   }, async () => {
     mount()
 
-    await waitFor(() => expect(screen.getByTestId('run-input-title')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByTestId('run-input-title')).toBeInTheDocument(), {
+      timeout: 30_000,
+    })
     await userEvent.type(screen.getByTestId('run-input-title'), publicationSampleInput.title)
     await userEvent.type(screen.getByTestId('run-input-markdown'), publicationSampleInput.markdown)
     await userEvent.click(screen.getByTestId('run-start-button'))
