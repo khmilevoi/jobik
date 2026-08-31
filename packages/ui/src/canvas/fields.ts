@@ -1,6 +1,5 @@
-import type { CSSProperties } from 'react'
-import { accent, px, textColors } from '../tokens.js'
-import { canvasColors, canvasMetrics } from './canvasTokens.js'
+import { cx } from '../cx.js'
+import s from './fields.module.css'
 import type {
   FieldEdgeTone,
   FieldHandleTone,
@@ -23,14 +22,25 @@ export function resolveFieldTone(field: NodeFieldSpec, isStart: boolean): FieldT
   return isStart ? 'active' : 'normal'
 }
 
-export function fieldLabelColor(tone: FieldTone): string {
-  if (tone === 'active') return textColors.activeFieldLabel
-  if (tone === 'dim') return canvasColors.fieldLabelDim
-  return textColors.fieldLabel
+/** Spelled out in full, never indexed by a computed key — see `cssModuleUsage.test.ts`. */
+const labelTones = {
+  active: s.labelActive,
+  normal: s.labelNormal,
+  dim: s.labelDim,
+} satisfies Record<FieldTone, string>
+
+const annotationTones = {
+  active: s.annotationNormal,
+  normal: s.annotationNormal,
+  dim: s.annotationDim,
+} satisfies Record<FieldTone, string>
+
+export function fieldLabelClass(tone: FieldTone): string {
+  return labelTones[tone]
 }
 
-export function fieldAnnotationColor(tone: FieldTone): string {
-  return tone === 'dim' ? canvasColors.annotationDim : textColors.typeAnnotation
+export function fieldAnnotationClass(tone: FieldTone): string {
+  return annotationTones[tone]
 }
 
 export function fieldHandleId(direction: HandleDirection, name: string): string {
@@ -50,28 +60,20 @@ export function parseFieldHandleId(
   return { direction, name }
 }
 
-const handleBorders: Record<FieldHandleTone, string> = {
-  accent: accent.cssVar,
-  idle: canvasColors.handleIdle,
-  dim: canvasColors.handleDim,
-}
+const handleTones = {
+  accent: s.handleAccent,
+  idle: s.handleIdle,
+  dim: s.handleDim,
+} satisfies Record<FieldHandleTone, string>
+
+const handleEdges = {
+  source: s.handleSource,
+  target: s.handleTarget,
+} satisfies Record<HandleDirection, string>
 
 /** The 8px circle, 1.5px border, offset `-4px` and vertically centred on its row. */
-export function fieldHandleStyle(tone: FieldHandleTone, direction: HandleDirection): CSSProperties {
-  const offset = px(canvasMetrics.handleOffset)
-  return {
-    position: 'absolute',
-    width: px(canvasMetrics.handleSize),
-    height: px(canvasMetrics.handleSize),
-    minWidth: px(canvasMetrics.handleSize),
-    minHeight: px(canvasMetrics.handleSize),
-    borderRadius: '50%',
-    background: canvasColors.handleFill,
-    border: `${px(canvasMetrics.handleBorderWidth)} solid ${handleBorders[tone]}`,
-    top: '50%',
-    transform: 'translateY(-50%)',
-    ...(direction === 'source' ? { right: offset } : { left: offset }),
-  }
+export function fieldHandleClass(tone: FieldHandleTone, direction: HandleDirection): string {
+  return cx(s.handle, handleTones[tone], handleEdges[direction])
 }
 
 export function endpointKey(nodeId: string, direction: HandleDirection, field: string): string {

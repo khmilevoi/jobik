@@ -1,0 +1,35 @@
+/*
+ * The 45° stripe field. Height, corner radius and the cached treatment's opacity are the caller's
+ * — a run panel thumbnail, a 96px state body and a 140px inline slot all use this one component —
+ * so they arrive as custom properties this rule reads rather than as classes it could enumerate.
+ */
+
+.placeholder {
+  position: relative;
+  height: var(--jbk-stripe-height);
+  overflow: hidden;
+  border-radius: var(--jbk-stripe-radius, 0);
+  background: var(--jbk-surface-image-placeholder);
+  opacity: var(--jbk-stripe-opacity, 1);
+}
+
+/* `fill` is a presentation attribute, so a class beats the element's own default. */
+.base {
+  fill: var(--jbk-canvas-stripe-base);
+}
+
+.line {
+  fill: var(--jbk-canvas-stripe-line);
+}
+
+.label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-10);
+  letter-spacing: var(--jbk-tracking-start-tag);
+  color: var(--jbk-canvas-slot-caption);
+}

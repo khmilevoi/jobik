@@ -1,0 +1,61 @@
+/*
+ * The tone classes `fields.ts` resolves: the field label, its dimmed annotation, and the 8px
+ * handle. They live beside the resolver rather than in either component's stylesheet because one
+ * function decides them for two components — `NodeFieldRow` paints the label, `FieldHandle` paints
+ * the handle — and a module may bind exactly one stylesheet to `s`.
+ */
+
+.labelActive {
+  color: var(--jbk-text-active-field-label);
+}
+
+.labelNormal {
+  color: var(--jbk-text-field-label);
+}
+
+.labelDim {
+  color: var(--jbk-canvas-field-label-dim);
+}
+
+.annotationNormal {
+  color: var(--jbk-text-type-annotation);
+}
+
+.annotationDim {
+  color: var(--jbk-canvas-annotation-dim);
+}
+
+/* The 8px circle, 1.5px border, hanging 4px off the card edge and centred on its row. */
+.handle {
+  position: absolute;
+  top: 50%;
+  width: var(--jbk-canvas-handle-size);
+  min-width: var(--jbk-canvas-handle-size);
+  height: var(--jbk-canvas-handle-size);
+  min-height: var(--jbk-canvas-handle-size);
+  transform: translateY(-50%);
+  border-width: var(--jbk-canvas-handle-border-width);
+  border-style: solid;
+  border-radius: var(--jbk-radius-round);
+  background: var(--jbk-canvas-handle-fill);
+}
+
+.handleSource {
+  right: var(--jbk-canvas-handle-offset);
+}
+
+.handleTarget {
+  left: var(--jbk-canvas-handle-offset);
+}
+
+.handleAccent {
+  border-color: var(--jbk-accent);
+}
+
+.handleIdle {
+  border-color: var(--jbk-canvas-handle-idle);
+}
+
+.handleDim {
+  border-color: var(--jbk-canvas-handle-dim);
+}

@@ -1,0 +1,60 @@
+/*
+ * The optional inline output slot between a card's input and output sections. This file owns the
+ * gutter, the well's inner layout, the media box and the caption row; `InsetWell` still owns the
+ * well's own border, padding and surface, and P12 owns whatever `slot.content` renders.
+ *
+ * `--jbk-node-caption-color` is the override point behind the `captionColor` prop: an ok card
+ * reads the metadata step and every other state the type-annotation step, and only the caller
+ * knows which.
+ */
+
+.slot {
+  padding: var(--jbk-canvas-output-slot-gutter);
+}
+
+.well {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  height: var(--jbk-canvas-output-slot-height);
+}
+
+.media {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--jbk-canvas-output-slot-media-height);
+  overflow: hidden;
+  border-radius: var(--jbk-radius-badge);
+}
+
+.skeleton {
+  background: var(--jbk-canvas-skeleton);
+  background-size: var(--jbk-canvas-skeleton-background-size);
+  animation: var(--jbk-motion-shimmer);
+}
+
+.skeletonLabel {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-10);
+  color: var(--jbk-canvas-annotation-dim);
+  animation: var(--jbk-motion-pulse-slow);
+}
+
+.caption {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: var(--jbk-canvas-output-slot-caption-height);
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-9-5);
+  color: var(--jbk-node-caption-color);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.source {
+  color: var(--jbk-text-section-label);
+}

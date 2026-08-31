@@ -1,0 +1,68 @@
+/*
+ * The 36px card header. Every colour here reads a `--jbk-card-*` custom property that the card's
+ * own state class sets on the root — see `cardChrome.module.css`. That indirection is what lets
+ * one state class colour the divider, the title, the status text and the status dot at once
+ * without this file and that one declaring the same property.
+ */
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--jbk-layout-node-header-height);
+  padding: 0 var(--jbk-canvas-card-padding-x);
+  border-bottom: 1px solid var(--jbk-card-header-divider);
+}
+
+.spinner {
+  width: var(--jbk-canvas-spinner-size);
+  height: var(--jbk-canvas-spinner-size);
+  border: var(--jbk-canvas-handle-border-width) solid var(--jbk-canvas-spinner-track);
+  border-top-color: var(--jbk-accent);
+  border-radius: var(--jbk-radius-round);
+  animation: var(--jbk-motion-spinner);
+}
+
+.kindDot {
+  width: var(--jbk-canvas-kind-dot-size);
+  height: var(--jbk-canvas-kind-dot-size);
+  border-radius: var(--jbk-radius-kind-dot);
+}
+
+.title {
+  font-size: var(--jbk-size-13);
+  font-weight: var(--jbk-weight-semibold);
+  letter-spacing: var(--jbk-tracking-title);
+  color: var(--jbk-card-title);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.startTag {
+  text-transform: uppercase;
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-9-5);
+  letter-spacing: var(--jbk-tracking-start-tag);
+  color: var(--jbk-accent);
+}
+
+.statusGroup {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.statusDot {
+  width: var(--jbk-canvas-status-dot-size);
+  height: var(--jbk-canvas-status-dot-size);
+  border-radius: var(--jbk-radius-round);
+  background: var(--jbk-card-status);
+}
+
+.status {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-9-5);
+  color: var(--jbk-card-status);
+}

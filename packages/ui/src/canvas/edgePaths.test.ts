@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { accent, motion } from '../tokens.js'
-import { canvasColors } from './canvasTokens.js'
-import { curvedFieldPath, fieldEdgePath, fieldEdgeStyle, steppedFieldPath } from './edgePaths.js'
+import { curvedFieldPath, fieldEdgeClass, fieldEdgePath, steppedFieldPath } from './edgePaths.js'
+import type { FieldEdgeTone } from './types.js'
 
 /** `Studio — default`, the two accent runs from start1 to render. */
 const first = { sourceX: 286, sourceY: 321, targetX: 386, targetY: 223 }
@@ -40,29 +39,15 @@ describe('fieldEdgePath', () => {
   })
 })
 
-describe('fieldEdgeStyle', () => {
-  it('accents an edge leaving the selected start at 1.3px', () => {
-    expect(fieldEdgeStyle('accent')).toEqual({ stroke: accent.cssVar, strokeWidth: 1.3 })
+const TONES: readonly FieldEdgeTone[] = ['accent', 'idle', 'active', 'waiting']
+
+describe('fieldEdgeClass', () => {
+  it('gives each of the four tones its own stroke', () => {
+    expect(new Set(TONES.map(fieldEdgeClass)).size).toBe(TONES.length)
   })
 
-  it('draws every other resting edge in the idle stroke', () => {
-    expect(fieldEdgeStyle('idle')).toEqual({ stroke: canvasColors.edgeIdle, strokeWidth: 1.3 })
-  })
-
-  it('runs the .8s dash loop on an active edge, at 1.4px', () => {
-    expect(fieldEdgeStyle('active')).toEqual({
-      stroke: accent.cssVar,
-      strokeWidth: 1.4,
-      strokeDasharray: '5 7',
-      animation: motion.edgeDash,
-    })
-  })
-
-  it('leaves a waiting edge statically dashed', () => {
-    expect(fieldEdgeStyle('waiting')).toEqual({
-      stroke: canvasColors.edgeWaiting,
-      strokeWidth: 1.3,
-      strokeDasharray: '3 5',
-    })
+  it('keeps every tone on the same base edge', () => {
+    const base = fieldEdgeClass('idle').split(' ')[0]
+    for (const tone of TONES) expect(fieldEdgeClass(tone).split(' ')[0]).toBe(base)
   })
 })

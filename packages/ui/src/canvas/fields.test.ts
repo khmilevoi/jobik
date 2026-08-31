@@ -1,19 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { accent, textColors } from '../tokens.js'
-import { canvasColors } from './canvasTokens.js'
 import {
   endpointKey,
-  fieldAnnotationColor,
+  fieldAnnotationClass,
+  fieldHandleClass,
   fieldHandleId,
-  fieldHandleStyle,
-  fieldLabelColor,
+  fieldLabelClass,
   liveEndpointKeys,
   parseFieldHandleId,
   resolveEdgeTone,
   resolveFieldTone,
   resolveHandleTone,
 } from './fields.js'
-import type { FlowCanvasEdge } from './types.js'
+import type { FieldHandleTone, FieldTone, FlowCanvasEdge } from './types.js'
 
 describe('resolveFieldTone', () => {
   it('dims a field whose annotation is pending or waiting', () => {
@@ -37,14 +35,16 @@ describe('resolveFieldTone', () => {
   })
 })
 
-describe('field colours', () => {
-  it('maps each tone to its artboard label and annotation step', () => {
-    expect(fieldLabelColor('active')).toBe(textColors.activeFieldLabel)
-    expect(fieldLabelColor('normal')).toBe(textColors.fieldLabel)
-    expect(fieldLabelColor('dim')).toBe(canvasColors.fieldLabelDim)
-    expect(fieldAnnotationColor('active')).toBe(textColors.typeAnnotation)
-    expect(fieldAnnotationColor('normal')).toBe(textColors.typeAnnotation)
-    expect(fieldAnnotationColor('dim')).toBe(canvasColors.annotationDim)
+const TONES: readonly FieldTone[] = ['active', 'normal', 'dim']
+
+describe('field tone classes', () => {
+  it('puts each of the three tones on its own label step', () => {
+    expect(new Set(TONES.map(fieldLabelClass)).size).toBe(TONES.length)
+  })
+
+  it('moves the annotation off the type step only when the row is dimmed', () => {
+    expect(fieldAnnotationClass('active')).toBe(fieldAnnotationClass('normal'))
+    expect(fieldAnnotationClass('dim')).not.toBe(fieldAnnotationClass('normal'))
   })
 })
 
@@ -65,29 +65,24 @@ describe('handle ids', () => {
   })
 })
 
-describe('fieldHandleStyle', () => {
-  it('draws the 8px circle at the design offset, on the correct edge', () => {
-    const source = fieldHandleStyle('idle', 'source')
-    expect(source).toMatchObject({
-      width: '8px',
-      height: '8px',
-      borderRadius: '50%',
-      background: canvasColors.handleFill,
-      border: `1.5px solid ${canvasColors.handleIdle}`,
-      right: '-4px',
-      top: '50%',
-      transform: 'translateY(-50%)',
-    })
-    expect(source.left).toBeUndefined()
+const HANDLE_TONES: readonly FieldHandleTone[] = ['accent', 'idle', 'dim']
 
-    const target = fieldHandleStyle('accent', 'target')
-    expect(target.left).toBe('-4px')
-    expect(target.right).toBeUndefined()
-    expect(target.border).toBe(`1.5px solid ${accent.cssVar}`)
+describe('fieldHandleClass', () => {
+  it('hangs a source handle off the right edge and a target handle off the left', () => {
+    expect(fieldHandleClass('idle', 'source')).not.toBe(fieldHandleClass('idle', 'target'))
   })
 
-  it('uses the dim border for a pending or waiting field', () => {
-    expect(fieldHandleStyle('dim', 'source').border).toBe(`1.5px solid ${canvasColors.handleDim}`)
+  it('gives each of the three tones its own border', () => {
+    const bySource = HANDLE_TONES.map((tone) => fieldHandleClass(tone, 'source'))
+    expect(new Set(bySource).size).toBe(HANDLE_TONES.length)
+  })
+
+  it('draws the same circle whatever the tone and whichever edge it sits on', () => {
+    const shape = fieldHandleClass('accent', 'source').split(' ')[0]
+    for (const tone of HANDLE_TONES) {
+      expect(fieldHandleClass(tone, 'source').split(' ')[0]).toBe(shape)
+      expect(fieldHandleClass(tone, 'target').split(' ')[0]).toBe(shape)
+    }
   })
 })
 

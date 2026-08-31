@@ -1,0 +1,17 @@
+/*
+ * The canvas slot. `.canvas` is the flex cell the shell gives the graph; `.flow` fills it with
+ * React Flow's own root, which is otherwise sized by the caller.
+ */
+
+.canvas {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  background: var(--jbk-surface-shell);
+}
+
+.flow {
+  width: 100%;
+  height: 100%;
+}

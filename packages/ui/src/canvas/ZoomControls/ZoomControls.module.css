@@ -1,0 +1,37 @@
+/*
+ * The bottom-left zoom controls: two 26px squares and a percentage readout, all wearing the same
+ * chrome. `.panel` restates the margin because React Flow's own `.react-flow__panel` sets one;
+ * the Studio bundle imports React Flow's stylesheet first, so this wins on source order.
+ */
+
+.panel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 var(--jbk-canvas-zoom-controls-inset-bottom)
+    var(--jbk-canvas-zoom-controls-inset-left);
+}
+
+.chrome {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--jbk-canvas-zoom-button-size);
+  border: 1px solid var(--jbk-canvas-zoom-control-border);
+  border-radius: var(--jbk-radius-control);
+  background: var(--jbk-surface-input-well);
+  line-height: 1;
+  color: var(--jbk-text-chevron);
+}
+
+.button {
+  width: var(--jbk-canvas-zoom-button-size);
+  font-family: var(--jbk-font-ui);
+  font-size: var(--jbk-size-13);
+}
+
+.readout {
+  padding: 0 9px;
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-10);
+}

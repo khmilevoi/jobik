@@ -1,0 +1,115 @@
+/*
+ * The whole `Node states` table, as one class per state.
+ *
+ * Each state rule sets custom properties on the card root rather than painting anything itself,
+ * because a single state decides colours on five different elements — the card, its header, the
+ * title, the status text and the status dot — and a variable is the only way one class can reach
+ * all of them without this file and the component stylesheets fighting over the same property.
+ *
+ * `.highlighted` is written after the six state rules on purpose: selection wins over the state's
+ * own border, halo and title, and equal-specificity source order is what makes it. It is never
+ * combined with `.failed` — `resolveCardChrome` withholds it — which is how a failed card keeps
+ * its own treatment even when selected.
+ */
+
+.idle {
+  --jbk-card-surface: var(--jbk-surface-node-card);
+  --jbk-card-border: 1px solid var(--jbk-border-control);
+  --jbk-card-halo: none;
+  --jbk-card-header-divider: var(--jbk-border-node-header-divider);
+  --jbk-card-title: var(--jbk-text-node-title);
+  --jbk-card-status: var(--jbk-text-active-meta);
+}
+
+.queued {
+  --jbk-card-surface: var(--jbk-surface-queued-node);
+  --jbk-card-border: 1px dashed var(--jbk-border-dashed);
+  --jbk-card-halo: none;
+  --jbk-card-header-divider: var(--jbk-border-inline-hairline);
+  --jbk-card-title: var(--jbk-text-inactive-list-item);
+  --jbk-card-status: var(--jbk-text-section-label);
+}
+
+.running {
+  --jbk-card-surface: var(--jbk-surface-node-card);
+  --jbk-card-border: 1px solid var(--jbk-border-control);
+  --jbk-card-halo: none;
+  --jbk-card-header-divider: var(--jbk-border-node-header-divider);
+  --jbk-card-title: var(--jbk-text-node-title);
+  --jbk-card-status: var(--jbk-accent);
+}
+
+.ok {
+  --jbk-card-surface: var(--jbk-surface-node-card);
+  --jbk-card-border: 1px solid var(--jbk-border-control);
+  --jbk-card-halo: none;
+  --jbk-card-header-divider: var(--jbk-border-node-header-divider);
+  --jbk-card-title: var(--jbk-text-node-title);
+  --jbk-card-status: var(--jbk-status-ok);
+}
+
+.failed {
+  --jbk-card-surface: var(--jbk-surface-failed-node-card);
+  --jbk-card-border: 1px solid var(--jbk-canvas-failed-border);
+  --jbk-card-halo: var(--jbk-canvas-failed-halo);
+  --jbk-card-header-divider: var(--jbk-canvas-failed-header-divider);
+  --jbk-card-header-wash: var(--jbk-canvas-failed-header-wash);
+  --jbk-card-title: var(--jbk-canvas-title-failed);
+  --jbk-card-status: var(--jbk-status-failed);
+}
+
+.cached {
+  --jbk-card-surface: var(--jbk-surface-cached-node);
+  --jbk-card-border: 1px solid var(--jbk-border-inset);
+  --jbk-card-halo: none;
+  --jbk-card-header-divider: var(--jbk-canvas-cached-header-divider);
+  --jbk-card-title: var(--jbk-canvas-title-cached);
+  --jbk-card-status: var(--jbk-text-muted);
+}
+
+.highlighted {
+  --jbk-card-border: 1px solid var(--jbk-accent-selection-border);
+  --jbk-card-halo: var(--jbk-accent-selection-halo);
+  --jbk-card-header-wash: var(--jbk-accent-header-wash);
+  --jbk-card-title: var(--jbk-canvas-title-selected);
+}
+
+/* The header wash, and the top corners it rounds inside the card's 1px border. */
+.headerWash {
+  border-radius: var(--jbk-canvas-header-radius) var(--jbk-canvas-header-radius) 0 0;
+  background: var(--jbk-card-header-wash);
+}
+
+/* The leading 6px dot. `status` is the dot painted in the card's own status colour. */
+.kindDotStart {
+  background: var(--jbk-kind-dot-start);
+}
+
+.kindDotNeutral {
+  background: var(--jbk-kind-dot-neutral);
+}
+
+.kindDotQueued {
+  background: var(--jbk-kind-dot-queued);
+}
+
+.kindDotCached {
+  background: var(--jbk-kind-dot-cached);
+}
+
+.kindDotStatus {
+  background: var(--jbk-card-status);
+}
+
+/* The `Inputs` / `Outputs` labels, through the override point `SectionLabel` already reads. */
+.sectionLabel {
+  --jbk-section-label-color: var(--jbk-text-section-label);
+}
+
+.sectionLabelFaintest {
+  --jbk-section-label-color: var(--jbk-text-faintest);
+}
+
+.sectionLabelSelectedStart {
+  --jbk-section-label-color: var(--jbk-canvas-section-label-selected-start);
+}

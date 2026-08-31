@@ -8,14 +8,15 @@ import {
   ReactFlow,
 } from '@xyflow/react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { accent, surfaces } from '../tokens.js'
-import { canvasColors, canvasMetrics } from './canvasTokens.js'
-import { toFieldConnection, toNodeLayoutChange } from './changes.js'
-import { FieldEdge, type FieldEdgeType } from './FieldEdge.js'
-import { fieldHandleId, liveFieldsByNode, resolveEdgeTone } from './fields.js'
-import { type JobikFlowNode, JobikNode } from './NodeCard.js'
-import type { EdgeShape, FlowCanvasEdge, FlowCanvasNode, FlowCanvasProps } from './types.js'
-import { ZoomControls } from './ZoomControls.js'
+import { accent } from '../../tokens.js'
+import { canvasColors, canvasMetrics } from '../canvasTokens.js'
+import { toFieldConnection, toNodeLayoutChange } from '../changes.js'
+import { FieldEdge, type FieldEdgeType } from '../FieldEdge/FieldEdge.js'
+import { fieldHandleId, liveFieldsByNode, resolveEdgeTone } from '../fields.js'
+import { type JobikFlowNode, JobikNode } from '../NodeCard/NodeCard.js'
+import type { EdgeShape, FlowCanvasEdge, FlowCanvasNode, FlowCanvasProps } from '../types.js'
+import { ZoomControls } from '../ZoomControls/ZoomControls.js'
+import s from './FlowCanvas.module.css'
 
 /** Module constants: React Flow requires both maps to be referentially stable. */
 const nodeTypes = { jobikNode: JobikNode }
@@ -110,17 +111,7 @@ export function FlowCanvas(props: FlowCanvasProps) {
   )
 
   return (
-    <div
-      data-testid="flow-canvas"
-      style={{
-        flex: 1,
-        minWidth: 0,
-        height: '100%',
-        position: 'relative',
-        background: surfaces.shell,
-        ...props.style,
-      }}
-    >
+    <div data-testid="flow-canvas" className={s.canvas} style={props.style}>
       <ReactFlow
         nodes={rfNodes}
         edges={rfEdges}
@@ -135,7 +126,7 @@ export function FlowCanvas(props: FlowCanvasProps) {
         }}
         deleteKeyCode={null}
         proOptions={{ hideAttribution: true }}
-        style={{ width: '100%', height: '100%' }}
+        className={s.flow}
       >
         {props.showDotGrid === false ? null : <Background {...dotGrid} />}
         <ZoomControls />

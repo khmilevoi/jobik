@@ -1,25 +1,20 @@
 import type { Node, NodeProps } from '@xyflow/react'
-import { SectionLabel } from '../primitives/index.js'
-import { accent, layout, px, radii, textColors } from '../tokens.js'
-import { canvasColors, canvasMetrics } from './canvasTokens.js'
-import { resolveCardChrome, resolveCardWidth } from './cardChrome.js'
-import { fieldHandleId } from './fields.js'
-import { NodeCardHeader } from './NodeCardHeader.js'
-import { NodeFieldRow } from './NodeFieldRow.js'
-import { NodeOutputSlot } from './NodeOutputSlot.js'
-import { NodeStateBody } from './NodeStateBody.js'
-import type { HandleDirection, NodeCardData, NodeFieldSpec } from './types.js'
+import { cx, type StyleWithVars } from '../../cx.js'
+import { SectionLabel } from '../../primitives/index.js'
+import { px, textColors } from '../../tokens.js'
+import { canvasColors } from '../canvasTokens.js'
+import { resolveCardChrome, resolveCardWidth } from '../cardChrome.js'
+import { fieldHandleId } from '../fields.js'
+import { NodeCardHeader } from '../NodeCardHeader/NodeCardHeader.js'
+import { NodeFieldRow } from '../NodeFieldRow/NodeFieldRow.js'
+import { NodeOutputSlot } from '../NodeOutputSlot/NodeOutputSlot.js'
+import { NodeStateBody } from '../NodeStateBody/NodeStateBody.js'
+import type { HandleDirection, NodeCardData, NodeFieldSpec } from '../types.js'
+import s from './NodeCard.module.css'
 
 export interface NodeCardProps {
   readonly data: NodeCardData
 }
-
-const sectionRowStyle = {
-  height: px(layout.sectionLabelRowHeight),
-  display: 'flex',
-  alignItems: 'center',
-  padding: `0 ${px(canvasMetrics.cardPaddingX)}`,
-} as const
 
 /** `0.62` -> `'62%'`, without the floating-point tail `0.62 * 100` leaves behind. */
 function progressWidth(progress: number): string {
@@ -31,7 +26,7 @@ function Section(props: {
   readonly direction: HandleDirection
   readonly label: 'Inputs' | 'Outputs'
   readonly fields: readonly NodeFieldSpec[]
-  readonly color: string
+  readonly sectionLabel: string
   readonly isStart: boolean
   readonly live: ReadonlySet<string>
 }) {
@@ -39,8 +34,7 @@ function Section(props: {
     <>
       <SectionLabel
         data-testid={`node-section-${props.label.toLowerCase()}`}
-        color={props.color}
-        style={sectionRowStyle}
+        className={cx(s.sectionRow, props.sectionLabel)}
       >
         {props.label}
       </SectionLabel>
@@ -74,36 +68,24 @@ export function NodeCard(props: NodeCardProps) {
   const outputs = data.outputs ?? []
   const live = new Set(data.liveFields ?? [])
   const captionColor = data.state === 'ok' ? canvasColors.metadata : textColors.typeAnnotation
+  // The two values a stylesheet cannot know: the card's own width, and how far the bar has run.
+  const widthStyle: StyleWithVars = { '--jbk-card-width': px(resolveCardWidth(data)) }
+  const progressStyle: StyleWithVars | undefined =
+    data.progress === undefined
+      ? undefined
+      : { '--jbk-node-progress': progressWidth(data.progress) }
 
   return (
     <div
       data-testid={`node-card-${data.id}`}
-      style={{
-        width: px(resolveCardWidth(data)),
-        background: chrome.background,
-        border: chrome.border,
-        borderRadius: px(radii.nodeCard),
-        boxShadow: chrome.boxShadow,
-      }}
+      className={cx(s.card, chrome.card)}
+      style={widthStyle}
     >
       <NodeCardHeader data={data} chrome={chrome} />
 
       {data.progress === undefined ? null : (
-        <div
-          data-testid="node-progress-track"
-          style={{
-            height: px(canvasMetrics.progressBarHeight),
-            background: canvasColors.progressTrack,
-          }}
-        >
-          <div
-            data-testid="node-progress-bar"
-            style={{
-              width: progressWidth(data.progress),
-              height: px(canvasMetrics.progressBarHeight),
-              background: accent.cssVar,
-            }}
-          />
+        <div data-testid="node-progress-track" className={s.progressTrack}>
+          <div data-testid="node-progress-bar" className={s.progressBar} style={progressStyle} />
         </div>
       )}
 
@@ -112,7 +94,7 @@ export function NodeCard(props: NodeCardProps) {
           direction="target"
           label="Inputs"
           fields={inputs}
-          color={chrome.sectionLabel}
+          sectionLabel={chrome.sectionLabel}
           isStart={isStart}
           live={live}
         />
@@ -127,7 +109,7 @@ export function NodeCard(props: NodeCardProps) {
           direction="source"
           label="Outputs"
           fields={outputs}
-          color={chrome.sectionLabel}
+          sectionLabel={chrome.sectionLabel}
           isStart={isStart}
           live={live}
         />
@@ -138,7 +120,7 @@ export function NodeCard(props: NodeCardProps) {
       )}
 
       {inputs.length === 0 && outputs.length === 0 ? null : (
-        <div data-testid="node-card-footer" style={{ height: px(layout.cardFooterHeight) }} />
+        <div data-testid="node-card-footer" className={s.footer} />
       )}
     </div>
   )

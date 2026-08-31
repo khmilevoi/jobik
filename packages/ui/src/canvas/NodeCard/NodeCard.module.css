@@ -1,0 +1,38 @@
+/*
+ * The card shell. The surface, border and halo are all `--jbk-card-*` custom properties the state
+ * class from `cardChrome.module.css` sets on this same element, so this rule never has to know
+ * which of the six states it is painting.
+ *
+ * The width is the one genuinely dynamic value: `resolveCardWidth` picks 230, 316 or 236 from the
+ * card's shape, and a card may override it outright, so it arrives inline as a custom property.
+ */
+
+.card {
+  width: var(--jbk-card-width);
+  border-radius: var(--jbk-radius-node-card);
+  border: var(--jbk-card-border);
+  background: var(--jbk-card-surface);
+  box-shadow: var(--jbk-card-halo);
+}
+
+.sectionRow {
+  display: flex;
+  align-items: center;
+  height: var(--jbk-layout-section-label-row-height);
+  padding: 0 var(--jbk-canvas-card-padding-x);
+}
+
+.progressTrack {
+  height: var(--jbk-canvas-progress-bar-height);
+  background: var(--jbk-canvas-progress-track);
+}
+
+.progressBar {
+  width: var(--jbk-node-progress);
+  height: var(--jbk-canvas-progress-bar-height);
+  background: var(--jbk-accent);
+}
+
+.footer {
+  height: var(--jbk-layout-card-footer-height);
+}

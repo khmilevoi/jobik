@@ -1,17 +1,22 @@
-import { accent, borders, kindDotColors, statusColors, surfaces, textColors } from '../tokens.js'
-import { canvasColors, canvasMetrics } from './canvasTokens.js'
+import { cx } from '../cx.js'
+import { canvasMetrics } from './canvasTokens.js'
+import s from './cardChrome.module.css'
 import type { NodeCardData, NodeKindDot, NodeRunState } from './types.js'
 
+/**
+ * The class names a card's state, selection and start-ness decide. Each one is applied to a
+ * different element; `cardChrome.module.css` is where the values live.
+ */
 export interface CardChrome {
-  readonly background: string
-  readonly border: string
-  readonly boxShadow: string | undefined
-  readonly headerDivider: string
-  readonly headerWash: string | undefined
-  readonly title: string
-  readonly status: string
-  readonly sectionLabel: string
+  /** The card root. Sets the surface, border and halo, and the custom properties the header,
+   *  title, status text and status dot read. */
+  readonly card: string
+  /** The header. Empty unless the state wears a wash — the accent one, or the failed one. */
+  readonly header: string
+  /** The leading 6px dot. */
   readonly kindDot: string
+  /** The `Inputs` / `Outputs` labels. */
+  readonly sectionLabel: string
 }
 
 export interface CardChromeOptions {
@@ -21,23 +26,31 @@ export interface CardChromeOptions {
   readonly kindDot?: NodeKindDot
 }
 
-const backgrounds: Record<NodeRunState, string> = {
-  idle: surfaces.nodeCard,
-  queued: surfaces.queuedNode,
-  running: surfaces.nodeCard,
-  ok: surfaces.nodeCard,
-  failed: surfaces.failedNodeCard,
-  cached: surfaces.cachedNode,
-}
+/** Spelled out in full, never indexed by a computed key — see `cssModuleUsage.test.ts`. */
+const byState = {
+  idle: s.idle,
+  queued: s.queued,
+  running: s.running,
+  ok: s.ok,
+  failed: s.failed,
+  cached: s.cached,
+} satisfies Record<NodeRunState, string>
 
-const statuses: Record<NodeRunState, string> = {
-  idle: textColors.activeMeta,
-  queued: textColors.sectionLabel,
-  running: accent.cssVar,
-  ok: statusColors.ok,
-  failed: statusColors.failed,
-  cached: textColors.muted,
-}
+const byKindDot = {
+  start: s.kindDotStart,
+  neutral: s.kindDotNeutral,
+  queued: s.kindDotQueued,
+  cached: s.kindDotCached,
+  status: s.kindDotStatus,
+} satisfies Record<NodeKindDot, string>
+
+type SectionLabelStep = 'default' | 'faintest' | 'selectedStart'
+
+const bySectionLabel = {
+  default: s.sectionLabel,
+  faintest: s.sectionLabelFaintest,
+  selectedStart: s.sectionLabelSelectedStart,
+} satisfies Record<SectionLabelStep, string>
 
 function defaultKindDot(state: NodeRunState, isStart: boolean): NodeKindDot {
   if (isStart) return 'start'
@@ -49,68 +62,28 @@ function defaultKindDot(state: NodeRunState, isStart: boolean): NodeKindDot {
 
 /**
  * The whole `Node states` table in one place. `failed` outranks selection: a failed card keeps its
- * own border, halo, divider, wash and title even when selected. `running` always wears the
- * selection treatment, whether or not it is selected — per `### Node states`.
+ * own border, halo, divider, wash and title even when selected, which is why `highlighted` is
+ * withheld from it rather than overridden. `running` always wears the selection treatment, whether
+ * or not it is selected — per `### Node states`.
  */
 export function resolveCardChrome(options: CardChromeOptions): CardChrome {
   const { state } = options
   const isStart = options.isStart ?? false
   const failed = state === 'failed'
   const highlighted = !failed && (options.selected === true || state === 'running')
-  const status = statuses[state]
   const dot = options.kindDot ?? defaultKindDot(state, isStart)
 
-  const title = (): string => {
-    if (failed) return canvasColors.titleFailed
-    if (highlighted) return canvasColors.titleSelected
-    if (state === 'cached') return canvasColors.titleCached
-    if (state === 'queued') return textColors.inactiveListItem
-    return textColors.nodeTitle
-  }
-
-  const border = (): string => {
-    if (failed) return `1px solid ${canvasColors.failedBorder}`
-    if (highlighted) return `1px solid ${accent.selectionBorder}`
-    if (state === 'queued') return `1px dashed ${borders.dashed}`
-    if (state === 'cached') return `1px solid ${borders.inset}`
-    return `1px solid ${borders.control}`
-  }
-
-  const headerDivider = (): string => {
-    if (failed) return canvasColors.failedHeaderDivider
-    if (state === 'queued') return borders.inlineHairline
-    if (state === 'cached') return canvasColors.cachedHeaderDivider
-    return borders.nodeHeaderDivider
-  }
-
-  const boxShadow = (): string | undefined => {
-    if (failed) return canvasColors.failedHalo
-    if (highlighted) return accent.selectionHalo
-    return undefined
-  }
-
-  const headerWash = (): string | undefined => {
-    if (failed) return canvasColors.failedHeaderWash
-    if (highlighted) return accent.headerWash
-    return undefined
-  }
-
   const sectionLabel = (): string => {
-    if (state === 'queued') return textColors.faintest
-    if (isStart && options.selected === true) return canvasColors.sectionLabelSelectedStart
-    return textColors.sectionLabel
+    if (state === 'queued') return bySectionLabel.faintest
+    if (isStart && options.selected === true) return bySectionLabel.selectedStart
+    return bySectionLabel.default
   }
 
   return {
-    background: backgrounds[state],
-    border: border(),
-    boxShadow: boxShadow(),
-    headerDivider: headerDivider(),
-    headerWash: headerWash(),
-    title: title(),
-    status,
+    card: cx(byState[state], highlighted && s.highlighted),
+    header: failed || highlighted ? s.headerWash : '',
+    kindDot: byKindDot[dot],
     sectionLabel: sectionLabel(),
-    kindDot: dot === 'status' ? status : kindDotColors[dot],
   }
 }
 

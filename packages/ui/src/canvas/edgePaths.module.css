@@ -1,0 +1,28 @@
+/*
+ * The four edge tones. `.edge` carries what every tone shares; the tone classes are written after
+ * it so `active`'s heavier stroke wins on source order, in one file, deterministically.
+ */
+
+.edge {
+  stroke-width: var(--jbk-canvas-edge-stroke-width);
+}
+
+.accent {
+  stroke: var(--jbk-accent);
+}
+
+.idle {
+  stroke: var(--jbk-canvas-edge-idle);
+}
+
+.active {
+  stroke: var(--jbk-accent);
+  stroke-width: var(--jbk-canvas-edge-active-stroke-width);
+  stroke-dasharray: var(--jbk-canvas-edge-active-dash);
+  animation: var(--jbk-motion-edge-dash);
+}
+
+.waiting {
+  stroke: var(--jbk-canvas-edge-waiting);
+  stroke-dasharray: var(--jbk-canvas-edge-waiting-dash);
+}

@@ -1,6 +1,5 @@
-import type { CSSProperties } from 'react'
-import { accent, motion } from '../tokens.js'
-import { canvasColors, canvasMetrics } from './canvasTokens.js'
+import { cx } from '../cx.js'
+import s from './edgePaths.module.css'
 import type { FieldEdgeData, FieldEdgeTone } from './types.js'
 
 export interface FieldEdgeGeometry {
@@ -41,24 +40,14 @@ export function fieldEdgePath(data: FieldEdgeData, geometry: FieldEdgeGeometry):
     : curvedFieldPath(geometry)
 }
 
-export function fieldEdgeStyle(tone: FieldEdgeTone): CSSProperties {
-  if (tone === 'active') {
-    return {
-      stroke: accent.cssVar,
-      strokeWidth: canvasMetrics.edgeActiveStrokeWidth,
-      strokeDasharray: canvasMetrics.edgeActiveDash,
-      animation: motion.edgeDash,
-    }
-  }
-  if (tone === 'waiting') {
-    return {
-      stroke: canvasColors.edgeWaiting,
-      strokeWidth: canvasMetrics.edgeStrokeWidth,
-      strokeDasharray: canvasMetrics.edgeWaitingDash,
-    }
-  }
-  return {
-    stroke: tone === 'accent' ? accent.cssVar : canvasColors.edgeIdle,
-    strokeWidth: canvasMetrics.edgeStrokeWidth,
-  }
+/** Spelled out in full, never indexed by a computed key — see `cssModuleUsage.test.ts`. */
+const tones = {
+  accent: s.accent,
+  idle: s.idle,
+  active: s.active,
+  waiting: s.waiting,
+} satisfies Record<FieldEdgeTone, string>
+
+export function fieldEdgeClass(tone: FieldEdgeTone): string {
+  return cx(s.edge, tones[tone])
 }

@@ -1,5 +1,5 @@
 import type { OutputComponentProps } from '@jobik/ui'
-import { canvasColors, canvasMetrics, NodeOutputSlot } from '@jobik/ui'
+import { canvasColors, NodeOutputSlot } from '@jobik/ui'
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { PUBLICATION_ASSET_NAME } from '../types.js'
@@ -50,7 +50,7 @@ describe('RenderedImage at the viewer surface', () => {
 })
 
 describe('RenderedImage at the card surface', () => {
-  it('fills the 140px inline slot with the image alone', () => {
+  it('renders the image alone in the inline slot, with no caption', () => {
     render(
       <NodeOutputSlot
         slot={{ content: <RenderedImage {...props} surface="card" /> }}
@@ -58,7 +58,6 @@ describe('RenderedImage at the card surface', () => {
       />,
     )
     const media = screen.getByTestId('node-output-media')
-    expect(media).toHaveStyle({ height: `${canvasMetrics.outputSlotMediaHeight}px` })
     expect(media).not.toHaveTextContent('image output')
     const rendered = screen.getByAltText('Release 0.4 — field-level connections')
     expect(rendered).toHaveStyle({ width: '100%', height: '100%', objectFit: 'cover' })

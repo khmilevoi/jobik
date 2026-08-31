@@ -2,9 +2,9 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import * as tokens from '../tokens.js'
 import { canvasColors } from './canvasTokens.js'
-import { FlowCanvas } from './FlowCanvas.js'
-import { NodeCard } from './NodeCard.js'
-import { MetadataRow } from './NodeStateBody.js'
+import { FlowCanvas } from './FlowCanvas/FlowCanvas.js'
+import { NodeCard } from './NodeCard/NodeCard.js'
+import { MetadataRow } from './NodeStateBody/NodeStateBody.js'
 import type { FlowCanvasEdge, FlowCanvasNode, NodeCardData } from './types.js'
 
 afterEach(cleanup)

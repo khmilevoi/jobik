@@ -1,0 +1,17 @@
+/*
+ * One 30px field row. The label's own colour is a tone, not a state, so it comes from
+ * `fields.module.css` through `fieldLabelClass` — this file owns the row's shape and its type size.
+ */
+
+.row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--jbk-layout-field-row-height);
+  padding: 0 var(--jbk-canvas-card-padding-x);
+}
+
+.fieldName {
+  font-size: var(--jbk-size-11-5);
+}

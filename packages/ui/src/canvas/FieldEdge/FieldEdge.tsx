@@ -1,6 +1,6 @@
 import { BaseEdge, type Edge, type EdgeProps } from '@xyflow/react'
-import { fieldEdgePath, fieldEdgeStyle } from './edgePaths.js'
-import type { FieldEdgeData } from './types.js'
+import { fieldEdgeClass, fieldEdgePath } from '../edgePaths.js'
+import type { FieldEdgeData } from '../types.js'
 
 export type FieldEdgeType = Edge<FieldEdgeData, 'fieldEdge'>
 
@@ -18,7 +18,7 @@ export function FieldEdge(props: EdgeProps<FieldEdgeType>) {
         targetX: props.targetX,
         targetY: props.targetY,
       })}
-      style={fieldEdgeStyle(data.tone)}
+      className={fieldEdgeClass(data.tone)}
     />
   )
 }

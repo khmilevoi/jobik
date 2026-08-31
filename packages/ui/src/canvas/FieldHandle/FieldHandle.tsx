@@ -1,6 +1,6 @@
 import { Handle, Position } from '@xyflow/react'
-import { fieldHandleId, fieldHandleStyle } from './fields.js'
-import type { FieldHandleTone, HandleDirection } from './types.js'
+import { fieldHandleClass, fieldHandleId } from '../fields.js'
+import type { FieldHandleTone, HandleDirection } from '../types.js'
 
 export interface FieldHandleProps {
   readonly direction: HandleDirection
@@ -19,7 +19,7 @@ export function FieldHandle(props: FieldHandleProps) {
       position={direction === 'source' ? Position.Right : Position.Left}
       id={fieldHandleId(direction, name)}
       isConnectable={props.connectable ?? true}
-      style={fieldHandleStyle(tone, direction)}
+      className={fieldHandleClass(tone, direction)}
       data-testid={`field-handle-${direction}-${name}`}
     />
   )

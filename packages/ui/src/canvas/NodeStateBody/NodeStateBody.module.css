@@ -1,0 +1,154 @@
+/*
+ * The `Node states` body block — the queued, media and failed treatments a card renders below its
+ * field sections, plus the mono metadata row both this file and the inline output slot use.
+ *
+ * `.failedBody` follows `.body`, and `.mediaSkeleton` / `.mediaContent` follow `.mediaBlock`, so
+ * the narrower rule wins on source order inside one file rather than on specificity.
+ */
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: var(--jbk-canvas-state-body-padding);
+}
+
+.failedBody {
+  gap: 10px;
+}
+
+/* queued */
+
+.waitingOn {
+  font-size: var(--jbk-size-11-5);
+  line-height: 1.5;
+  color: var(--jbk-canvas-field-label-dim);
+}
+
+.waitingOnField {
+  font-family: var(--jbk-font-mono);
+  color: var(--jbk-text-inactive-list-item);
+}
+
+.bars {
+  display: flex;
+  gap: 6px;
+}
+
+.bar {
+  flex: var(--jbk-placeholder-bar-flex);
+  height: var(--jbk-canvas-placeholder-bar-height);
+  border-radius: var(--jbk-radius-badge);
+  background: var(--jbk-canvas-placeholder-bar);
+}
+
+/* failed */
+
+.errorWell {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 9px 10px;
+  border: 1px solid var(--jbk-canvas-failed-well-border);
+  border-radius: var(--jbk-radius-control);
+  background: var(--jbk-surface-failed-error-well);
+}
+
+.errorName {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-10-5);
+  color: var(--jbk-status-error-tag);
+}
+
+.errorMessage {
+  font-size: var(--jbk-size-11-5);
+  line-height: 1.5;
+  color: var(--jbk-status-error-body);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.action {
+  display: flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: var(--jbk-radius-small);
+  font-family: var(--jbk-font-ui);
+  font-size: var(--jbk-size-11-5);
+}
+
+.viewTrace {
+  border: 1px solid var(--jbk-canvas-failed-action-border);
+  background: none;
+  color: var(--jbk-canvas-failed-action-label);
+}
+
+.retry {
+  border: none;
+  background: var(--jbk-status-failed);
+  font-weight: var(--jbk-weight-semibold);
+  color: var(--jbk-canvas-failed-solid-label);
+}
+
+/* media */
+
+.mediaBlock {
+  height: var(--jbk-canvas-state-media-height);
+  border-radius: var(--jbk-radius-small);
+}
+
+.mediaSkeleton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--jbk-canvas-skeleton);
+  background-size: var(--jbk-canvas-skeleton-background-size);
+  animation: var(--jbk-motion-shimmer);
+}
+
+.mediaContent {
+  overflow: hidden;
+}
+
+.mediaDimmed {
+  opacity: var(--jbk-canvas-cached-opacity);
+}
+
+.skeletonLabel {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-10);
+  color: var(--jbk-canvas-annotation-dim);
+  animation: var(--jbk-motion-pulse-slow);
+}
+
+.caption {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-10);
+  color: var(--jbk-node-caption-color);
+}
+
+/*
+ * The metadata row serves two artboards at two sizes — `Node states` ok is 10px with an 8px gap,
+ * the in-canvas slot's caption row is 9.5px with a 10px gap — so the caller's overrides arrive as
+ * custom properties and the artboard default lives in the fallback.
+ */
+.metadataRow {
+  display: flex;
+  align-items: center;
+  gap: var(--jbk-metadata-row-gap, 8px);
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-metadata-row-size, var(--jbk-size-10));
+  color: var(--jbk-canvas-metadata);
+}
+
+.part {
+  display: contents;
+}
+
+.separator {
+  color: var(--jbk-canvas-metadata-separator);
+}

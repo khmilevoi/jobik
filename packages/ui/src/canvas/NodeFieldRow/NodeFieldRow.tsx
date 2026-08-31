@@ -1,14 +1,14 @@
-import { TypeAnnotation } from '../primitives/index.js'
-import { layout, px } from '../tokens.js'
-import { canvasMetrics } from './canvasTokens.js'
-import { FieldHandle } from './FieldHandle.js'
+import { cx } from '../../cx.js'
+import { TypeAnnotation } from '../../primitives/index.js'
+import { FieldHandle } from '../FieldHandle/FieldHandle.js'
 import {
-  fieldAnnotationColor,
-  fieldLabelColor,
+  fieldAnnotationClass,
+  fieldLabelClass,
   resolveFieldTone,
   resolveHandleTone,
-} from './fields.js'
-import type { HandleDirection, NodeFieldSpec } from './types.js'
+} from '../fields.js'
+import type { HandleDirection, NodeFieldSpec } from '../types.js'
+import s from './NodeFieldRow.module.css'
 
 export interface NodeFieldRowProps {
   readonly field: NodeFieldSpec
@@ -28,23 +28,13 @@ export function NodeFieldRow(props: NodeFieldRowProps) {
   const tone = resolveFieldTone(field, isStart)
 
   return (
-    <div
-      data-testid={`field-row-${direction}-${field.name}`}
-      style={{
-        height: px(layout.fieldRowHeight),
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: `0 ${px(canvasMetrics.cardPaddingX)}`,
-        position: 'relative',
-      }}
-    >
-      <div data-testid="field-name" style={{ fontSize: px(11.5), color: fieldLabelColor(tone) }}>
+    <div data-testid={`field-row-${direction}-${field.name}`} className={s.row}>
+      <div data-testid="field-name" className={cx(s.fieldName, fieldLabelClass(tone))}>
         {field.name}
       </div>
       <TypeAnnotation data-testid="field-annotation">
         {tone === 'dim' ? (
-          <span data-testid="field-annotation-dim" style={{ color: fieldAnnotationColor(tone) }}>
+          <span data-testid="field-annotation-dim" className={fieldAnnotationClass(tone)}>
             {field.annotation}
           </span>
         ) : (

@@ -1,0 +1,86 @@
+/*
+ * Every value in `canvasTokens.ts`, as a custom property — the canvas half of what `tokens.css`
+ * does for `tokens.ts`. `canvasTokens.ts` stays the TypeScript source of truth for the handful of
+ * values JavaScript still computes (`resolveCardWidth`, the React Flow `<Background>` props, the
+ * connection line); this file is what every canvas `*.module.css` reads.
+ * `canvasTokens.css.test.ts` proves the two agree in both directions, so the hexes spelled here
+ * are a transcription a test enforces rather than a second source of truth.
+ *
+ * NAMING — `--jbk-canvas-<key>`, the exported key in kebab-case. A nested group is flattened onto
+ * the same path: `nodeWidth.withSlot` is `--jbk-canvas-node-width-with-slot`. Numeric metrics
+ * carry their `px` here so no stylesheet ever adds a unit; `cachedOpacity` is the one ratio and
+ * stays unitless.
+ *
+ * Scoped to `[data-jobik-studio]` for the reason `tokens.css` is: the package must never restyle a
+ * host application.
+ */
+
+[data-jobik-studio] {
+  /* canvasColors */
+  --jbk-canvas-dot-grid: #191c1f;
+  --jbk-canvas-cached-header-divider: #191c1f;
+  --jbk-canvas-edge-idle: #2c3236;
+  --jbk-canvas-edge-waiting: #23272b;
+  --jbk-canvas-handle-fill: #0b0c0d;
+  --jbk-canvas-handle-idle: #3a4045;
+  --jbk-canvas-handle-dim: #2b3034;
+  --jbk-canvas-progress-track: #16191c;
+  --jbk-canvas-spinner-track: rgba(31, 214, 189, 0.25);
+  --jbk-canvas-skeleton-highlight: #161a1d;
+  --jbk-canvas-skeleton: linear-gradient(100deg, #0d0f11 30%, #161a1d 50%, #0d0f11 70%);
+  --jbk-canvas-stripe-base: #0e1113;
+  --jbk-canvas-stripe-line: #14181a;
+  --jbk-canvas-placeholder-bar: #141719;
+  --jbk-canvas-zoom-control-border: #202327;
+  --jbk-canvas-title-selected: #eef1f3;
+  --jbk-canvas-title-failed: #f0e6e4;
+  --jbk-canvas-title-cached: #b3b9be;
+  --jbk-canvas-field-label-dim: #6d757c;
+  --jbk-canvas-annotation-dim: #4a5157;
+  --jbk-canvas-section-label-selected-start: #535a60;
+  --jbk-canvas-slot-caption: #5b646b;
+  --jbk-canvas-metadata: #636c73;
+  --jbk-canvas-metadata-separator: #2f3438;
+  --jbk-canvas-failed-border: rgba(201, 106, 92, 0.45);
+  --jbk-canvas-failed-halo: 0 0 0 3px rgba(201, 106, 92, 0.05);
+  --jbk-canvas-failed-header-wash: rgba(201, 106, 92, 0.06);
+  --jbk-canvas-failed-header-divider: #241b1a;
+  --jbk-canvas-failed-well-border: #2a1f1e;
+  --jbk-canvas-failed-action-border: #332725;
+  --jbk-canvas-failed-action-label: #cfc4c1;
+  --jbk-canvas-failed-solid-label: #1a0d0b;
+
+  /* canvasMetrics */
+  --jbk-canvas-dot-grid-gap: 22px;
+  --jbk-canvas-dot-radius: 1px;
+  --jbk-canvas-dot-grid-offset: -1px;
+  --jbk-canvas-handle-size: 8px;
+  --jbk-canvas-handle-border-width: 1.5px;
+  --jbk-canvas-handle-offset: -4px;
+  --jbk-canvas-edge-stroke-width: 1.3px;
+  --jbk-canvas-edge-active-stroke-width: 1.4px;
+  --jbk-canvas-edge-active-dash: 5 7;
+  --jbk-canvas-edge-waiting-dash: 3 5;
+  --jbk-canvas-card-padding-x: 12px;
+  --jbk-canvas-header-radius: 6px;
+  --jbk-canvas-progress-bar-height: 2px;
+  --jbk-canvas-spinner-size: 11px;
+  --jbk-canvas-kind-dot-size: 6px;
+  --jbk-canvas-status-dot-size: 5px;
+  --jbk-canvas-cached-opacity: 0.55;
+  --jbk-canvas-node-width-start: 230px;
+  --jbk-canvas-node-width-with-slot: 316px;
+  --jbk-canvas-node-width-plain: 236px;
+  --jbk-canvas-output-slot-gutter: 10px;
+  --jbk-canvas-output-slot-height: 180px;
+  --jbk-canvas-output-slot-media-height: 140px;
+  --jbk-canvas-output-slot-caption-height: 18px;
+  --jbk-canvas-state-body-padding: 12px;
+  --jbk-canvas-state-media-height: 96px;
+  --jbk-canvas-placeholder-bar-height: 6px;
+  --jbk-canvas-skeleton-background-size: 220% 100%;
+  --jbk-canvas-skeleton-animation: jshim 1.5s linear infinite;
+  --jbk-canvas-zoom-button-size: 26px;
+  --jbk-canvas-zoom-controls-inset-left: 20px;
+  --jbk-canvas-zoom-controls-inset-bottom: 16px;
+}

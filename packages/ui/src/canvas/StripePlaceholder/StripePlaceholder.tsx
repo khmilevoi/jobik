@@ -1,6 +1,7 @@
 import { type ReactNode, useId } from 'react'
-import { fontFamilies, px, surfaces, tracking } from '../tokens.js'
-import { canvasColors } from './canvasTokens.js'
+import type { StyleWithVars } from '../../cx.js'
+import { px } from '../../tokens.js'
+import s from './StripePlaceholder.module.css'
 
 export interface StripePlaceholderProps {
   readonly height: number
@@ -15,18 +16,16 @@ export interface StripePlaceholderProps {
 /** The 45° stripe field the artboards use wherever a rendered image would go. */
 export function StripePlaceholder(props: StripePlaceholderProps) {
   const patternId = `jobik-stripe-${useId().replace(/[^a-zA-Z0-9-]/g, '')}`
+  // The three values a caller sizes this with, as the custom properties the rule reads. An absent
+  // `opacity` leaves the property unset, so the rule falls back to `1` exactly as the inline style
+  // used to leave `opacity` off altogether.
+  const style: StyleWithVars = {
+    '--jbk-stripe-height': px(props.height),
+    '--jbk-stripe-radius': px(props.radius),
+    ...(props.opacity === undefined ? {} : { '--jbk-stripe-opacity': props.opacity }),
+  }
   return (
-    <div
-      data-testid={props['data-testid']}
-      style={{
-        height: px(props.height),
-        borderRadius: px(props.radius),
-        overflow: 'hidden',
-        position: 'relative',
-        background: surfaces.imagePlaceholder,
-        opacity: props.opacity,
-      }}
-    >
+    <div data-testid={props['data-testid']} className={s.placeholder} style={style}>
       <svg width="100%" height="100%" role="presentation">
         <title>output placeholder</title>
         <defs>
@@ -37,29 +36,13 @@ export function StripePlaceholder(props: StripePlaceholderProps) {
             patternUnits="userSpaceOnUse"
             patternTransform="rotate(45)"
           >
-            <rect width="8" height="8" fill={canvasColors.stripeBase} />
-            <rect width="3" height="8" fill={canvasColors.stripeLine} />
+            <rect width="8" height="8" className={s.base} />
+            <rect width="3" height="8" className={s.line} />
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill={`url(#${patternId})`} />
       </svg>
-      {props.label === undefined ? null : (
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontFamily: fontFamilies.mono,
-            fontSize: px(10),
-            letterSpacing: tracking.startTag,
-            color: canvasColors.slotCaption,
-          }}
-        >
-          {props.label}
-        </div>
-      )}
+      {props.label === undefined ? null : <div className={s.label}>{props.label}</div>}
     </div>
   )
 }
