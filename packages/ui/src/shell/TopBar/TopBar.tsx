@@ -13,8 +13,13 @@ export type TopBarValidateState =
 
 export interface TopBarProps {
   readonly flowName: string
-  /** The mono file badge, e.g. `flow.ts`. Hidden while the bar is compact. */
-  readonly flowFile: string
+  /**
+   * The mono file badge, e.g. `flow.ts`. Hidden while the bar is compact, and **absent when no
+   * file name is known** — the badge is dropped rather than filled with a guess. Every artboard
+   * that draws it draws a real name; none draws an empty badge, and `panels collapsed` is the
+   * design's own picture of the bar with no badge at all.
+   */
+  readonly flowFile?: string
   readonly dirty: boolean
   /** Dims and disables `Validate` and `Save`, and hides the save state — see below. */
   readonly running?: boolean
@@ -72,6 +77,16 @@ export function TopBar(props: TopBarProps) {
     </div>
   )
 
+  /**
+   * No file name, no badge. The wire carries the name from the flow descriptor, and there is no
+   * frame in which a name is merely late rather than genuinely unknown — so an empty badge and a
+   * stand-in name are both worse than the element not being there.
+   */
+  const fileBadge =
+    props.flowFile === undefined ? null : (
+      <Badge data-testid="studio-flow-file">{props.flowFile}</Badge>
+    )
+
   return (
     <div data-testid="studio-top-bar" className={cx(s.bar, dense && s.barDense)}>
       <div className={s.wordmarkRow}>
@@ -83,9 +98,9 @@ export function TopBar(props: TopBarProps) {
 
       {dockedLeft}
 
-      <div className={s.flowNameRow}>
+      <div data-testid="studio-top-bar-identity" className={s.flowNameRow}>
         <div className={s.flowName}>{props.flowName}</div>
-        {compact ? saveState : <Badge>{props.flowFile}</Badge>}
+        {compact ? saveState : fileBadge}
       </div>
 
       {compact ? null : saveState}

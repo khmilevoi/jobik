@@ -20,9 +20,23 @@ describe('TopBar', () => {
 
   it('shows the flow name with its mono file badge and the long dirty label', () => {
     render(<TopBar flowName="publication" flowFile="flow.ts" dirty />)
-    expect(screen.getByText('flow.ts')).toBeInTheDocument()
+    expect(screen.getByTestId('studio-flow-file')).toHaveTextContent('flow.ts')
     expect(screen.getByText('Unsaved changes')).toBeInTheDocument()
     expect(screen.getByTestId('studio-dirty-dot')).toBeInTheDocument()
+  })
+
+  /**
+   * Every artboard names a real file beside the flow — `2A` and `Studio — default` both draw
+   * `publication  flow.ts`. None of them draws an empty badge, and the design's own answer for a
+   * bar that carries no badge is `panels collapsed`, where the element is simply not there. So an
+   * unknown file name is the absent case: the badge goes, and nothing stands in for it.
+   */
+  it('omits the file badge entirely when no file name is known', () => {
+    render(<TopBar flowName="publication" dirty />)
+    expect(screen.queryByTestId('studio-flow-file')).toBeNull()
+    // The identity row is the flow name alone — no placeholder element in the badge's seat.
+    expect(screen.getByTestId('studio-top-bar-identity').childElementCount).toBe(1)
+    expect(screen.getByText('publication')).toBeInTheDocument()
   })
 
   it('shows the saved tone instead when the flow is clean', () => {

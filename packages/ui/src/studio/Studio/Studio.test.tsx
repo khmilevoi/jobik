@@ -7,12 +7,28 @@ afterEach(cleanup)
 
 describe('Studio', () => {
   it('opens with both panels expanded and nothing docked', () => {
-    render(<Studio />)
+    render(<Studio flowFile="index.ts" />)
     expect(screen.getByTestId('studio-frame')).toBeInTheDocument()
     expect(screen.getByTestId('studio-sidebar')).toBeInTheDocument()
     expect(screen.getByTestId('studio-dock')).toBeInTheDocument()
-    expect(screen.getByText('flow.ts')).toBeInTheDocument()
+    expect(screen.getByTestId('studio-flow-file')).toHaveTextContent('index.ts')
     expect(screen.queryByRole('button', { name: 'Expand flows and nodes' })).not.toBeInTheDocument()
+  })
+
+  /**
+   * The file name reaches the Studio from the flow descriptor, and the descriptor is absent for the
+   * whole initial-load frame. A default here would print a name no file on disk carries — the
+   * showcase flow's own entrypoint is `index.ts`, never `flow.ts` — and a plausible wrong answer is
+   * indistinguishable from a right one. So the badge is omitted until a name actually arrives.
+   */
+  it('prints no file name at all when none was supplied', () => {
+    render(<Studio />)
+    expect(screen.queryByTestId('studio-flow-file')).toBeNull()
+    expect(screen.queryByText('flow.ts')).toBeNull()
+    // The flow is still named; only the file badge is missing.
+    expect(
+      within(screen.getByTestId('studio-top-bar')).getByText('publication'),
+    ).toBeInTheDocument()
   })
 
   it('renders the artboard fixture in the sidebar', () => {
@@ -26,15 +42,15 @@ describe('Studio', () => {
   })
 
   it('docks the left panel into the top bar and brings it back', async () => {
-    render(<Studio />)
+    render(<Studio flowFile="index.ts" />)
     await userEvent.click(screen.getByRole('button', { name: 'Collapse flows and nodes' }))
     expect(screen.queryByTestId('studio-sidebar')).not.toBeInTheDocument()
-    expect(screen.queryByText('flow.ts')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('studio-flow-file')).toBeNull()
     expect(screen.getByText('Unsaved')).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Expand flows and nodes' }))
     expect(screen.getByTestId('studio-sidebar')).toBeInTheDocument()
-    expect(screen.getByText('flow.ts')).toBeInTheDocument()
+    expect(screen.getByTestId('studio-flow-file')).toHaveTextContent('index.ts')
   })
 
   it('docks the run panel into the top bar and brings it back', async () => {

@@ -33,6 +33,7 @@
   font-size: var(--jbk-size-10);
   line-height: 1.5;
   color: var(--jbk-text-muted);
+  overflow-wrap: anywhere;
 }
 
 .time {
