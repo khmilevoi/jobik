@@ -18,7 +18,7 @@ import type { TopBarValidateState } from '#shell/index.js'
 import { sameFlowShape } from '#studio/draft.js'
 import { type FlowProblemModel, NO_PROBLEMS, toFlowProblems } from '#studio/problems.js'
 import { toValidationFindings } from '#studio/validation.js'
-import { detached } from './reatom.js'
+import { detached, withOptionalComputed } from './reatom.js'
 import type { StudioDeps, ValidationModel, ValidationState } from './types.js'
 
 /**
@@ -249,7 +249,11 @@ export function reatomValidation(
   const reportFindings = atom<readonly ValidationFinding[] | undefined>(
     undefined,
     `${name}.reportFindings`,
-  ).extend(withComputed((held) => (active()?.kind === 'checking' ? held : findings())))
+  ).extend(
+    withOptionalComputed<readonly ValidationFinding[]>((held) =>
+      active()?.kind === 'checking' ? held : findings(),
+    ),
+  )
 
   /**
    * The control's cell. `invalid` needs a count, so a state that has lost its findings — the flow
