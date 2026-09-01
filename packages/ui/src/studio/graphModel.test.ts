@@ -294,6 +294,43 @@ describe('the sidebar lists', () => {
     ])
   })
 
+  /**
+   * F-S1: `2A` draws every settled node on `#6f9c82` after run `#221`. The tone is a run state, so
+   * it arrives as the overlay map a node card reads, not out of the descriptor.
+   */
+  it('turns a settled node`s dot to the ok tone, start included', () => {
+    const overlays = new Map([
+      ['start1', { state: 'ok' as const, status: 'ok' }],
+      ['render', { state: 'ok' as const, status: 'ok' }],
+    ])
+
+    expect(toFlowNodeSummaries(DESCRIPTOR, overlays)).toEqual([
+      { id: 'start1', kind: 'start', dot: 'ok' },
+      { id: 'render', kind: 'transform', dot: 'ok' },
+    ])
+  })
+
+  it('accents the node the run is on, and leaves the one it has not reached alone', () => {
+    const overlays = new Map([
+      ['start1', { state: 'ok' as const, status: 'ok' }],
+      ['render', { state: 'running' as const, status: 'running' }],
+    ])
+
+    expect(toFlowNodeSummaries(DESCRIPTOR, overlays)).toEqual([
+      { id: 'start1', kind: 'start', dot: 'ok' },
+      { id: 'render', kind: 'transform', dot: 'start' },
+    ])
+  })
+
+  it('leaves a node the run never reported on at its descriptor tone', () => {
+    const overlays = new Map([['start1', { state: 'ok' as const, status: 'ok' }]])
+
+    expect(toFlowNodeSummaries(DESCRIPTOR, overlays)).toEqual([
+      { id: 'start1', kind: 'start', dot: 'ok' },
+      { id: 'render', kind: 'transform', dot: 'neutral' },
+    ])
+  })
+
   it('lists each node definition once, by its title', () => {
     expect(toInventory(DESCRIPTOR)).toEqual([
       { name: 'start', kind: 'start' },

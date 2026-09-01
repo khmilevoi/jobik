@@ -160,15 +160,37 @@ export function toCanvasEdges(
 /**
  * `### Left sidebar`: `Nodes in publication` shows a kind dot, the mono node id and the kind label.
  * `KindDotTone` has four values, but `queued` and `cached` are run states the sidebar never shows.
+ *
+ * The dot carries the node's **run state**, not its selection (`02-shell.md` §3.5), and `2A` draws
+ * all three of `publication`'s nodes on `#6f9c82` after run `#221` settled. That is unreachable
+ * from the descriptor alone, so a run reaches this the same way it reaches a node card: through the
+ * overlay map `CanvasModel.overlays` publishes. Absent — no run on screen — every row falls back to
+ * `Studio — default`, where only the start is accented.
+ *
+ * A node the run has not reported on keeps its descriptor tone, so a flow whose run touched two of
+ * three nodes does not claim the third went anywhere.
  */
 export function toFlowNodeSummaries(
   descriptor: SafeFlowDescriptorPayload,
+  overlays?: ReadonlyMap<string, NodeOverlay>,
 ): readonly FlowNodeSummary[] {
   return descriptor.nodes.map((node) => ({
     id: node.id,
     kind: node.kind,
-    dot: node.kind === 'start' ? 'start' : 'neutral',
+    dot: sidebarDotTone(node.kind, overlays?.get(node.id)?.status),
   }))
+}
+
+/**
+ * `ok` once the node has settled successfully — `cached` and `skipped` included, since both mean
+ * the run got past it with a value — `start` while it is the one running, and otherwise whatever
+ * the descriptor says. `failed` deliberately has no tone of its own here: the sidebar row has no
+ * failure treatment in any artboard, and the card on the canvas is where a failure is read.
+ */
+function sidebarDotTone(kind: string, status: string | undefined): FlowNodeSummary['dot'] {
+  if (status === 'ok' || status === 'cached' || status === 'skipped') return 'ok'
+  if (status === 'running') return 'start'
+  return kind === 'start' ? 'start' : 'neutral'
 }
 
 /** `### Left sidebar`: `Inventory` is the flow's node definitions. Read-only reference in v1. */
