@@ -1,6 +1,7 @@
 import { Button } from '#primitives/index.js'
 import { formatHiddenFrames, formatStackFrame } from '#run/format.js'
 import { RunAction, RunWell } from '#run/RunChrome/RunChrome.js'
+import { RunInputControl } from '#run/RunInputControl/RunInputControl.js'
 import { RunNodeTimings } from '#run/RunNodeList/RunNodeList.js'
 import type { RunFailedState } from '#run/types.js'
 import s from './RunFailedView.module.css'
@@ -20,6 +21,7 @@ export function RunFailedView(props: RunFailedViewProps) {
   const { state } = props
   const stack = state.stack
   const hidden = stack === undefined ? undefined : formatHiddenFrames(stack.hiddenFrames)
+  const inputs = state.inputs
 
   return (
     <>
@@ -59,6 +61,16 @@ export function RunFailedView(props: RunFailedViewProps) {
           )}
         </RunWell>
       )}
+
+      {inputs?.descriptor.fields.map((field) => (
+        <RunInputControl
+          key={field.field}
+          field={field}
+          value={inputs.draft[field.field] ?? ''}
+          presentation={inputs.presentation?.[field.field]}
+          onChange={inputs.onDraftChange}
+        />
+      ))}
 
       <div className={s.actions}>
         <div className={s.action}>

@@ -688,6 +688,12 @@ export function StudioApp(props: StudioAppProps) {
         nodes: toRunNodeTimings(failed, order),
         entryNodeId: studio.startId,
         ...(stack === undefined ? {} : { stack }),
+        inputs: {
+          descriptor: startNode.input,
+          draft: studio.inputDraft,
+          presentation: runInputPresentation(startNode.input, studio.inputDraft),
+          onDraftChange: setInputField,
+        },
         onCopyLog: () => {
           void globalThis.navigator?.clipboard?.writeText(
             toRunLog(failed)

@@ -99,4 +99,42 @@ describe('RunFailedView', () => {
     render(<RunFailedView state={state({ entryNodeId: 'start1' })} />)
     expect(screen.queryByTestId('run-start-chooser')).toBeNull()
   })
+
+  it('draws no input fields when none are supplied', () => {
+    render(<RunFailedView state={state()} />)
+    expect(screen.queryByTestId('run-input-title')).toBeNull()
+  })
+})
+
+/**
+ * The same reach-back `RunCompletedView` already gives a settled run: the inputs that produced
+ * this failure, still editable, so a bad value can be fixed right where the error names it instead
+ * of only ever resubmitting the same one through `Re-run`.
+ */
+describe('RunFailedView, with the failing inputs shown', () => {
+  const descriptor: NodeInputDescriptor = {
+    nodeId: 'start1',
+    fields: [{ field: 'title', required: true, annotation: 'string', control: { kind: 'string' } }],
+  }
+
+  it('shows the value that produced the failure', () => {
+    render(
+      <RunFailedView
+        state={state({ inputs: { descriptor, draft: { title: '1234' } } })}
+      />,
+    )
+    expect(screen.getByTestId('run-input-title')).toHaveValue('1234')
+    expect(screen.getByTestId('run-input-annotation-title').textContent).toBe('string')
+  })
+
+  it('keeps it editable, reporting each edit to the caller', async () => {
+    const onDraftChange = vi.fn()
+    render(
+      <RunFailedView
+        state={state({ inputs: { descriptor, draft: { title: 'a' }, onDraftChange } })}
+      />,
+    )
+    await userEvent.type(screen.getByTestId('run-input-title'), 'b')
+    expect(onDraftChange).toHaveBeenCalledWith('title', 'ab')
+  })
 })

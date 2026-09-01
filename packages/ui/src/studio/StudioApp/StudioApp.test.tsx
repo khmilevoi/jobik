@@ -401,6 +401,47 @@ describe('running from the panel', () => {
     )
   })
 
+  it('keeps the input that produced the failure visible and editable on the failed panel', async () => {
+    const failed = {
+      ...REPORT,
+      status: 'failed' as const,
+      nodes: [
+        REPORT.nodes[0],
+        {
+          nodeId: 'render',
+          status: 'failed' as const,
+          elapsedMs: 800,
+          output: null,
+          assets: {},
+          error: {
+            _tag: 'ImageRenderError',
+            message: 'Unsupported colour profile in the inlined asset.',
+            authored: true,
+          },
+        },
+      ],
+    }
+    mount(
+      stubClient({
+        startRun: async () =>
+          streamOf([
+            { type: 'run-accepted', runToken: 'tok' },
+            { type: 'run-settled', report: failed },
+          ]),
+      }),
+    )
+
+    await waitFor(() => expect(screen.getByTestId('run-input-title')).toBeInTheDocument())
+    await userEvent.type(screen.getByTestId('run-input-title'), 'A post')
+    await userEvent.click(screen.getByTestId('run-start-button'))
+
+    await waitFor(() => expect(screen.getByTestId('run-error-name')).toBeInTheDocument())
+    expect(screen.getByTestId('run-input-title')).toHaveValue('A post')
+
+    await userEvent.type(screen.getByTestId('run-input-title'), ', edited')
+    expect(screen.getByTestId('run-input-title')).toHaveValue('A post, edited')
+  })
+
   it('shows the running panel note transcribed from the artboard', async () => {
     let release = () => {}
     const gate = new Promise<void>((resolve) => {

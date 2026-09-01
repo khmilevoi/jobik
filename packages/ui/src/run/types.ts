@@ -191,6 +191,12 @@ export type RunFailedState = {
   readonly error: RunErrorDetail
   readonly nodes: readonly RunNodeTiming[]
   readonly stack?: RunStack
+  /**
+   * The inputs that produced this failure, still editable — `RunCompletedState.inputs`'s own
+   * reach-back, given to the failed card too. Without it there was no way from this card back to
+   * the values that caused the error: `Re-run` only ever resubmitted them unchanged.
+   */
+  readonly inputs?: RunInputForm
   readonly onCopyLog?: () => void
   readonly onRerun?: () => void
 }
