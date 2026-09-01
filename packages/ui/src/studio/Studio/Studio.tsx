@@ -43,10 +43,17 @@ export interface StudioProps {
   readonly activeFlowId?: string
   /** Points the Studio at the flow a sidebar row names. Absent leaves the rows inert. */
   readonly onSelectFlow?: (flowId: string) => void
+  /**
+   * The flow's own file, as the descriptor names it — `index.ts` for the showcase's `publication`.
+   * There is no default: the descriptor is absent for the whole initial-load frame, and a stand-in
+   * name would be indistinguishable from a real one. Absent means the top bar shows no badge.
+   */
   readonly flowFile?: string
   readonly dirty?: boolean
   readonly nodes?: readonly FlowNodeSummary[]
   readonly selectedNodeId?: string
+  /** Points the run panel at another declared start, from the sidebar's `Start` section. */
+  readonly onSelectStart?: (nodeId: string) => void
   readonly inventory?: readonly InventoryEntry[]
   readonly entryNodeId?: string
   /** One of `accentAlternates`, or the default `#1fd6bd`. */
@@ -111,7 +118,7 @@ export function Studio(props: StudioProps) {
       topBar={
         <TopBar
           flowName={activeFlow?.name ?? activeFlowId}
-          flowFile={props.flowFile ?? 'flow.ts'}
+          flowFile={props.flowFile}
           dirty={props.dirty ?? true}
           running={props.running}
           runningChip={props.runningChip}
@@ -157,6 +164,7 @@ export function Studio(props: StudioProps) {
             {...(props.onSelectFlow === undefined ? {} : { onSelectFlow: props.onSelectFlow })}
             nodes={nodes}
             selectedNodeId={props.selectedNodeId ?? entryNodeId}
+            {...(props.onSelectStart === undefined ? {} : { onSelectStart: props.onSelectStart })}
             inventory={inventory}
             {...(props.runs === undefined ? {} : { runs: props.runs })}
             {...(props.selectedRunId === undefined ? {} : { selectedRunId: props.selectedRunId })}

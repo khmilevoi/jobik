@@ -104,20 +104,17 @@ export type RunInputDraft = Readonly<Record<string, RunInputDraftValue>>
 /** One validation problem, flattened. Structurally `SchemaIssue` in `packages/core/src/errors.ts`. */
 export type RunInputIssue = { readonly path: string; readonly message: string }
 
+/**
+ * The entry point is chosen from the sidebar's `Start` section or by clicking a start node on the
+ * canvas — both call `useStudioSession.selectStart` directly, so the panel itself carries no
+ * chooser and no `startIds`/`onSelectStart` pair. Those two surfaces are always on screen
+ * regardless of which panel state is showing, which is also what F07 wanted: the entry point stays
+ * reachable through every state, not just while the panel happens to be idle.
+ */
 export type RunIdleState = {
   readonly kind: 'idle'
-  /** The start the panel is pointed at — one of `startIds` when there is more than one. */
+  /** The start the panel is pointed at. */
   readonly entryNodeId: string
-  /**
-   * Every start the flow declares.
-   *
-   * **No artboard draws a start selector**: all eleven show `publication`, which declares one. So
-   * the panel draws a chooser only when this holds more than one id, and a single-start flow is
-   * pixel-identical to what the design fixes. Absent is the same as one.
-   */
-  readonly startIds?: readonly string[]
-  /** Fired with the chosen start. Only reachable while the chooser is drawn. */
-  readonly onSelectStart?: (startId: string) => void
   /**
    * `3D`'s invalid-board caption, stated in prose and drawn nowhere: *"Run is disabled while any
    * error stands."* `3B`'s treatment — the button drops to 45 % and changes nothing else, and
@@ -137,9 +134,31 @@ export type RunIdleState = {
   readonly presentation?: Readonly<Record<string, RunInputPresentation>>
   /** Fired with the parsed, schema-valid values. Never fired when validation fails. */
   readonly onRun?: (values: Record<string, unknown>) => void
-  /** The `z.ZodError` or `SyntaxError` that stopped the run. No artboard shows a treatment for it,
-   *  so the panel renders nothing and hands it to the caller. */
+  /**
+   * The `z.ZodError` or `SyntaxError` that stopped the run, handed to the caller so it can decide
+   * what stands and for how long. The panel draws nothing off this — it draws `issues`, which the
+   * caller supplies — because the other four run affordances live outside this component and must
+   * be able to report onto the same surface.
+   */
   readonly onInvalid?: (error: Error) => void
+  /**
+   * The validation problems that currently stand against this draft, flattened by
+   * `toRunInputIssues`. Empty or absent draws nothing at all, which is every artboard.
+   *
+   * **The design has no surface for a rejected run input.** No artboard draws an error border on a
+   * control, a caption under one, a required marker, a blocked `Run` button, or a pre-flight
+   * banner: the run panel's inputs have exactly one skin and the file never varies it. So this
+   * borrows the panel's own — and the design's only — treatment for a validation finding: the
+   * error well the `Run panel — states` failed card draws (`#2a1f1e` on `#0d0b0b`, a mono tag in
+   * `#dc8577`, a sentence in `#a79b98`), which is the same recipe `3C`'s Validation modal gives a
+   * finding card. Nothing new is invented; the block simply appears in the panel that owns the
+   * inputs, above the button that was pressed.
+   *
+   * Controlled rather than held here on purpose. `RunIdleView`'s own button is one of five ways to
+   * start a run; the other four are the caller's, and a finding held privately here could never be
+   * shown for them.
+   */
+  readonly issues?: readonly RunInputIssue[]
   readonly lastRun?: RunSummary
 }
 
@@ -166,6 +185,9 @@ export type RunFailedState = {
   readonly runNumber: number
   /** e.g. `0.8s`. */
   readonly elapsed: string
+  /** The start the panel is pointed at. Optional because this state draws no entry name of its
+   *  own — `Re-run` is the whole label. */
+  readonly entryNodeId?: string
   readonly error: RunErrorDetail
   readonly nodes: readonly RunNodeTiming[]
   readonly stack?: RunStack

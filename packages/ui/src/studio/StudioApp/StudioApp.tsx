@@ -8,8 +8,14 @@ import type { SwitchFlowBody } from '#modals/index.js'
 import { CancelRunModal, SwitchFlowModal, ValidationModal } from '#modals/index.js'
 import { OutputDock, resolveOutputComponent } from '#output/index.js'
 import { useValidateAction } from '#primitives/index.js'
-import type { RunPanelState } from '#run/index.js'
-import { assetMetaParts, formatRunMeta, RunPanel, validateRunInputs } from '#run/index.js'
+import type { RunInputDraftValue, RunInputIssue, RunPanelState } from '#run/index.js'
+import {
+  assetMetaParts,
+  formatRunMeta,
+  RunPanel,
+  toRunInputIssues,
+  validateRunInputs,
+} from '#run/index.js'
 import type {
   RunDockMetaTone,
   RunDockStatus,
@@ -162,6 +168,61 @@ export function StudioApp(props: StudioAppProps) {
   const [pendingFlowId, setPendingFlowId] = useState<string | undefined>(undefined)
   const [saveAndSwitchTo, setSaveAndSwitchTo] = useState<string | undefined>(undefined)
 
+  /**
+   * F02 — what the last press found wrong with the input draft.
+   *
+   * `RunIdleState.onInvalid` was declared and fired and NOBODY supplied it, and `runInputValues()`
+   * below returned `undefined` and said nothing; a required field left empty was a completely
+   * silent no-op at every one of the five run affordances. The finding lives here, not inside
+   * `RunIdleView`, because four of those five are this component's — a finding held privately by
+   * the panel could never be shown for `⌘↵`, the docked control, the top bar or `Retry node`.
+   *
+   * `RunIdleState.issues`' doc comment carries the design reading: no artboard draws a rejected
+   * run input at all, so the panel reuses the error well it already draws for a failure. Nothing
+   * here blocks anything — `runBlocked` stays what `3D` says it is, the flow's own errors — and
+   * `Run` keeps its one drawn state.
+   */
+  const [inputIssues, setInputIssues] = useState<readonly RunInputIssue[] | undefined>(undefined)
+  const reportInvalidInput = useCallback(
+    (error: Error) => setInputIssues(toRunInputIssues(error)),
+    [],
+  )
+
+  /**
+   * A finding is about the draft that produced it, so the next keystroke retires it. `3D`'s rule
+   * for the flow's own findings is the same shape — they *"persist until the flow changes"*.
+   */
+  const setInputField = useCallback(
+    (field: string, value: RunInputDraftValue) => {
+      setInputIssues(undefined)
+      studio.setInputField(field, value)
+    },
+    [studio.setInputField],
+  )
+
+  /**
+   * F07 — pointing the panel at another start is a statement about the *next* run, so the surfaces
+   * that belong to the last one let go.
+   *
+   * `useStudioSession.selectStart` re-seeds the draft and moves the canvas; these three writes are
+   * what the settled shell owes it. A row picked from `Run history` pinned the panel to a run of
+   * the start being left — and, worse, could not be picked again once the panel had moved on. The
+   * open output belongs to that run too, exactly as `selectRun` says. The findings are about a
+   * draft that no longer exists.
+   *
+   * The archive itself is deliberately NOT touched: every run stays in `Run history`, which is the
+   * whole difference between this and the flow switch that used to be the only escape.
+   */
+  const selectStart = useCallback(
+    (nextStartId: string) => {
+      setSelectedRunId(undefined)
+      setViewerNodeId(undefined)
+      setInputIssues(undefined)
+      studio.selectStart(nextStartId)
+    },
+    [studio.selectStart],
+  )
+
   const { descriptor, draft, session, running, extension, assetUrl } = studio
   const document = draft?.document
   const validation = studio.validation
@@ -255,6 +316,7 @@ export function StudioApp(props: StudioAppProps) {
       setCancelPrompt(false)
       setPendingFlowId(undefined)
       setSaveAndSwitchTo(undefined)
+      setInputIssues(undefined)
       validateReset()
       studio.selectFlow(nextFlowId)
     },
@@ -304,11 +366,15 @@ export function StudioApp(props: StudioAppProps) {
       fields: startNode.input.fields,
       draft: studio.inputDraft,
     })
-    // No panel is shown at any of these three call sites to render a `z.ZodError` or `SyntaxError`
-    // in — `RunIdleView`'s own control is the only place `onInvalid` has anywhere to go — so an
-    // invalid draft here simply does not start a run, exactly as an unwired invalid draft did
-    // before this fix.
-    return values instanceof Error ? undefined : values
+    // F02: this used to return `undefined` and report nothing, so `⌘↵`, the docked control, the
+    // top bar and `Retry node` all failed silently. The finding now lands on the same state
+    // `RunIdleView`'s own `onInvalid` fills, so every affordance reports onto the one surface.
+    if (values instanceof Error) {
+      setInputIssues(toRunInputIssues(values))
+      return undefined
+    }
+    setInputIssues(undefined)
+    return values
   }, [startNode, studio.inputDraft])
 
   // Every run start closes whatever output the viewer still has open. Without this, the viewer
@@ -321,6 +387,8 @@ export function StudioApp(props: StudioAppProps) {
       // including `RunIdleView`'s own button, whose chrome `run/` owns.
       if (runBlocked) return
       closeViewer()
+      // The draft that is starting satisfied the schema, so whatever the last press found is over.
+      setInputIssues(undefined)
       // A new run takes the surfaces over: the archived run a row had selected is no longer what
       // the canvas shows, and whatever `3B` was saying about the last failure is finished with.
       setSelectedRunId(undefined)
@@ -406,6 +474,22 @@ export function StudioApp(props: StudioAppProps) {
   }, [running, selectedRunId, archive, session])
 
   const viewedReport = viewedSession?.report
+
+  /**
+   * F07 — whether the settled run on screen is still a report about the start the panel is pointed
+   * at.
+   *
+   * A `RunSession` carries the start that produced it. Once the chooser moves elsewhere that
+   * report describes a pipeline the panel is no longer armed for, so the settled panel gives way
+   * to `idle` for the new start rather than stranding the user behind `Re-run <the old start>`.
+   * Nothing is lost: the run keeps its `Run history` row, and the idle panel still summarises it
+   * under `Last run`.
+   *
+   * A row picked from `Run history` is the deliberate exception — asking to see `#221` is asking
+   * to see it whichever start ran it, and `selectStart` above drops the pick anyway.
+   */
+  const settledRunIsCurrent =
+    selectedRunId !== undefined || viewedSession?.startId === studio.startId
 
   const selectRun = useCallback((runId: string) => {
     // The open output belongs to the run that produced it; it does not carry over to another one.
@@ -584,6 +668,7 @@ export function StudioApp(props: StudioAppProps) {
     // From here down the panel reads the VIEWED run, which is the live one unless a `Run history`
     // row picked an earlier one.
     if (
+      settledRunIsCurrent &&
       viewedSession !== undefined &&
       (viewedSession.failure !== undefined || viewedSession.report?.status !== 'ok')
     ) {
@@ -601,6 +686,7 @@ export function StudioApp(props: StudioAppProps) {
         elapsed: formatElapsed(failed.report?.elapsedMs ?? 0),
         error,
         nodes: toRunNodeTimings(failed, order),
+        entryNodeId: studio.startId,
         ...(stack === undefined ? {} : { stack }),
         onCopyLog: () => {
           void globalThis.navigator?.clipboard?.writeText(
@@ -613,7 +699,12 @@ export function StudioApp(props: StudioAppProps) {
       }
     }
 
-    if (viewedReport !== undefined && viewedReport.status === 'ok' && viewedSession !== undefined) {
+    if (
+      settledRunIsCurrent &&
+      viewedReport !== undefined &&
+      viewedReport.status === 'ok' &&
+      viewedSession !== undefined
+    ) {
       // `2A`, the newest artboard, draws the completed panel as: node timings, the inputs still
       // shown and still editable, `Re-run start1 ⌘↵`, then `Log` / `tail`. The run's OUTPUTS are
       // not here — they are in the bottom output dock, which `canvas`'s `inspect` opens. So
@@ -629,7 +720,7 @@ export function StudioApp(props: StudioAppProps) {
           descriptor: startNode.input,
           draft: studio.inputDraft,
           presentation: runInputPresentation(startNode.input, studio.inputDraft),
-          onDraftChange: studio.setInputField,
+          onDraftChange: setInputField,
         },
         log: { ...toRunLog(viewedSession), followLabel: 'tail' },
         onRerun: runFromDraft,
@@ -639,17 +730,17 @@ export function StudioApp(props: StudioAppProps) {
     return {
       kind: 'idle',
       entryNodeId: studio.startId,
-      // Every start the descriptor declares. `RunIdleView` draws a chooser only past the first,
-      // so `publication` — and every artboard — is unchanged.
-      startIds: descriptor.startIds,
-      onSelectStart: studio.selectStart,
       note: IDLE_NOTE,
       descriptor: startNode.input,
       input: toRunInputSchema(startNode.input),
       draft: studio.inputDraft,
       presentation: runInputPresentation(startNode.input, studio.inputDraft),
-      onDraftChange: studio.setInputField,
+      onDraftChange: setInputField,
       onRun: startRun,
+      // F02: the panel's own button is the fifth affordance, and the only one that validates
+      // inside `run/`. It reports onto the same state the other four write.
+      onInvalid: reportInvalidInput,
+      ...(inputIssues === undefined ? {} : { issues: inputIssues }),
       // The same predicate the docked control and the top-bar pill read, not a second one: two
       // places deciding whether this is runnable would drift.
       blocked: runBlocked,
@@ -669,11 +760,13 @@ export function StudioApp(props: StudioAppProps) {
     studio.elapsedMs,
     askToCancel,
     studio.inputDraft,
-    studio.setInputField,
-    studio.selectStart,
+    setInputField,
+    settledRunIsCurrent,
     startRun,
     runFromDraft,
     runBlocked,
+    inputIssues,
+    reportInvalidInput,
   ])
 
   /**
@@ -851,6 +944,7 @@ export function StudioApp(props: StudioAppProps) {
           {...(props.showDotGrid === undefined ? {} : { showDotGrid: props.showDotGrid })}
           onNodeLayoutChange={onNodeLayoutChange}
           onConnectFields={onConnectFields}
+          onSelectStart={selectStart}
         />
       </div>
       {openViewerNode === undefined ? null : (
@@ -1082,6 +1176,7 @@ export function StudioApp(props: StudioAppProps) {
         dirty={draft?.dirty ?? false}
         nodes={flowNodeSummaries}
         {...(studio.selectedNodeId === undefined ? {} : { selectedNodeId: studio.selectedNodeId })}
+        onSelectStart={selectStart}
         inventory={inventory}
         {...(studio.startId === undefined ? {} : { entryNodeId: studio.startId })}
         running={running}

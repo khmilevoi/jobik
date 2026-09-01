@@ -1,5 +1,5 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { canvasColors } from '#canvas/canvasTokens.js'
 import type { FlowCanvasEdge, FlowCanvasNode } from '#canvas/types.js'
 import { dotGrid, FlowCanvas, toReactFlowEdges, toReactFlowNodes } from './FlowCanvas.js'
@@ -168,5 +168,33 @@ describe('FlowCanvas', () => {
     render(<FlowCanvas nodes={nodes} edges={edges} startNodeId="start1" />)
     expect(await screen.findByTestId('zoom-controls')).toBeInTheDocument()
     expect(screen.getByTestId('zoom-readout')).toHaveTextContent('100%')
+  })
+})
+
+/**
+ * The canvas's own way to move the run panel's entry point — a click on any card whose
+ * `data.isStart` is `true`, alongside the sidebar's `Start` section.
+ */
+describe('FlowCanvas — selecting a start by clicking its card', () => {
+  // `fireEvent.click` rather than `userEvent.click`: React Flow's own drag handling listens for a
+  // real `mousedown` on the node wrapper, and `userEvent`'s full pointer sequence trips it up under
+  // jsdom (d3-drag reads `event.view`, which jsdom's synthesised event never sets) — an environment
+  // quirk with nothing to do with the click handler under test, which only needs the `click` itself.
+  it('reports a click on a start card', async () => {
+    const onSelectStart = vi.fn()
+    render(
+      <FlowCanvas nodes={nodes} edges={edges} startNodeId="start1" onSelectStart={onSelectStart} />,
+    )
+    fireEvent.click(await screen.findByTestId('node-card-start1'))
+    expect(onSelectStart).toHaveBeenCalledWith('start1')
+  })
+
+  it('does nothing for a click on a card that is not a start', async () => {
+    const onSelectStart = vi.fn()
+    render(
+      <FlowCanvas nodes={nodes} edges={edges} startNodeId="start1" onSelectStart={onSelectStart} />,
+    )
+    fireEvent.click(await screen.findByTestId('node-card-render'))
+    expect(onSelectStart).not.toHaveBeenCalled()
   })
 })

@@ -1507,24 +1507,24 @@ describe('3F — switching away from an unsaved draft', () => {
 })
 
 describe('choosing a start', () => {
-  it('offers no chooser for the single-start flow every artboard draws', async () => {
+  it('draws no Start section in the sidebar for the single-start flow every artboard draws', async () => {
     mount(twoFlowClient())
     await waitFor(() => expect(screen.getByTestId('run-start-button')).toBeInTheDocument())
 
-    expect(screen.queryByTestId('run-start-chooser')).toBeNull()
+    expect(screen.queryByText('Start')).not.toBeInTheDocument()
   })
 
-  it('offers one for a flow that declares two, and re-seeds the inputs on a change', async () => {
+  it('lists every declared start in the sidebar once there is more than one, and re-seeds the inputs on a change', async () => {
     mount(twoFlowClient())
     await waitFor(() => expect(screen.getByTestId('studio-flow-row-pokedex')).toBeInTheDocument())
     await userEvent.click(screen.getByTestId('studio-flow-row-pokedex'))
 
-    const chooser = await screen.findByTestId('run-start-chooser')
-    expect(within(chooser).getByRole('radio', { name: 'byName' })).toBeChecked()
+    await screen.findByTestId('studio-start-row-byName')
+    expect(screen.getByTestId('studio-start-row-byNumber')).toBeInTheDocument()
     expect(screen.getByTestId('run-input-name')).toBeInTheDocument()
     expect(screen.getByTestId('run-start-button')).toHaveTextContent('Run byName')
 
-    await userEvent.click(within(chooser).getByRole('radio', { name: 'byNumber' }))
+    await userEvent.click(screen.getByTestId('studio-start-row-byNumber'))
 
     await waitFor(() =>
       expect(screen.getByTestId('run-start-button')).toHaveTextContent('Run byNumber'),
@@ -1534,14 +1534,31 @@ describe('choosing a start', () => {
     expect(screen.queryByTestId('run-input-name')).toBeNull()
   })
 
+  it('moves the same way when the start card is clicked on the canvas instead', async () => {
+    mount(twoFlowClient())
+    await waitFor(() => expect(screen.getByTestId('studio-flow-row-pokedex')).toBeInTheDocument())
+    await userEvent.click(screen.getByTestId('studio-flow-row-pokedex'))
+
+    await screen.findByTestId('node-card-byNumber')
+    // `fireEvent.click`, not `userEvent.click`: React Flow's drag handling listens for a real
+    // `mousedown` on the node wrapper, which trips over jsdom under `userEvent`'s full pointer
+    // sequence — see the same note in `FlowCanvas.test.tsx`.
+    fireEvent.click(screen.getByTestId('node-card-byNumber'))
+
+    await waitFor(() =>
+      expect(screen.getByTestId('run-start-button')).toHaveTextContent('Run byNumber'),
+    )
+    expect(screen.getByTestId('run-input-number')).toHaveValue(25)
+  })
+
   it('runs the start it is pointed at', async () => {
     const startRun = vi.fn(async () => streamOf([{ type: 'run-accepted' as const, runToken: 't' }]))
     mount(twoFlowClient({ startRun }))
     await waitFor(() => expect(screen.getByTestId('studio-flow-row-pokedex')).toBeInTheDocument())
     await userEvent.click(screen.getByTestId('studio-flow-row-pokedex'))
 
-    const chooser = await screen.findByTestId('run-start-chooser')
-    await userEvent.click(within(chooser).getByRole('radio', { name: 'byNumber' }))
+    await screen.findByTestId('studio-start-row-byName')
+    await userEvent.click(screen.getByTestId('studio-start-row-byNumber'))
     await waitFor(() =>
       expect(screen.getByTestId('run-start-button')).toHaveTextContent('Run byNumber'),
     )
@@ -1761,5 +1778,279 @@ describe('`2A` — run history as a navigator', () => {
     await userEvent.click(screen.getByTestId('studio-run-row-219'))
     expect(screen.queryByTestId('studio-dock-status')).toBeNull()
     release()
+  })
+})
+
+/**
+ * F02 — an invalid run input used to be a completely silent no-op.
+ *
+ * `RunIdleState.onInvalid` was declared, and `RunIdleView` fired it, and NOTHING anywhere supplied
+ * it; the other four affordances went through `runInputValues()`, which returned `undefined` on a
+ * rejected draft and reported nothing at all. A required field left empty produced no field error,
+ * no strip, no modal, no `3B` dim and no HTTP request — the press simply did nothing.
+ *
+ * The fixture below is the first in this file whose start declares a CONSTRAINT: every other one
+ * is a bare `z.string()`, which accepts `''`, so nothing here could ever have caught this.
+ */
+describe('F02: a draft the start schema rejects', () => {
+  const CONSTRAINED_DESCRIPTOR = {
+    id: 'publication',
+    name: 'publication',
+    documentFile: 'flow.jobik.json',
+    sourceFile: 'flow.ts',
+    startIds: ['start1'],
+    nodes: [
+      {
+        id: 'start1',
+        kind: 'start' as const,
+        title: 'start',
+        input: {
+          nodeId: 'start1',
+          fields: [
+            {
+              field: 'name',
+              required: true,
+              annotation: 'string',
+              control: { kind: 'string' as const, minLength: 1 },
+            },
+          ],
+        },
+        output: {
+          nodeId: 'start1',
+          fields: [{ field: 'name', required: true, annotation: 'string' }],
+        },
+      },
+    ],
+  }
+
+  const CONSTRAINED_DOCUMENT = {
+    format: 'jobik.flow',
+    version: 1,
+    connections: [],
+    literals: {},
+    layout: { start1: { x: 56, y: 248 } },
+  } as unknown as FlowDocument
+
+  function mountConstrained(startRun: JobikClient['startRun']) {
+    return mount(
+      stubClient({
+        loadFlow: async () => ({
+          descriptor: CONSTRAINED_DESCRIPTOR,
+          document: CONSTRAINED_DOCUMENT,
+          revision: 'rev-1',
+        }),
+        startRun,
+      }),
+    )
+  }
+
+  it('names the offending field in the run panel instead of doing nothing, and starts no run', async () => {
+    const startRun = vi.fn(async () => streamOf([{ type: 'run-accepted' as const, runToken: 't' }]))
+    mountConstrained(startRun)
+
+    await waitFor(() => expect(screen.getByTestId('run-start-button')).toBeInTheDocument())
+    await userEvent.click(screen.getByTestId('run-start-button'))
+
+    await waitFor(() => expect(screen.getByTestId('run-input-issues')).toBeInTheDocument())
+    const row = screen.getByTestId('run-input-issue-name')
+    expect(row.textContent).toContain('name')
+    // The row carries the schema's own sentence too, not only the field it names.
+    expect((row.textContent ?? '').replace('name', '').trim().length).toBeGreaterThan(0)
+    expect(startRun).not.toHaveBeenCalled()
+  })
+
+  it('reports the same way for ⌘↵, which never touched onInvalid at all', async () => {
+    const startRun = vi.fn(async () => streamOf([{ type: 'run-accepted' as const, runToken: 't' }]))
+    mountConstrained(startRun)
+
+    await waitFor(() => expect(screen.getByTestId('run-input-name')).toBeInTheDocument())
+    await userEvent.keyboard('{Control>}{Enter}{/Control}')
+
+    await waitFor(() => expect(screen.getByTestId('run-input-issues')).toBeInTheDocument())
+    expect(startRun).not.toHaveBeenCalled()
+  })
+
+  it('drops the finding as soon as the draft it was about changes', async () => {
+    const startRun = vi.fn(async () => streamOf([{ type: 'run-accepted' as const, runToken: 't' }]))
+    mountConstrained(startRun)
+
+    await waitFor(() => expect(screen.getByTestId('run-start-button')).toBeInTheDocument())
+    await userEvent.click(screen.getByTestId('run-start-button'))
+    await waitFor(() => expect(screen.getByTestId('run-input-issues')).toBeInTheDocument())
+
+    await userEvent.type(screen.getByTestId('run-input-name'), 'pikachu')
+    expect(screen.queryByTestId('run-input-issues')).toBeNull()
+  })
+
+  it('clears the finding once a draft that satisfies the schema actually runs', async () => {
+    const startRun = vi.fn(async () => streamOf([{ type: 'run-accepted' as const, runToken: 't' }]))
+    mountConstrained(startRun)
+
+    await waitFor(() => expect(screen.getByTestId('run-start-button')).toBeInTheDocument())
+    await userEvent.click(screen.getByTestId('run-start-button'))
+    await waitFor(() => expect(screen.getByTestId('run-input-issues')).toBeInTheDocument())
+
+    await userEvent.type(screen.getByTestId('run-input-name'), 'pikachu')
+    await userEvent.click(screen.getByTestId('run-start-button'))
+
+    await waitFor(() => expect(startRun).toHaveBeenCalledTimes(1))
+    expect(screen.queryByTestId('run-input-issues')).toBeNull()
+  })
+})
+
+/**
+ * F07 — a multi-start flow used to lose its entry-point chooser after the first run, permanently.
+ *
+ * The `SegmentedControl` used to exist only in `RunIdleView`, and nothing ever returned a settled
+ * panel to idle: once `pokedex`'s `byName` had run, the panel read `Completed #7` with `Re-run
+ * byName` and no chooser at all, so `byNumber` — half of the repository's own demonstration of two
+ * independent pipelines — could be reached again only by leaving the flow and coming back, which
+ * also threw the run history away.
+ *
+ * The chooser is gone now, replaced by the sidebar's `Start` section and a click on a start card on
+ * the canvas — both always on screen regardless of which run-panel state is showing, so the bug
+ * this section guards cannot recur structurally. The tests below still run the sidebar row through
+ * the same settled-panel scenarios F07 introduced, since the re-arm behaviour they exercise
+ * (dropping `Re-run`, reseeding the next start's own draft, keeping the archive) is `selectStart`'s
+ * and is unrelated to where the click that calls it comes from.
+ */
+describe('F07: choosing another start after a run has settled', () => {
+  const POKEDEX_REPORT = {
+    flowName: 'pokedex',
+    startId: 'byName',
+    runNumber: 7,
+    status: 'ok' as const,
+    elapsedMs: 1200,
+    nodes: [
+      {
+        nodeId: 'byName',
+        status: 'ok' as const,
+        elapsedMs: 12,
+        output: { name: 'pikachu' },
+        assets: {},
+        error: null,
+      },
+    ],
+    logs: [],
+    error: null,
+  } as unknown as WireRunReportPayload
+
+  const POKEDEX_FAILURE = {
+    ...POKEDEX_REPORT,
+    runNumber: 8,
+    status: 'failed' as const,
+    nodes: [
+      {
+        nodeId: 'byName',
+        status: 'failed' as const,
+        elapsedMs: 12,
+        output: null,
+        assets: {},
+        error: {
+          _tag: 'NodeInvokeError',
+          message: 'pikachu is not a pokedex entry.',
+          authored: true,
+        },
+      },
+    ],
+  } as unknown as WireRunReportPayload
+
+  /** Loads `pokedex` and runs `byName` to whichever report the caller wants. */
+  async function runByName(report: WireRunReportPayload) {
+    const startRun = vi.fn(async () =>
+      streamOf([
+        { type: 'run-accepted' as const, runToken: 'tok' },
+        { type: 'run-settled' as const, report },
+      ]),
+    )
+    mount(twoFlowClient({ startRun }))
+    await waitFor(() => expect(screen.getByTestId('studio-flow-row-pokedex')).toBeInTheDocument())
+    await userEvent.click(screen.getByTestId('studio-flow-row-pokedex'))
+    await screen.findByTestId('studio-start-row-byName')
+    await userEvent.type(screen.getByTestId('run-input-name'), 'pikachu')
+    await userEvent.click(screen.getByTestId('run-start-button'))
+    return startRun
+  }
+
+  it('keeps the sidebar’s Start section on a completed panel and re-arms for the start it is moved to', async () => {
+    await runByName(POKEDEX_REPORT)
+    await waitFor(() => expect(screen.getByTestId('run-rerun-button')).toBeInTheDocument())
+
+    // The section is still there — this is the whole finding.
+    expect(screen.getByTestId('studio-start-row-byName')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByTestId('studio-start-row-byNumber'))
+
+    // The panel re-arms: a report about `byName` is not a report about `byNumber`, so it returns
+    // to idle with `byNumber`'s own field, seeded from that start's own default.
+    await waitFor(() =>
+      expect(screen.getByTestId('run-start-button')).toHaveTextContent('Run byNumber'),
+    )
+    expect(screen.queryByTestId('run-rerun-button')).toBeNull()
+    expect(screen.getByTestId('run-input-number')).toHaveValue(25)
+    expect(screen.queryByTestId('run-input-name')).toBeNull()
+  })
+
+  it('keeps the run-history archive across the switch', async () => {
+    await runByName(POKEDEX_REPORT)
+    await waitFor(() => expect(screen.getByTestId('studio-run-row-7')).toBeInTheDocument())
+
+    await userEvent.click(screen.getByTestId('studio-start-row-byNumber'))
+    await waitFor(() =>
+      expect(screen.getByTestId('run-start-button')).toHaveTextContent('Run byNumber'),
+    )
+
+    // Leaving the flow was the only escape before, and it emptied this. Switching starts does not.
+    expect(screen.getByTestId('studio-run-row-7')).toBeInTheDocument()
+    // And the run is still summarised where the idle panel puts it.
+    expect(screen.getByTestId('run-last-run-status')).toHaveTextContent('completed')
+  })
+
+  it('actually runs the start it was moved to', async () => {
+    const startRun = await runByName(POKEDEX_REPORT)
+    await waitFor(() => expect(screen.getByTestId('run-rerun-button')).toBeInTheDocument())
+
+    await userEvent.click(screen.getByTestId('studio-start-row-byNumber'))
+    await waitFor(() =>
+      expect(screen.getByTestId('run-start-button')).toHaveTextContent('Run byNumber'),
+    )
+    await userEvent.click(screen.getByTestId('run-start-button'))
+
+    await waitFor(() => expect(startRun).toHaveBeenCalledTimes(2))
+    expect(startRun).toHaveBeenLastCalledWith({
+      flowId: 'pokedex',
+      startId: 'byNumber',
+      input: { number: 25 },
+    })
+  })
+
+  it('keeps the sidebar’s Start section on a failed panel too, and re-arms from there', async () => {
+    await runByName(POKEDEX_FAILURE)
+    await waitFor(() => expect(screen.getByTestId('run-error-well')).toBeInTheDocument())
+
+    expect(screen.getByTestId('studio-start-row-byName')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByTestId('studio-start-row-byNumber'))
+
+    await waitFor(() =>
+      expect(screen.getByTestId('run-start-button')).toHaveTextContent('Run byNumber'),
+    )
+    expect(screen.queryByTestId('run-error-well')).toBeNull()
+    expect(screen.getByTestId('studio-run-row-8')).toBeInTheDocument()
+  })
+
+  it('still shows a settled run of the start it is on, and a row picked from the history', async () => {
+    await runByName(POKEDEX_REPORT)
+    await waitFor(() => expect(screen.getByTestId('run-rerun-button')).toBeInTheDocument())
+
+    await userEvent.click(screen.getByTestId('studio-start-row-byNumber'))
+    await waitFor(() =>
+      expect(screen.getByTestId('run-start-button')).toHaveTextContent('Run byNumber'),
+    )
+
+    // The row is still a way back to the run itself — the gate is about the panel's default view,
+    // not about what a deliberate pick may show.
+    await userEvent.click(screen.getByTestId('studio-run-row-7'))
+    await waitFor(() => expect(screen.getByTestId('run-rerun-button')).toBeInTheDocument())
   })
 })

@@ -1,3 +1,4 @@
+import type { NodeInputDescriptor } from '@jobik/core'
 import { cleanup, render, screen } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -91,5 +92,11 @@ describe('RunFailedView', () => {
     await userEvent.click(rerun)
     expect(onCopyLog).toHaveBeenCalledTimes(1)
     expect(onRerun).toHaveBeenCalledTimes(1)
+  })
+
+  /** The entry point is chosen from the sidebar and the canvas now, never from this panel. */
+  it('draws no start selector', () => {
+    render(<RunFailedView state={state({ entryNodeId: 'start1' })} />)
+    expect(screen.queryByTestId('run-start-chooser')).toBeNull()
   })
 })

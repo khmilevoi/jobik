@@ -225,4 +225,10 @@ describe('RunCompletedView, in 2A’s shape', () => {
     // DOCUMENT_POSITION_FOLLOWING: the primary comes after the Outputs section, not before it.
     expect(label.compareDocumentPosition(rerun) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
+
+  /** The entry point is chosen from the sidebar and the canvas now, never from this panel. */
+  it('draws no start selector', () => {
+    render(<RunCompletedView state={state({ ...shape, entryNodeId: 'start1' })} />)
+    expect(screen.queryByTestId('run-start-chooser')).toBeNull()
+  })
 })

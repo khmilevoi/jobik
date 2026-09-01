@@ -58,6 +58,12 @@ export interface FlowsSidebarProps {
   readonly onSelectFlow?: (flowId: string) => void
   readonly nodes: readonly FlowNodeSummary[]
   readonly selectedNodeId?: string
+  /**
+   * Points the run panel at another of the flow's declared starts — the same move a click on a
+   * start card on the canvas makes. Reachable only from the `Start` section, which itself only
+   * draws once the flow declares more than one start; see that section's own comment.
+   */
+  readonly onSelectStart?: (nodeId: string) => void
   /** The flow's node definitions. Read-only reference in v1 — nodes cannot be added from it. */
   readonly inventory: readonly InventoryEntry[]
   /**
@@ -86,6 +92,8 @@ export function FlowsSidebar(props: FlowsSidebarProps) {
   const runs = props.runs ?? []
   const onSelectRun = props.onSelectRun
   const onSelectFlow = props.onSelectFlow
+  const onSelectStart = props.onSelectStart
+  const startNodes = props.nodes.filter((node) => node.kind === 'start')
 
   return (
     <div data-testid="studio-sidebar" className={s.sidebar}>
@@ -116,6 +124,38 @@ export function FlowsSidebar(props: FlowsSidebarProps) {
             )
           })}
         </div>
+
+        {/*
+          The flow's declared starts, ahead of the full node list — clicking one moves the run
+          panel's entry point, exactly as clicking a start card on the canvas does. Drawn only
+          past the first: a single-start flow already names its one start in the row below, and
+          every artboard shows exactly that flow, so this section would draw a single redundant
+          row for every flow the design was checked against.
+        */}
+        {startNodes.length <= 1 ? null : (
+          <>
+            <SectionLabel className={s.groupLabel}>Start</SectionLabel>
+            <div className={s.list}>
+              {startNodes.map((node) => {
+                const selected = node.id === props.selectedNodeId
+                return (
+                  <button
+                    key={node.id}
+                    type="button"
+                    data-testid={`studio-start-row-${node.id}`}
+                    onClick={onSelectStart === undefined ? undefined : () => onSelectStart(node.id)}
+                    className={cx(s.row, s.startRow, selected && s.startRowSelected)}
+                  >
+                    <div className={cx(s.nodeDot, s.dotStart)} />
+                    <div className={cx(s.startRowId, selected && s.startRowIdSelected)}>
+                      {node.id}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </>
+        )}
 
         <SectionLabel className={s.groupLabel}>
           Nodes in {activeFlow?.name ?? props.activeFlowId}

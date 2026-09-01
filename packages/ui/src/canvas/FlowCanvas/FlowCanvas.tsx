@@ -95,7 +95,15 @@ export function toReactFlowEdges(
  * result — persisting either is P14's.
  */
 export function FlowCanvas(props: FlowCanvasProps) {
-  const { nodes, edges, startNodeId, selectedNodeId, onNodeLayoutChange, onConnectFields } = props
+  const {
+    nodes,
+    edges,
+    startNodeId,
+    selectedNodeId,
+    onNodeLayoutChange,
+    onConnectFields,
+    onSelectStart,
+  } = props
   const shape = props.edgeShape ?? 'curved'
 
   const [rfNodes, setRfNodes] = useState<JobikFlowNode[]>(() =>
@@ -130,6 +138,15 @@ export function FlowCanvas(props: FlowCanvasProps) {
     [onConnectFields],
   )
 
+  // A click selects the entry point only on a card that is actually a start — clicking any other
+  // node does nothing, since the canvas has no other node-selection affordance today.
+  const onNodeClick = useCallback(
+    (_event: unknown, node: JobikFlowNode) => {
+      if (node.data.isStart === true) onSelectStart?.(node.id)
+    },
+    [onSelectStart],
+  )
+
   return (
     <div data-testid="flow-canvas" className={s.canvas} style={props.style}>
       <ReactFlow
@@ -139,6 +156,7 @@ export function FlowCanvas(props: FlowCanvasProps) {
         edgeTypes={edgeTypes}
         onNodesChange={onNodesChange}
         onNodeDragStop={onNodeDragStop}
+        onNodeClick={onNodeClick}
         onConnect={onConnect}
         connectionLineStyle={{
           stroke: accent.cssVar,

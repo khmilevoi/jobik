@@ -6,20 +6,34 @@
 }
 
 /*
- * The start chooser's row — drawn only for a flow that declares more than one start, which no
- * artboard does. It is `3C`'s own `Format` row verbatim (`DownloadModal.module.css` §3): the label
- * outside the track at 11.5px, the track taking the rest, and nothing else stated. Borrowing that
- * construction rather than inventing one is what keeps this the minimum addition.
+ * F02 — the rejected draft's findings, in the error well the `Run panel — states` failed card
+ * draws (`RunFailedView.module.css`, lines 802–812). The two text rules below are that card's
+ * `.errorName` and `.errorMessage` verbatim: the design gives a validation finding exactly one
+ * treatment — a mono tag over a sentence, on the error well — and this reuses it rather than
+ * inventing a second. Only the layout is this file's.
  */
-.startChooser {
+.issues {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.startLabel {
+.issue {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.issuePath {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-11);
+  color: var(--jbk-status-error-tag);
+}
+
+.issueMessage {
   font-size: var(--jbk-size-11-5);
-  color: var(--jbk-text-field-label);
+  line-height: 1.55;
+  color: var(--jbk-status-error-body);
 }
 
 .lastRun {

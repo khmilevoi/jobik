@@ -1,6 +1,6 @@
-import { Button, SectionLabel, SegmentedControl } from '#primitives/index.js'
+import { Button, SectionLabel } from '#primitives/index.js'
 import { formatLastRunMeta } from '#run/format.js'
-import { RunDivider, type RunDotTone, RunStatusDot } from '#run/RunChrome/RunChrome.js'
+import { RunDivider, type RunDotTone, RunStatusDot, RunWell } from '#run/RunChrome/RunChrome.js'
 import { RunInputControl } from '#run/RunInputControl/RunInputControl.js'
 import { RunNodeTimings } from '#run/RunNodeList/RunNodeList.js'
 import type { RunIdleState, RunSummary } from '#run/types.js'
@@ -23,17 +23,14 @@ const lastRunDotTone = {
  * Returns a fragment: `RunDock`'s body supplies the `16px 14px` padding and the `16px` gap between
  * these blocks, and P4's contract forbids restating either.
  *
- * **The start chooser is the one thing here the design does not draw.** Every artboard shows
- * `publication`, which declares a single start, so the panel is only ever drawn as the design
- * fixes it; a flow with two starts gets `3C`'s own `SegmentedControl` — the design's only
- * segmented control, and no new shape — above the inputs it re-seeds. With one start nothing is
- * rendered at all, so a single-start flow's panel is unchanged down to the DOM.
+ * **This panel draws no start selector at all.** The entry point is chosen from the sidebar's
+ * `Start` section or by clicking a start node on the canvas — see `FlowsSidebar` and
+ * `FlowCanvas.onSelectStart` — so a single-start flow and a multi-start one look identical here.
  */
 export function RunIdleView(props: RunIdleViewProps) {
   const { state } = props
   const lastRun = state.lastRun
-  const startIds = state.startIds ?? []
-  const onSelectStart = state.onSelectStart
+  const issues = state.issues ?? []
 
   const run = () => {
     const values = validateRunInputs({
@@ -54,19 +51,6 @@ export function RunIdleView(props: RunIdleViewProps) {
         {state.note}
       </div>
 
-      {startIds.length > 1 ? (
-        <div className={s.startChooser}>
-          <div className={s.startLabel}>Start</div>
-          <SegmentedControl
-            data-testid="run-start-chooser"
-            label="Start"
-            options={startIds.map((id) => ({ value: id, label: id }))}
-            value={state.entryNodeId}
-            {...(onSelectStart === undefined ? {} : { onChange: onSelectStart })}
-          />
-        </div>
-      ) : null}
-
       {state.descriptor.fields.map((field) => (
         <RunInputControl
           key={field.field}
@@ -76,6 +60,28 @@ export function RunIdleView(props: RunIdleViewProps) {
           onChange={state.onDraftChange}
         />
       ))}
+
+      {/*
+        F02 — what the last press found, when it found anything. `RunIdleState.issues`' own doc
+        comment carries the whole design reading: no artboard draws a rejected input, so this is
+        the panel's own error well, the one the `Run panel — states` failed card draws, holding one
+        row per problem. It sits directly above the button that produced it, and it is the caller's
+        state so `⌘↵`, the docked control and the top bar all report onto it too.
+      */}
+      {issues.length === 0 ? null : (
+        <RunWell data-testid="run-input-issues" tone="error" className={s.issues}>
+          {issues.map((issue) => (
+            <div
+              key={`${issue.path}:${issue.message}`}
+              data-testid={`run-input-issue-${issue.path}`}
+              className={s.issue}
+            >
+              {issue.path === '' ? null : <div className={s.issuePath}>{issue.path}</div>}
+              <div className={s.issueMessage}>{issue.message}</div>
+            </div>
+          ))}
+        </RunWell>
+      )}
 
       {/*
         `3B`, via `Button`'s own `dimmed`: an error stands, so the primary drops to 45 % and stops

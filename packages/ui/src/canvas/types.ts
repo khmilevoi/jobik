@@ -250,6 +250,12 @@ export interface FlowCanvasProps {
   readonly onNodeLayoutChange?: (change: NodeLayoutChange) => void
   /** Fired when a field-to-field connection completes. Persisting it is P14's. */
   readonly onConnectFields?: (connection: FieldConnection) => void
+  /**
+   * Fired with a node's id when a card whose `data.isStart` is `true` is clicked — the canvas's own
+   * way to move the run panel's entry point, alongside the sidebar's `Start` section. A click on any
+   * other card does nothing: there is no other node-selection affordance on the canvas today.
+   */
+  readonly onSelectStart?: (nodeId: string) => void
   /** Layout only — the canvas already fills its flex slot. Never a colour. */
   readonly style?: CSSProperties
 }

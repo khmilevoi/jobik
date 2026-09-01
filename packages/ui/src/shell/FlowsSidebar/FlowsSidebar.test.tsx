@@ -108,6 +108,74 @@ describe('FlowsSidebar — run history', () => {
   })
 })
 
+/**
+ * The `Start` section: every declared start, ahead of the full node list, clickable to move the
+ * run panel's entry point. Drawn only once the flow declares more than one — a single-start flow
+ * already names its one start in the node list below, so this section would draw one redundant row.
+ */
+describe('FlowsSidebar — start nodes', () => {
+  const twoStarts = [
+    { id: 'byName', kind: 'start', dot: 'start' as const },
+    { id: 'byNumber', kind: 'start', dot: 'neutral' as const },
+    { id: 'render', kind: 'transform', dot: 'neutral' as const },
+  ]
+
+  it('draws nothing for the single-start flow every artboard shows', () => {
+    renderSidebar()
+    expect(screen.queryByText('Start')).not.toBeInTheDocument()
+  })
+
+  it('lists every declared start once there is more than one, marking the selected one', () => {
+    render(
+      <FlowsSidebar
+        flows={flows}
+        activeFlowId="publication"
+        nodes={twoStarts}
+        selectedNodeId="byName"
+        inventory={inventory}
+        onCollapse={() => {}}
+      />,
+    )
+    expect(screen.getByText('Start')).toBeInTheDocument()
+    expect(screen.getByTestId('studio-start-row-byName')).toHaveTextContent('byName')
+    expect(screen.getByTestId('studio-start-row-byNumber')).toHaveTextContent('byNumber')
+    // The transform node never joins this section, only the node list below.
+    expect(screen.queryByTestId('studio-start-row-render')).not.toBeInTheDocument()
+  })
+
+  it('reports the start a row names', async () => {
+    const onSelectStart = vi.fn()
+    render(
+      <FlowsSidebar
+        flows={flows}
+        activeFlowId="publication"
+        nodes={twoStarts}
+        selectedNodeId="byName"
+        inventory={inventory}
+        onSelectStart={onSelectStart}
+        onCollapse={() => {}}
+      />,
+    )
+    await userEvent.click(screen.getByTestId('studio-start-row-byNumber'))
+    expect(onSelectStart).toHaveBeenCalledWith('byNumber')
+  })
+
+  it('leaves the rows inert when no handler is given', async () => {
+    render(
+      <FlowsSidebar
+        flows={flows}
+        activeFlowId="publication"
+        nodes={twoStarts}
+        selectedNodeId="byName"
+        inventory={inventory}
+        onCollapse={() => {}}
+      />,
+    )
+    await userEvent.click(screen.getByTestId('studio-start-row-byNumber'))
+    expect(screen.getByTestId('studio-start-row-byNumber')).toBeInTheDocument()
+  })
+})
+
 describe('FlowsSidebar', () => {
   it('renders the panel', () => {
     renderSidebar()

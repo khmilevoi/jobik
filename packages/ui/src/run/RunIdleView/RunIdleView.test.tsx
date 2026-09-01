@@ -51,6 +51,12 @@ describe('RunIdleView', () => {
     expect(screen.getByTestId('run-panel-note').textContent).toBe(NOTE)
   })
 
+  /** The entry point is chosen from the sidebar and the canvas now, never from this panel. */
+  it('draws no start selector', () => {
+    render(<RunIdleView state={state()} />)
+    expect(screen.queryByTestId('run-start-chooser')).toBeNull()
+  })
+
   it('renders one control per input field, honouring the caller presentation', () => {
     render(<RunIdleView state={state()} />)
     expect(screen.getByTestId('run-input-title').tagName).toBe('INPUT')
@@ -129,40 +135,52 @@ describe('RunIdleView', () => {
 })
 
 /**
- * No artboard draws a start selector — all eleven show `publication`, which declares one start. So
- * the chooser's whole contract is that a single-start flow is unchanged, and the multi-start case
- * borrows `3C`'s segmented control rather than inventing a shape.
+ * F02: an invalid draft used to vanish. `onInvalid` was declared and fired, and nothing anywhere
+ * supplied it — so a required field left empty produced no field error, no strip, no modal and no
+ * request.
+ *
+ * The design draws NO surface for a rejected run input (see the doc comment on `RunIdleState.issues`),
+ * so the panel borrows the one treatment it already has for a validation finding: the error well
+ * the `Run panel — states` failed card draws, in the same tones.
  */
-describe('RunIdleView — the start chooser', () => {
-  it('draws nothing at all for a flow with one start', () => {
-    render(<RunIdleView state={state({ startIds: ['start1'] })} />)
-    expect(screen.queryByTestId('run-start-chooser')).toBeNull()
-    expect(screen.queryByText('Start')).toBeNull()
-  })
-
-  it('draws nothing when the caller names no starts', () => {
+describe('RunIdleView — a rejected draft', () => {
+  it('draws no error well while the caller reports nothing', () => {
     render(<RunIdleView state={state()} />)
-    expect(screen.queryByTestId('run-start-chooser')).toBeNull()
+    expect(screen.queryByTestId('run-input-issues')).toBeNull()
   })
 
-  it('offers every start once there is more than one, marking the selected one', () => {
-    render(
-      <RunIdleView state={state({ entryNodeId: 'byNumber', startIds: ['byName', 'byNumber'] })} />,
-    )
-    expect(screen.getByTestId('run-start-chooser')).toBeInTheDocument()
-    expect(screen.getByRole('radio', { name: 'byName' })).not.toBeChecked()
-    expect(screen.getByRole('radio', { name: 'byNumber' })).toBeChecked()
+  it('draws no error well for an empty issue list', () => {
+    render(<RunIdleView state={state({ issues: [] })} />)
+    expect(screen.queryByTestId('run-input-issues')).toBeNull()
   })
 
-  it('reports the chosen start', async () => {
-    const onSelectStart = vi.fn()
+  it('names the field and prints the message for every issue the caller hands back', () => {
     render(
       <RunIdleView
-        state={state({ entryNodeId: 'byName', startIds: ['byName', 'byNumber'], onSelectStart })}
+        state={state({
+          draft: { title: '', markdown: 'x' },
+          issues: [
+            { path: 'title', message: 'Too small: expected string to have >=1 characters' },
+            { path: 'markdown', message: 'Invalid input' },
+          ],
+        })}
       />,
     )
-    await userEvent.click(screen.getByRole('radio', { name: 'byNumber' }))
-    expect(onSelectStart).toHaveBeenCalledWith('byNumber')
+    expect(screen.getByTestId('run-input-issues')).toBeInTheDocument()
+    expect(screen.getByTestId('run-input-issue-title').textContent).toContain('title')
+    expect(screen.getByTestId('run-input-issue-title').textContent).toContain(
+      'Too small: expected string to have >=1 characters',
+    )
+    expect(screen.getByTestId('run-input-issue-markdown').textContent).toContain('Invalid input')
+  })
+
+  it('still prints an issue that names no field, such as a JSON syntax error', () => {
+    render(
+      <RunIdleView
+        state={state({ issues: [{ path: '', message: 'meta: Unexpected token o' }] })}
+      />,
+    )
+    expect(screen.getByTestId('run-input-issues').textContent).toContain('meta: Unexpected token o')
   })
 })
 

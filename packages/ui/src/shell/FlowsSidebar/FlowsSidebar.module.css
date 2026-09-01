@@ -106,6 +106,40 @@
   color: var(--jbk-text-active-meta);
 }
 
+/*
+ * The `Start` section's rows — a button, because the row selects the start it names, the same
+ * construction `.flowRow` above already uses. Same 6px dot and mono id the node list draws for a
+ * start-kind row, so the two lists read as one vocabulary; only the trailing kind label is dropped,
+ * since every row in this list is already known to be a start.
+ */
+.startRow {
+  gap: 9px;
+  width: 100%;
+  background: none;
+  border: none;
+  text-align: left;
+}
+
+.startRow:hover {
+  background: var(--jbk-primitive-hover-fill-panel);
+}
+
+.startRowSelected,
+.startRowSelected:hover {
+  background: var(--jbk-surface-active-node-row);
+  border: 1px solid var(--jbk-border-active-list-row);
+}
+
+.startRowId {
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-11-5);
+  color: var(--jbk-text-field-label);
+}
+
+.startRowIdSelected {
+  color: var(--jbk-text-active-identifier);
+}
+
 .nodeRow {
   gap: 9px;
 }
