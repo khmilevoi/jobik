@@ -13,7 +13,7 @@
  *
  *   Toolbar button, ghost  (h26, `Copy all`)      quiet:md
  *   Toolbar button, raised (h26, `Download`)      outlined:md
- *   Output row     (h24 compact, `Save`)          quiet:sm
+ *   Output row     (h24 compact, `Save`)          quiet:sm — default / preparing / saved only
  *   Panel button   (h34 full width, `Copy log`)   panel:lg
  *   Primary        (h34 accent, `Download 3 …`)   accent:lg
  *   Top-bar Validate / Save                       quiet:lg / outlined:lg
@@ -22,13 +22,21 @@
  *   Modal footer   (h32, 3C §1.5)                 quiet:modal / accent:modal /
  *                                                 destructive:modal
  *
- * **There is not one transition in this file, and that is the design.** Foundations §6.4: the
- * whole document contains zero `transition` declarations and zero `cubic-bezier`; hover is an
- * instantaneous `style-hover` swap and every state change is instant. `3A` §4.2 says the same of
- * the button system specifically, and explains why rule 02 exists — `min-width` reserves the
- * width of the longest label so a state change never shifts the row, which is the job a width
- * transition would otherwise be asked to hide. The only motion here is `jspin`, inside the
- * spinner, and the progress bar's width advancing because bytes actually arrived.
+ * **Motion, as artboard `4A` now fixes it.** Foundations §6.4 and `3A` §4.2 recorded zero
+ * transitions across the whole document; `4A` supersedes that for this control and states exactly
+ * two, both here:
+ *
+ *   - the contents cross-fade over the swap duration (`4A:83-84`, `--jbk-motion-swap-fade` on
+ *     `.swap`), while the frame itself does not move;
+ *   - `min-width` eases on the settle curve (`4A:82`) so the button never jumps under the
+ *     pointer as its reserve or its longest label changes.
+ *
+ * Duration and curve are read as *separate* tokens, never as a shorthand: that is what lets the
+ * reduced-motion block in `globalStyles.css` zero the duration and reach this rule.
+ *
+ * Hover stays instant — `4A`'s pointer duration is 0 — and nothing else here is timed. The rest
+ * of the motion is `jspin` inside the spinner and the progress bar's width advancing because
+ * bytes actually arrived, which `4A:199` classes as data rather than motion.
  */
 
 .button {
@@ -40,9 +48,22 @@
    * on the caller's own label set, so it rides in through `reserveWidth`.
    */
   min-width: var(--jbk-button-reserve, auto);
+  transition: min-width var(--jbk-motion-duration-swap) var(--jbk-motion-ease-settle);
   background: none;
   font-family: var(--jbk-font-ui);
   font-weight: var(--jbk-weight-regular);
+}
+
+/*
+ * `4A:80-89` — the swapping subtree. It reproduces the button's own flex line rather than
+ * introducing one: `gap: inherit` takes whichever gap the cell class set (7px, 8px, or none),
+ * so wrapping the contents changes no metric in any of the eleven cells.
+ */
+.swap {
+  display: flex;
+  align-items: center;
+  gap: inherit;
+  animation: var(--jbk-motion-swap-fade);
 }
 
 .quietXs,
@@ -284,10 +305,23 @@
   font-weight: var(--jbk-weight-medium);
 }
 
+/*
+ * Every shape's copied / saved cell takes this fill — except one. `3A:358`, the Output row's
+ * `Saved`, is the single saved cell the artboard draws with no chrome at all: it keeps the h24
+ * box and the radius but states neither `border` nor `background`, leaving bare green text and a
+ * check where its own default and preparing cells (`3A:355-356`) both carry
+ * `border:1px solid #232629`. The chrome is dropped once the action is done.
+ */
 .ok {
   border-color: var(--jbk-primitive-ok-border);
   background: var(--jbk-primitive-ok-fill);
   color: var(--jbk-status-ok-label);
+}
+
+/* Source order settles the tie: this follows `.ok` and so wins at equal specificity + 1. */
+.quietSm.ok {
+  border-color: transparent;
+  background: none;
 }
 
 .failed {

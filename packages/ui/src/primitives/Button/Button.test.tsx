@@ -197,3 +197,34 @@ describe('Button', () => {
     expect(screen.getByRole('button')).not.toHaveAttribute('style')
   })
 })
+
+/**
+ * `4A`'s control swap, as behaviour rather than as appearance.
+ *
+ * The cross-fade itself is a CSS animation and the styling gates own it. What a jsdom render can
+ * check is the half that fails silently: a CSS animation replays only when an element mounts, and
+ * React reuses an element across a re-render unless its key changes. Without the key the
+ * stylesheet would be perfect and nothing would move, and nothing else in the package would
+ * notice. So this asserts the remount — and, in `4A`'s own words, that the frame holds still and
+ * does not remount with it.
+ */
+describe('Button — the 4A control swap', () => {
+  it('remounts its swapping contents on a state change and keeps the frame', () => {
+    const { rerender } = render(
+      <Button variant="quiet" size="md" state="idle">
+        Copy all
+      </Button>,
+    )
+    const frame = screen.getByRole('button')
+    const before = frame.firstElementChild
+
+    rerender(
+      <Button variant="quiet" size="md" state="ok">
+        Copy all
+      </Button>,
+    )
+
+    expect(screen.getByRole('button')).toBe(frame)
+    expect(frame.firstElementChild).not.toBe(before)
+  })
+})

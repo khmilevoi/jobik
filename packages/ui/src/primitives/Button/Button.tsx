@@ -244,11 +244,21 @@ export const Button = reatomComponent(function Button(props: ButtonProps) {
       {state === 'progress' && progress !== undefined ? (
         <span aria-hidden="true" className={progressShape[props.variant]} />
       ) : null}
-      {leading === null || leading === undefined ? null : (
-        <span className={s.indicator}>{leading}</span>
-      )}
-      <span className={s.label}>{children}</span>
-      {meta === undefined ? null : <span className={s.meta}>{meta}</span>}
+      {/*
+       * `4A`'s control swap. The frame holds still and only the state-dependent contents
+       * cross-fade, so indicator, label and meta travel together inside one wrapper. The `key` is
+       * load-bearing: a CSS animation replays on mount or on an `animation-name` change, and
+       * React would otherwise reuse these spans across a state change and play nothing at all.
+       * `hint`, `trailing` and the progress fill stay outside — the first two do not change with
+       * the state, and the fill's width is data rather than motion (`4A:199`).
+       */}
+      <span key={state} className={s.swap}>
+        {leading === null || leading === undefined ? null : (
+          <span className={s.indicator}>{leading}</span>
+        )}
+        <span className={s.label}>{children}</span>
+        {meta === undefined ? null : <span className={s.meta}>{meta}</span>}
+      </span>
       {hint === undefined ? null : <span className={s.hint}>{hint}</span>}
       {trailing}
     </button>
