@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { ConnectionError } from '#errors.js'
 import {
+  assetFlow,
   branchDocument,
   branchFlow,
   coercingFlow,
@@ -379,6 +380,66 @@ describe('validateFlowGraph() — literals', () => {
     )
     expect(error.reason).toBe('the graph contains a cycle: render -> render')
     expect(error.cycle).toEqual(['render', 'render'])
+  })
+})
+
+describe('validateFlowGraph() — literal values', () => {
+  it('rejects a literal whose type the input field cannot accept', () => {
+    const document = publicationDocument()
+    document.literals = { publish: { channel: 42 } }
+    const error = errorOrThrow(
+      validateFlowGraph({ flow: publicationFlow, document }),
+      ConnectionError,
+    )
+    expect(error.reason).toMatch(
+      /^the literal for input field 'publish\.channel' does not match its schema: /,
+    )
+    expect(error.reason).toContain('expected string')
+    expect(error.to).toEqual({ node: 'publish', field: 'channel' })
+    expect(error.from).toBeNull()
+  })
+
+  it('rejects a wrongly typed literal on an optional input', () => {
+    const document = publicationDocument()
+    document.literals = { render: { width: '640' }, publish: { channel: 'blog' } }
+    const error = errorOrThrow(
+      validateFlowGraph({ flow: publicationFlow, document }),
+      ConnectionError,
+    )
+    expect(error.reason).toMatch(
+      /^the literal for input field 'render\.width' does not match its schema: /,
+    )
+    expect(error.to).toEqual({ node: 'render', field: 'width' })
+  })
+
+  it('accepts a literal an input coerces, exactly as a connection would be accepted', () => {
+    const document = flowDocument({ literals: { counter: { count: '42' } } })
+    expect(validateFlowGraph({ flow: coercingFlow, document })).not.toBeInstanceOf(Error)
+  })
+
+  it('rejects any literal on a binary input, which only a connection can fill', () => {
+    const document = flowDocument({
+      connections: [
+        { from: { node: 'start1', field: 'markdown' }, to: { node: 'render', field: 'markdown' } },
+      ],
+      literals: { upload: { image: 'hello', name: 'cover' } },
+    })
+    const error = errorOrThrow(validateFlowGraph({ flow: assetFlow, document }), ConnectionError)
+    expect(error.reason).toBe(
+      "input field 'upload.image' is binary, so it takes a connection and not a literal",
+    )
+    expect(error.to).toEqual({ node: 'upload', field: 'image' })
+  })
+
+  it('accepts a binary input that is connected beside a well-typed literal', () => {
+    const document = flowDocument({
+      connections: [
+        { from: { node: 'start1', field: 'markdown' }, to: { node: 'render', field: 'markdown' } },
+        { from: { node: 'render', field: 'image' }, to: { node: 'upload', field: 'image' } },
+      ],
+      literals: { upload: { name: 'cover' } },
+    })
+    expect(validateFlowGraph({ flow: assetFlow, document })).not.toBeInstanceOf(Error)
   })
 })
 

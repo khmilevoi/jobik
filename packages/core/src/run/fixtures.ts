@@ -152,8 +152,9 @@ const counter = node({
 
 /**
  * `s -> counter`, where `counter.count` is unconnected and comes from a document literal. Graph
- * validation checks that the literal's FIELD exists; only the run parses its VALUE, which is what
- * this fixture exists to prove.
+ * validation now parses the literal's VALUE against the field's schema, so a literal this fixture
+ * accepts is one the run is guaranteed to accept too. Pass only well-typed values; a bad literal is
+ * a graph-validation case and belongs in `graph/validate.test.ts`.
  */
 export function literalRunGraph(count: unknown) {
   const bound = flow('literal')
@@ -164,6 +165,34 @@ export function literalRunGraph(count: unknown) {
   const document = flowDocument({
     connections: [{ from: { node: 's', field: 'text' }, to: { node: 'counter', field: 'text' } }],
     literals: { counter: { count } },
+  })
+
+  const graph = okOrThrow(validateFlowGraph({ flow: bound, document }))
+  return okOrThrow(resolveRunGraph({ graph, startId: 's' }))
+}
+
+const refiner = node({
+  title: 'Refiner',
+  input: z.object({ text: z.string().min(5) }),
+  output: z.object({ text: z.string() }),
+  run: ({ text }) => ({ text }),
+})
+
+/**
+ * `s -> refiner`, where the edge is well typed — both ends are `string` — but `refiner` narrows its
+ * input past anything a field type can express. Graph validation compares field KINDS, so it
+ * accepts the edge; only the run parses the VALUE that flows down it. That is the input-parse
+ * failure path in `execute.ts`, which no literal can reach any more now that validation parses
+ * those up front.
+ */
+export function refinedRunGraph() {
+  const bound = flow('refined')
+    .start('s', start({ title: 'S', input: z.object({ text: z.string() }) }))
+    .node('refiner', refiner)
+    .bind('path', flowPath)
+
+  const document = flowDocument({
+    connections: [{ from: { node: 's', field: 'text' }, to: { node: 'refiner', field: 'text' } }],
   })
 
   const graph = okOrThrow(validateFlowGraph({ flow: bound, document }))

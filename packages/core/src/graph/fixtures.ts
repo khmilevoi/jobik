@@ -95,6 +95,21 @@ export const coercingFlow = flow('coercing')
   .node('counter', counter)
   .bind('path', flowPath)
 
+const upload = node({
+  kind: 'sink',
+  title: 'Upload',
+  input: z.object({ image: asset({ mime: 'image/png' }), name: z.string() }),
+  output: z.object({}),
+  run: () => ({}),
+})
+
+/** A sink whose `image` input is binary: the case a literal can never satisfy. */
+export const assetFlow = flow('asset')
+  .start('start1', publicationInput)
+  .node('render', render)
+  .node('upload', upload)
+  .bind('path', flowPath)
+
 /** A current-version document with the three mutable sections defaulted to empty. */
 export function flowDocument(
   parts: Partial<Pick<FlowDocument, 'connections' | 'literals' | 'layout'>> = {},

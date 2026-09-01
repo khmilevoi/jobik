@@ -1,4 +1,4 @@
-import type * as z from 'zod'
+import * as z from 'zod'
 import type { FlowDocument } from '#document/schema.js'
 import { ConnectionError, type FieldRef } from '#errors.js'
 import type { BoundFlow } from '#flow.js'
@@ -14,6 +14,10 @@ import type { GraphInputEdge, GraphNode, ValidatedFlowGraph } from './types.js'
  * untrusted, so ids are resolved through a `Map` and field names through `Object.hasOwn`. The
  * checks run in a fixed order — connections in document order, then cycles, then literals — and
  * the first problem is returned, because the taxonomy carries one `ConnectionError` and not a list.
+ * A connection is checked by kind, because its value only exists at run time; a literal is a value
+ * in hand and is parsed against the field's own schema, so both reach the same verdict for the same
+ * wrong type. An asset input is refused a literal outright: the spec gives it a connection or a
+ * graph validation error, never a form control.
  * The document's `layout` is editor state and is deliberately not validated.
  */
 export function validateFlowGraph(args: {
@@ -100,7 +104,7 @@ export function validateFlowGraph(args: {
       })
     }
     const shape = definition.input.shape
-    for (const field of Object.keys(values)) {
+    for (const [field, value] of Object.entries(values)) {
       if (!Object.hasOwn(shape, field)) {
         return new ConnectionError({
           reason: `node '${nodeId}' has no input field '${field}', so it cannot take a literal for it`,
@@ -110,6 +114,20 @@ export function validateFlowGraph(args: {
       if (connected.has(fieldKey(nodeId, field))) {
         return new ConnectionError({
           reason: `input field '${nodeId}.${field}' is connected, so it cannot also take a literal`,
+          to: { node: nodeId, field },
+        })
+      }
+      const schema = shape[field]
+      if (fieldTypeOf(schema, 'input') === 'asset') {
+        return new ConnectionError({
+          reason: `input field '${nodeId}.${field}' is binary, so it takes a connection and not a literal`,
+          to: { node: nodeId, field },
+        })
+      }
+      const mismatch = literalMismatch(schema, value)
+      if (mismatch !== undefined) {
+        return new ConnectionError({
+          reason: `the literal for input field '${nodeId}.${field}' does not match its schema: ${mismatch}`,
           to: { node: nodeId, field },
         })
       }
@@ -153,6 +171,32 @@ export function validateFlowGraph(args: {
 /** A start has no output schema: its validated run input becomes its output fields. */
 function outputShapeOf(definition: AnyDefinition): Record<string, z.core.$ZodType> {
   return definition.kind === 'start' ? definition.input.shape : definition.output.shape
+}
+
+/**
+ * Why a literal cannot satisfy its input field, or `undefined` when it can.
+ *
+ * A literal, unlike a connection, is a value in hand, so this asks the field's own schema instead
+ * of comparing coarse kinds: it is the same parse `execute()` runs on the assembled input, moved
+ * forward to validation time so the editor rejects a graph that cannot run. Coercion therefore
+ * still passes — `z.coerce.number()` accepts the literal `'42'`, exactly as it accepts a connected
+ * string — because the schema itself says so.
+ *
+ * Never throws. `z.safeParse` throws on a schema whose refinement is async, and this clause
+ * deliberately catches every synchronous failure rather than only that one: following the same
+ * policy as `field-type.ts`, an undecidable field is not rejected.
+ */
+function literalMismatch(schema: z.core.$ZodType, value: unknown): string | undefined {
+  try {
+    const result = z.safeParse(schema, value)
+    if (result.success) return undefined
+    const [issue] = result.error.issues
+    if (issue === undefined) return 'the value does not match the field schema'
+    const at = issue.path.length > 0 ? ` (at ${issue.path.map(String).join('.')})` : ''
+    return `${issue.message}${at}`
+  } catch {
+    return undefined
+  }
 }
 
 /**

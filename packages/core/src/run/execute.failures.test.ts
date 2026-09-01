@@ -7,6 +7,7 @@ import {
   FixtureNodeError,
   failureRunGraph,
   literalRunGraph,
+  refinedRunGraph,
   rejecting,
   returningError,
   returningErrorAsync,
@@ -107,17 +108,17 @@ describe('executeRunGraph() node failures', () => {
     expect(nodeReport(report, 'counter').output).toEqual({ text: 'abab' })
   })
 
-  it('fails a node whose document literal does not parse', async () => {
+  it('fails a node whose assembled input does not parse', async () => {
     const report = await executeRunGraph({
-      graph: literalRunGraph('two'),
+      graph: refinedRunGraph(),
       startOutput: { text: 'ab' },
       runNumber: 1,
     })
-    const counter = nodeReport(report, 'counter')
+    const refiner = nodeReport(report, 'refiner')
 
-    expect(counter.status).toBe('failed')
-    expect(counter.elapsedMs).toBe(0)
-    expect(errorOrThrow(counter.error, NodeExecutionError).nodeId).toBe('counter')
+    expect(refiner.status).toBe('failed')
+    expect(refiner.elapsedMs).toBe(0)
+    expect(errorOrThrow(refiner.error, NodeExecutionError).nodeId).toBe('refiner')
   })
 
   it('fails the node, not the run, when its INPUT schema throws instead of failing to parse', async () => {
