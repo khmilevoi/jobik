@@ -152,6 +152,24 @@ describe('tokens', () => {
       // `ease-out` in the file and the only animation that is not a loop.
       validateSweep: 'jsweep 1.1s ease-in-out infinite',
       resultPop: 'jpop .22s ease-out',
+      // `4A` added the last two keyframes: a cross-fade for a control swapping its contents, and
+      // the 3px lift of a log line or run-history row arriving.
+      swapFade: 'jfade 90ms linear',
+      lineIn: 'jline 140ms cubic-bezier(.2,.8,.25,1)',
+
+      // The `4A` transition scale. Six durations — `0` is a real member of it and means no
+      // transition at all — and three curves, which is the whole vocabulary. A duration or an
+      // easing outside this list is not design.
+      durationPointer: '0ms',
+      durationSwap: '90ms',
+      durationState: '140ms',
+      durationLayout: '180ms',
+      durationOverlayIn: '200ms',
+      durationExit: '120ms',
+      durationScreen: '240ms',
+      easeSettle: 'cubic-bezier(.2,.8,.25,1)',
+      easeExit: 'cubic-bezier(.4,0,1,1)',
+      easeLinear: 'linear',
     })
   })
 

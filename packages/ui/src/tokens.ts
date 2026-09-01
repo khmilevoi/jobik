@@ -193,9 +193,22 @@ export const radii = {
 /**
  * The design's motion, whole. The keyframe names match `STUDIO_GLOBAL_CSS`.
  *
- * The first five are loops: something is moving because work is in progress. `validateSweep` joined
- * them with artboard `3D`, and `resultPop` is the one exception to the rule — a `.22s` entrance for
- * a result chip, and the only `ease-out` in the design.
+ * Two halves, and the second one is new. The **loops** come first: something is moving because work
+ * is in progress. `validateSweep` joined them with artboard `3D`, and `resultPop` is the loop
+ * group's one exception — a `.22s` entrance for a result chip, and the only `ease-out` in the
+ * design. Then come the **transitions**, from artboard `4A` (`.design/raw/studio.dc.html`, lines
+ * 32-209), which is the normative motion spec and *reverses* the older "nothing moves because a
+ * state changed" rule: six durations and three curves, the whole scale, nothing outside it.
+ *
+ * `4A`'s four rules, because a duration alone does not say how to use it:
+ *
+ * 1. Anything that answers the pointer is instant — `durationPointer` is `0ms` and means *no*
+ *    transition and *no* keyframe, not a very short one.
+ * 2. One property moves at a time. A node changes colour, a dock changes height, a screen changes
+ *    opacity. Nothing changes colour and size and position at once.
+ * 3. Exits are shorter than entrances — 200 in, 120 out — and take `easeExit`.
+ * 4. A transition never delays a result, and under `prefers-reduced-motion` every duration here
+ *    becomes `0` except the spinner. `globalStyles.css` does that by redefining these tokens.
  */
 export const motion = {
   spinner: 'jspin .7s linear infinite',
@@ -207,6 +220,32 @@ export const motion = {
   validateSweep: 'jsweep 1.1s ease-in-out infinite',
   /** `3D`: the resolved `Valid` / `2 errors` chip arriving. */
   resultPop: 'jpop .22s ease-out',
+  /** `4A`: the control swap — the frame holds still and only its contents cross-fade. */
+  swapFade: 'jfade 90ms linear',
+  /** `4A`/demo: a log line or run-history row arriving, lifting 3px as it fades in. */
+  lineIn: 'jline 140ms cubic-bezier(.2,.8,.25,1)',
+
+  /** `4A` pointer: hover, press, focus ring. Zero, and deliberately so — a 140ms hover reads as lag. */
+  durationPointer: '0ms',
+  /** `4A` swap: a label or icon changing inside one control. */
+  durationSwap: '90ms',
+  /** `4A` state: node, chip, tab marker, row. Also the entrance for a toast or an error. */
+  durationState: '140ms',
+  /** `4A` layout: dock height, panel width. Paired with `opacity durationExit linear`. */
+  durationLayout: '180ms',
+  /** `4A` overlay, entering: the modal backdrop and card together. */
+  durationOverlayIn: '200ms',
+  /** `4A` everything leaving: the modal out, a layout's opacity, a toast out. Rule 03. */
+  durationExit: '120ms',
+  /** `4A` screen: flow switch, route change. "The only 240 ms in the app." */
+  durationScreen: '240ms',
+
+  /** `4A`: everything that arrives or settles. */
+  easeSettle: 'cubic-bezier(.2,.8,.25,1)',
+  /** `4A`: everything that leaves. */
+  easeExit: 'cubic-bezier(.4,0,1,1)',
+  /** `4A`: spinners, progress fills, opacity-only fades. */
+  easeLinear: 'linear',
 } as const
 
 /**

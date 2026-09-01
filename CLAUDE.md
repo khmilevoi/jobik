@@ -31,7 +31,7 @@ packages/core/src/
 packages/ui/src/
   index.ts        append-only browser barrel (named imports)
   tokens.ts tokens.css   the design tokens, in TypeScript and as `--jbk-*` custom properties
-  globalStyles.tsx globalStyles.css   the reset and the four keyframes
+  globalStyles.tsx globalStyles.css   the reset and the eight keyframes
   cx.ts css.d.ts  the class-name joiner; the ambient `*.module.css` declaration
   cssModuleSource.ts + cssModuleUsage/cssModuleValues.test.ts   the styling gates
   primitives/     the `3A` button system — Button, IconButton, InlineAction, ValueRow, Spinner,
@@ -141,21 +141,25 @@ The approved Studio UI design is **not** a file in this repository. It lives in 
 | Project | `Jobik Studio UI Design` |
 | Project ID | `34cbfcac-8d29-47b2-b4c7-592c96aac165` |
 | URL | https://claude.ai/design/p/34cbfcac-8d29-47b2-b4c7-592c96aac165?file=Jobik+Studio.dc.html |
-| Design file | `Jobik Studio.dc.html` — every artboard |
+| Design file | `Jobik Studio.dc.html` — the catalogue, all twelve artboards |
+| Second file | `Jobik Studio Demo.dc.html` — one interactive prototype of a single running flow, not a catalogue |
+| Third file | `Jobik Studio Flow Switching.dc.html` — artboards `3E` and `3F`, an addendum that continues the catalogue's numbering |
 | `support.js` | generated Claude Design canvas runtime, no design content, ignore it |
 
 Read it with the `DesignSync` tool: `get_file` with that `projectId` and path `Jobik Studio.dc.html`.
 It needs design-system authorization — run `/design-login` first if the tool reports it is not
 authorized. The `claude-design` MCP server, when configured, needs the same login.
 
-**Ten artboards**, in document order. The first four carry a prefix and are the newer additions;
-where one of them disagrees with an older artboard, the newer wins:
+**Twelve artboards** in `Jobik Studio.dc.html`, in document order. The first six carry a prefix and
+are the newer additions; where one of them disagrees with an older artboard, the newer wins:
 
 | Artboard | What it fixes |
 |---|---|
+| `4A` Motion | the motion spec, and the only artboard containing CSS transitions: six durations, three curves, four rules. Normative — see *Motion* below |
 | `3A` Buttons | copy and download as state matrices — default / working / copied / failed and default / preparing / transferring / saved — across seven shapes, plus the in-button loader |
 | `3B` | one rule: a button loads only when nothing around it reports progress; otherwise it drops to `opacity:.45` and changes nothing else |
 | `3C` Modals | Validation, Download output, Stack trace, Cancel run |
+| `3D` Validate | the validate interaction end to end — press, ≈1.2 s validating, then a result chip holding 4 s, with both outcome panels drawn in full |
 | `2A` Studio — full page, output open | 1640×1080; the bottom output dock, run history in the sidebar, the run pill in the top bar, the `Log` section in the run panel |
 | Studio — default | 1640×980, the idle shell |
 | Studio — panels collapsed | both sidebars docked into the top bar |
@@ -166,20 +170,49 @@ where one of them disagrees with an older artboard, the newer wins:
 
 Canvas props: `accent`, `showDotGrid`, `edgeShape` (`curved` | `stepped`), `--dot: #191c1f`.
 
-**Motion, because it is easy to get wrong in both directions.** The design has exactly four
-keyframes — `jspin .7s`, `jdash .8s`, `jshim 1.5s`, `jpulse 1.5s`/`1s` — and **zero CSS
-transitions**, no `cubic-bezier` and no `prefers-reduced-motion` block. The rule behind that: a
-thing moves because work is in progress, never because a state changed. Do not add a hover or
-state-change transition; do make sure the four loops actually run where the design puts them, read
-from the `--jbk-motion-*` tokens. The one deliberate departure from the motion rules is a
-`prefers-reduced-motion` block in `globalStyles.css`, which the design does not have and
-accessibility requires.
+**Motion, because it is easy to get wrong in both directions.** Artboard **`4A` is the normative
+motion spec and it supersedes the older rule** this section used to state — "a thing moves because
+work is in progress, never because a state changed", zero transitions, no `cubic-bezier`. That is no
+longer the design. Transitions are part of it now; `4A` fixes exactly which ones, and nothing
+outside its scale is design.
+
+Six durations, all in `--jbk-motion-duration-*`:
+
+| Duration | Token | Where |
+|---|---|---|
+| 0 ms | `--jbk-motion-duration-pointer` | hover, press, focus ring. *No* transition and *no* keyframe — not a very short one |
+| 90 ms | `--jbk-motion-duration-swap` | a label or icon changing inside one control |
+| 140 ms | `--jbk-motion-duration-state` | node, chip, tab marker, row; also a toast or error entering |
+| 180 ms | `--jbk-motion-duration-layout` | dock height, panel width. Paired with `opacity 120ms linear` |
+| 200 ms in / 120 ms out | `--jbk-motion-duration-overlay-in` / `--jbk-motion-duration-exit` | a modal. The 120 ms is everything leaving, anywhere |
+| 240 ms | `--jbk-motion-duration-screen` | flow switch, route change. `4A` calls it "the only 240 ms in the app" |
+
+Three curves, and there is no fourth: `--jbk-motion-ease-settle` (`cubic-bezier(.2,.8,.25,1)`) for
+everything that arrives or settles, `--jbk-motion-ease-exit` (`cubic-bezier(.4,0,1,1)`) for
+everything that leaves, `--jbk-motion-ease-linear` for spinners, progress fills and opacity-only
+fades.
+
+`4A`'s four rules: **01** anything that answers the pointer is instant — a 140 ms hover reads as lag,
+not as polish. **02** one property moves at a time; nothing changes colour and size and position at
+once. **03** exits are shorter than entrances — 200 in, 120 out — and use the sharp curve. **04** a
+transition never delays a result, and **under `prefers-reduced-motion` every duration becomes 0
+except the spinner.**
+
+The loops are unchanged and still carry the older rule's meaning: `jspin .7s`, `jdash .8s`,
+`jshim 1.5s`, `jpulse 1.5s`/`1s`, `jsweep 1.1s`, plus the two entrances `jpop .22s ease-out`,
+`jfade 90ms linear` and `jline 140ms`. All eight keyframes live in `globalStyles.css` and are read
+through `--jbk-motion-*`; make sure they run where the design puts them.
+
+The `prefers-reduced-motion` block in `globalStyles.css` is **no longer a departure** — `4A` rule 04
+mandates it, and the design file carries its own such media query. It zeroes every duration token
+and disables every loop except `jspin`, which stays because it is the only signal that a run is in
+progress.
 
 **The design file is the source of truth for layout, tokens, and states.** Do not invent colours,
 spacing, or new UI states — read the artboard first. If code and design disagree, the design wins —
 but check `DEFERRED.md` first: several disagreements are already known and deliberately deferred.
 
-**A second deliberate departure, in copy rather than motion.** `CancelRunModal` does not print the
+**A deliberate departure, in copy rather than motion.** `CancelRunModal` does not print the
 design's own cancel sentence (`07-copy.md` §4.5), which promises the in-flight node finishes its
 current work and that completed nodes stay cached so a re-run resumes from there. Both halves are
 false in v1: `run/execute.ts` settles the run on `Promise.race([invoked, aborted])` without waiting
