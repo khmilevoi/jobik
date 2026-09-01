@@ -28,7 +28,13 @@ describe('StatusStrip', () => {
     )
   })
 
-  it('counts up while the result stands', () => {
+  /**
+   * The same assertion the `setInterval` version made, moved onto the Reatom clock: the tick is now
+   * `await wrap(sleep(1000))` owned by a connect hook, so advancing the timers has to be awaited
+   * for the write it drives to land. What the clock does when the strip *leaves* is
+   * `shell/statusClock.test.ts`'s subject — a lifetime is a thing to assert on the unit.
+   */
+  it('counts up while the result stands', async () => {
     vi.useFakeTimers()
     let now = 0
     try {
@@ -36,8 +42,8 @@ describe('StatusStrip', () => {
       expect(screen.getByTestId('studio-status-meta')).toHaveTextContent('checked 0 s ago')
 
       now = 3_000
-      act(() => {
-        vi.advanceTimersByTime(3_000)
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1_000)
       })
       expect(screen.getByTestId('studio-status-meta')).toHaveTextContent('checked 3 s ago')
     } finally {

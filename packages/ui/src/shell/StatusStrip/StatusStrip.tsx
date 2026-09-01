@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { reatomFactoryComponent } from '@reatom/react'
+import { reatomStatusClock } from '#shell/statusClock.js'
 import s from './StatusStrip.module.css'
 
 /**
@@ -22,7 +23,12 @@ export interface StatusStripProps {
   readonly connectionCount: number
   /** When the check answered, as `Date.now()`. The strip re-reads the clock once a second. */
   readonly checkedAt: number
-  /** Test seam. The Studio never passes one. */
+  /**
+   * Test seam. The Studio never passes one.
+   *
+   * Read once, when this strip's clock is built — pass a closure over a mutable value rather than a
+   * new function per frame if the test needs to move it.
+   */
   readonly now?: () => number
 }
 
@@ -37,37 +43,42 @@ export function checkedAgo(checkedAt: number, now: number): string {
   return `checked ${seconds} s ago`
 }
 
-const TICK_MS = 1000
+/**
+ * The one moving part: `checked 12 s ago` counts up while the result stands.
+ *
+ * `reatomFactoryComponent` builds this strip's clock once per mounted strip and aborts it on
+ * unmount, which is why the clock can be a unit at all — two strips are two clocks, and neither
+ * outlives the element that asked for it. The clock itself runs only while this render is reading
+ * it (RTM-L01); see `shell/statusClock.ts` and its test for the lifetime.
+ *
+ * Everything else is still a prop. The three numbers are the caller's — `StudioApp` is the one
+ * surface that knows a result stands at all, and it computes exactly this guard to decide between
+ * this strip, `ProblemsStrip` and no strip.
+ */
+export const StatusStrip = reatomFactoryComponent(function StatusStrip(
+  initProps: StatusStripProps,
+) {
+  const clock = reatomStatusClock(initProps.now ?? Date.now, 'StatusStrip.clock')
 
-export function StatusStrip(props: StatusStripProps) {
-  const now = props.now ?? Date.now
-  const [tick, setTick] = useState(0)
+  return (props: StatusStripProps) => {
+    const meta = [
+      plural(props.nodeCount, 'node'),
+      plural(props.connectionCount, 'connection'),
+      checkedAgo(props.checkedAt, clock.now()),
+    ].join(' · ')
 
-  // The one moving part: `checked 12 s ago` counts up while the result stands.
-  useEffect(() => {
-    const handle = setInterval(() => setTick((value) => value + 1), TICK_MS)
-    return () => clearInterval(handle)
-  }, [])
-
-  void tick
-
-  const meta = [
-    plural(props.nodeCount, 'node'),
-    plural(props.connectionCount, 'connection'),
-    checkedAgo(props.checkedAt, now()),
-  ].join(' · ')
-
-  return (
-    <div data-testid="studio-status-strip" className={s.strip}>
-      <div className={s.dot} />
-      <div data-testid="studio-status-label" className={s.label}>
-        No issues
+    return (
+      <div data-testid="studio-status-strip" className={s.strip}>
+        <div className={s.dot} />
+        <div data-testid="studio-status-label" className={s.label}>
+          No issues
+        </div>
+        <div data-testid="studio-status-meta" className={s.meta}>
+          {meta}
+        </div>
+        <div className={s.spacer} />
+        <div className={s.shortcut}>⌘⇧V</div>
       </div>
-      <div data-testid="studio-status-meta" className={s.meta}>
-        {meta}
-      </div>
-      <div className={s.spacer} />
-      <div className={s.shortcut}>⌘⇧V</div>
-    </div>
-  )
-}
+    )
+  }
+}, 'StatusStrip')

@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import { cx } from '#cx.js'
 import s from './ProblemsStrip.module.css'
 
@@ -59,7 +60,19 @@ const selectedCodeTones = {
   warning: s.codeWarning,
 } satisfies Record<ProblemSeverity, string>
 
-export function ProblemsStrip(props: ProblemsStripProps) {
+/**
+ * A `reatomComponent` whose prop API is unchanged, and the reason is worth stating because both
+ * values do have a model home (`ValidationModel.problems`, `ValidationModel.openReport`).
+ *
+ * **The model can only ever describe one problem.** `studio/problems.ts`'s `toFlowProblems` builds
+ * exactly one `error` row out of the single `WireErrorPayload` the validate endpoint returns — no
+ * second finding, no `warning`, and no `source`, because the wire carries none. This strip's whole
+ * contract is the arithmetic and the layout *above* that: `2 errors, 1 warning`, the singular at
+ * one, a row with a location and a row without. Fed from `validation.problems()` none of that is
+ * reachable, so it would stop being tested rather than start being model-driven. It takes rows,
+ * `StudioApp` supplies them, and the day the wire carries a second finding nothing here changes.
+ */
+export const ProblemsStrip = reatomComponent(function ProblemsStrip(props: ProblemsStripProps) {
   const { problems } = props
 
   return (
@@ -107,4 +120,4 @@ export function ProblemsStrip(props: ProblemsStripProps) {
       })}
     </div>
   )
-}
+}, 'ProblemsStrip')

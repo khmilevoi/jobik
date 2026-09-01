@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import type { ReactNode } from 'react'
 import s from './PanelHeader.module.css'
 
@@ -8,7 +9,9 @@ const chevronPaths: Record<ChevronDirection, string> = {
   right: 'M3.5 1 7 4.5 3.5 8',
 }
 
-export function Chevron(props: { readonly direction: ChevronDirection }) {
+export const Chevron = reatomComponent(function Chevron(props: {
+  readonly direction: ChevronDirection
+}) {
   return (
     <svg width="9" height="9" viewBox="0 0 9 9" aria-hidden="true">
       <path
@@ -19,7 +22,7 @@ export function Chevron(props: { readonly direction: ChevronDirection }) {
       />
     </svg>
   )
-}
+}, 'Chevron')
 
 export interface PanelHeaderProps {
   readonly children: ReactNode
@@ -31,7 +34,8 @@ export interface PanelHeaderProps {
   readonly 'data-testid'?: string
 }
 
-export function PanelHeader(props: PanelHeaderProps) {
+/** Prop-driven, and staying that way: `Studio` owns which panels are docked. */
+export const PanelHeader = reatomComponent(function PanelHeader(props: PanelHeaderProps) {
   return (
     <div data-testid={props['data-testid']} className={s.header}>
       {props.children}
@@ -45,4 +49,4 @@ export function PanelHeader(props: PanelHeaderProps) {
       </button>
     </div>
   )
-}
+}, 'PanelHeader')

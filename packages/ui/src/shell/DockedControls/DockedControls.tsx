@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import type { ReactNode } from 'react'
 import { cx } from '#cx.js'
 import { Button, Chip, chipBox } from '#primitives/index.js'
@@ -8,7 +9,9 @@ import s from './DockedControls.module.css'
  * The left panel docked into the top bar. One button wearing the chip box — it has no second
  * control inside it, so it can be the button itself.
  */
-export function DockedFlowsControl(props: { readonly onExpand: () => void }) {
+export const DockedFlowsControl = reatomComponent(function DockedFlowsControl(props: {
+  readonly onExpand: () => void
+}) {
   const box = chipBox({ gap: 7 })
   return (
     <button
@@ -22,7 +25,7 @@ export function DockedFlowsControl(props: { readonly onExpand: () => void }) {
       <div className={s.label}>Flows &amp; nodes</div>
     </button>
   )
-}
+}, 'DockedFlowsControl')
 
 export interface DockedRunControlProps {
   readonly entryNodeId: string
@@ -50,7 +53,9 @@ export interface DockedRunControlProps {
  * The label is a separate control from the chip, which is why the chip is a container rather than
  * a button.
  */
-export function DockedRunControl(props: DockedRunControlProps) {
+export const DockedRunControl = reatomComponent(function DockedRunControl(
+  props: DockedRunControlProps,
+) {
   const label: ReactNode = (
     <>
       Run <span className={s.runEntry}>{props.entryNodeId}</span>
@@ -82,4 +87,4 @@ export function DockedRunControl(props: DockedRunControlProps) {
       )}
     </Chip>
   )
-}
+}, 'DockedRunControl')

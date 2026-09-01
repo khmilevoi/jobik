@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import type { ReactNode } from 'react'
 import { cx } from '#cx.js'
 import { PanelHeader } from '#shell/PanelHeader/PanelHeader.js'
@@ -65,7 +66,12 @@ const statusDotTone = {
   failed: s.statusDotFailed,
 } satisfies Record<RunDockStatus, string>
 
-export function RunDock(props: RunDockProps) {
+/**
+ * A `reatomComponent` with an unchanged prop API. `runMeta`, `runMetaTone` and `runStatus` all have
+ * a model home in `RunPanelModel`, but `Studio` is what fills them and `Studio` renders with no
+ * model at all; reading them here would make the artboard's shell unrenderable on its own.
+ */
+export const RunDock = reatomComponent(function RunDock(props: RunDockProps) {
   // `Studio — default` (264–273) and `Studio — run in progress` (586–591): the dock header's left
   // half carries the flow's entry point, unchanged by the run. Only the right slot moves.
   const title = (
@@ -127,4 +133,4 @@ export function RunDock(props: RunDockProps) {
       </div>
     </div>
   )
-}
+}, 'RunDock')
