@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import type { IconProps } from './types.js'
 
 /**
@@ -8,7 +9,7 @@ import type { IconProps } from './types.js'
  * chevrons hard-code `#7c848b`, which makes them shell chrome rather than an icon a control can
  * tint. Its grid is `0 0 9 9`, not the `0 0 10 10` the other four share, so its default size is 9.
  */
-export function ChevronUpIcon(props: IconProps) {
+export const ChevronUpIcon = reatomComponent(function ChevronUpIcon(props: IconProps) {
   const { size = 9, strokeWidth = 1.2 } = props
   return (
     <svg
@@ -23,4 +24,4 @@ export function ChevronUpIcon(props: IconProps) {
       <path d="M1 6 4.5 2.5 8 6" fill="none" stroke="currentColor" strokeWidth={strokeWidth} />
     </svg>
   )
-}
+}, 'ChevronUpIcon')

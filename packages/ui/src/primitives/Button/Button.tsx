@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import type { ReactNode } from 'react'
 import { cx, type StyleWithVars } from '#cx.js'
 import { CheckIcon } from '#primitives/icons/CheckIcon.js'
@@ -204,7 +205,7 @@ function indicator(state: ButtonState, size: SpinnerSize, icon: ReactNode): Reac
   }
 }
 
-export function Button(props: ButtonProps) {
+export const Button = reatomComponent(function Button(props: ButtonProps) {
   const {
     children,
     icon,
@@ -252,4 +253,4 @@ export function Button(props: ButtonProps) {
       {trailing}
     </button>
   )
-}
+}, 'Button')

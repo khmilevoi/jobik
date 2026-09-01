@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import type { ReactNode } from 'react'
 import { cx } from '#cx.js'
 import s from './InsetWell.module.css'
@@ -18,7 +19,7 @@ const variants = {
   output: s.output,
 } satisfies Record<InsetWellVariant, string>
 
-export function InsetWell(props: InsetWellProps) {
+export const InsetWell = reatomComponent(function InsetWell(props: InsetWellProps) {
   return (
     <div
       data-testid={props['data-testid']}
@@ -27,4 +28,4 @@ export function InsetWell(props: InsetWellProps) {
       {props.children}
     </div>
   )
-}
+}, 'InsetWell')

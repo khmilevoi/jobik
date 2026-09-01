@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import { cx } from '#cx.js'
 import type { ValidateState } from '#primitives/actionState.js'
 import { CheckIcon } from '#primitives/icons/CheckIcon.js'
@@ -66,7 +67,7 @@ export function errorCountLabel(count: number): string {
   return count === 1 ? '1 error' : `${count} errors`
 }
 
-export function ValidateButton(props: ValidateButtonProps) {
+export const ValidateButton = reatomComponent(function ValidateButton(props: ValidateButtonProps) {
   const state = props.state ?? 'idle'
   const dimmed = props.dimmed === true
   const invalid = state === 'invalid'
@@ -106,4 +107,4 @@ export function ValidateButton(props: ValidateButtonProps) {
       {state === 'idle' ? <span className={s.label}>Validate</span> : null}
     </button>
   )
-}
+}, 'ValidateButton')

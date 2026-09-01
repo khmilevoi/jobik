@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import type { ChangeEvent } from 'react'
 import { cx } from '#cx.js'
 import { CheckIcon } from '#primitives/icons/CheckIcon.js'
@@ -34,7 +35,7 @@ export interface CheckboxProps {
  * The check is drawn at `stroke-width` 1.6: foundations §7 lists that weight for exactly one
  * context, and this box is it.
  */
-export function Checkbox(props: CheckboxProps) {
+export const Checkbox = reatomComponent(function Checkbox(props: CheckboxProps) {
   const { checked, label, onChange } = props
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     onChange?.(event.target.checked)
@@ -54,4 +55,4 @@ export function Checkbox(props: CheckboxProps) {
       {checked ? <CheckIcon size={9} strokeWidth={1.6} /> : null}
     </span>
   )
-}
+}, 'Checkbox')

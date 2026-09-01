@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import { cx } from '#cx.js'
 import s from './Spinner.module.css'
 
@@ -49,7 +50,7 @@ const defaultTracks = {
  * **Activity is always the accent**, never the success or failure colour — `08-buttons.md` §1
  * states that as a rule, and it is why nothing here varies by state.
  */
-export function Spinner(props: SpinnerProps) {
+export const Spinner = reatomComponent(function Spinner(props: SpinnerProps) {
   const { size = 10 } = props
   const track = props.track ?? defaultTracks[size]
   return (
@@ -59,4 +60,4 @@ export function Spinner(props: SpinnerProps) {
       className={cx(s.spinner, sizes[size], track === 'wide' && s.trackWide, props.className)}
     />
   )
-}
+}, 'Spinner')

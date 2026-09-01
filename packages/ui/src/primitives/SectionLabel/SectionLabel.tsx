@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import type { ReactNode } from 'react'
 import { cx, type StyleWithVars } from '#cx.js'
 import s from './SectionLabel.module.css'
@@ -11,7 +12,7 @@ export interface SectionLabelProps {
   readonly 'data-testid'?: string
 }
 
-export function SectionLabel(props: SectionLabelProps) {
+export const SectionLabel = reatomComponent(function SectionLabel(props: SectionLabelProps) {
   // The caller's colour is a value the stylesheet cannot know, so it rides in as a custom property
   // the rule already reads.
   const style: StyleWithVars | undefined =
@@ -25,4 +26,4 @@ export function SectionLabel(props: SectionLabelProps) {
       {props.children}
     </div>
   )
-}
+}, 'SectionLabel')

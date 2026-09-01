@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import { useId } from 'react'
 import { cx } from '#cx.js'
 import s from './SegmentedControl.module.css'
@@ -30,7 +31,7 @@ export interface SegmentedControlProps<T extends string> {
  * Generic over the option's own union, so a caller writing `'png' | 'webp' | 'jpg'` gets that back
  * from `onChange` rather than a bare `string`.
  */
-export function SegmentedControl<T extends string>(props: SegmentedControlProps<T>) {
+function SegmentedControlView<T extends string>(props: SegmentedControlProps<T>) {
   const { options, value, onChange, label } = props
   const name = useId()
   return (
@@ -59,3 +60,17 @@ export function SegmentedControl<T extends string>(props: SegmentedControlProps<
     </div>
   )
 }
+
+/**
+ * The only Group C primitive that cannot be wrapped inline, because it is the only generic one.
+ *
+ * `reatomComponent` takes a single `Props` type, so handing it a generic component instantiates `T`
+ * at its `string` constraint and a caller writing `'png' | 'webp' | 'jpg'` would get a bare `string`
+ * back from `onChange` — the exact thing this component's own header says it exists to prevent. The
+ * assertion restores the signature that was declared two lines above it and changes nothing at run
+ * time: the wrapper forwards props without inspecting one.
+ */
+export const SegmentedControl = reatomComponent(
+  SegmentedControlView,
+  'SegmentedControl',
+) as typeof SegmentedControlView

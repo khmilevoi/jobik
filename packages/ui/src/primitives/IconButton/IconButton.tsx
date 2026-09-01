@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import type { ReactNode } from 'react'
 import { cx, type StyleWithVars } from '#cx.js'
 import type { ButtonState } from '#primitives/Button/Button.js'
@@ -67,7 +68,7 @@ const states = {
  * characters used as text rather than drawn, so it is a character here too and not an invented
  * alert icon.
  */
-export function IconButton(props: IconButtonProps) {
+export const IconButton = reatomComponent(function IconButton(props: IconButtonProps) {
   const { label, icon, size = 24, state = 'idle', progress, chip, dimmed } = props
   const indicatorSize = indicatorSizes[size]
 
@@ -103,4 +104,4 @@ export function IconButton(props: IconButtonProps) {
       {chip === undefined ? null : <span className={s.chip}>{chip}</span>}
     </span>
   )
-}
+}, 'IconButton')

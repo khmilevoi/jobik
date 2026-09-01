@@ -1,8 +1,35 @@
 import { useEffect, useState } from 'react'
 
 /**
- * The copy and download sequences, headless — the timing half of artboard `3A`, in one place, so
- * the modal, the output dock, the run panel and the canvas cannot each invent their own.
+ * `3A`'s copy and download cells and `3D`'s validate ones, with the timings the artboards fix —
+ * stated once, so the modal, the output dock, the run panel and the canvas cannot each invent their
+ * own. The sequences those cells belong to are performed elsewhere; this is the vocabulary.
+ *
+ * ## Where the three sequences actually run, as of the Reatom wave
+ *
+ * All three of them are **performed by the model**, and this file is where the design's numbers and
+ * cells are stated rather than where the machines live:
+ *
+ *   - **copy** and **download** — `model/output.ts`, as `copyState`/`downloadState` plus `copyAll`,
+ *     `download` and their private holds. The dock's two buttons act on the run report, so the
+ *     sequence belongs where the report is.
+ *   - **validate** — `model/validation.ts`, as `chip` plus `_holdChip`. `3D`'s chip reports an
+ *     answer about the flow document, so the same argument applies.
+ *
+ * Every one of those holds is `await wrap(sleep(ms))` inside an action extended with `withAbort()`
+ * (RTM-A05), which is what lets a flow switch cancel a hold with no handle to keep. **There is
+ * deliberately no `reatomCopyAction` / `reatomDownloadAction` / `reatomValidateAction` factory
+ * here.** Such a factory would have exactly one possible consumer each, and each of those consumers
+ * already has a better-documented implementation on the model; a second copy of a machine is not an
+ * abstraction. Every other `Copy` in the Studio — the validation dialog's, the stack trace's, the
+ * failed run's log, the conflict chip's draft — is a bare `onClick` with no state matrix at all.
+ *
+ * What is left below is the **imperative** half, and it survives for one caller:
+ * `output/OutputHeader` still drives its two buttons through `useCopyAction`/`useDownloadAction`.
+ * When that component reads `OutputActionsModel` instead, `CopyAction`, `DownloadAction`,
+ * `createCopyAction`, `createDownloadAction`, `useCopyAction` and `useDownloadAction` all go, and
+ * `react` stops being an import of this module. `ACTION_TIMINGS`, `CopyState`, `DownloadState`,
+ * `ValidateState` and `CopyWrite` stay: those are what the model imports from here.
  *
  * `08-buttons.md` §4.1 carries the artboard's own script verbatim and is the authoritative
  * statement of both sequences. What it fixes, and what is reproduced here:
@@ -104,6 +131,13 @@ type Timer = ReturnType<typeof setTimeout>
  *
  * The middle transition is the caller's — a real validation takes as long as the server takes —
  * so the only timer here is the closing hold, exactly as `createDownloadAction` keeps only its own.
+ *
+ * **Nothing in the Studio calls this any more** — `model/validation.ts`'s `chip` is what `3D` reads,
+ * and `model/validation.test.ts` re-asserts four of the six cases below under their own names. It is
+ * kept because the other two are the executable statement of rules the model has no way to reach:
+ * an outcome that no press asked for cannot arise there (only `validate` can start `_check`), and
+ * there is no `dispose` to cancel a hold with — `reset` is that, and it also returns to idle. Delete
+ * this and `actionState.test.ts`'s `createValidateAction` block together, or not at all.
  */
 export function createValidateAction(onChange: (state: ValidateState) => void): ValidateAction {
   let state: ValidateState = 'idle'
@@ -281,7 +315,9 @@ export function createDownloadAction(
 }
 
 /**
- * The copy sequence as a hook, for the common case.
+ * The copy sequence as a hook, for the common case — and one of the two exports that keep the
+ * imperative half of this module alive. `output/OutputHeader` is the last caller; when it reads
+ * `OutputActionsModel` instead, this goes with it.
  *
  * The action is created once by `useState`'s initializer and its timers are cancelled on unmount,
  * so a component that leaves the tree mid-hold never calls `setState` afterwards. `dispose` only
@@ -300,25 +336,9 @@ export function useCopyAction(): {
 }
 
 /**
- * The validate sequence as a hook. `settle` is driven by the server's own answer, never by a timer.
- *
- * Created once by `useState`'s initializer and disposed on unmount, so a component that leaves the
- * tree mid-hold never calls `setState` afterwards — the same shape `useCopyAction` has, and safe
- * under StrictMode for the same reason: `dispose` only cancels.
+ * The download sequence as a hook, and the second of the two exports `output/OutputHeader` still
+ * calls. `start`, `advance` and `finish` are driven by real bytes. Deletable with `useCopyAction`.
  */
-export function useValidateAction(): {
-  readonly state: ValidateState
-  readonly press: () => boolean
-  readonly settle: (outcome: 'valid' | 'invalid') => void
-  readonly reset: () => void
-} {
-  const [state, setState] = useState<ValidateState>('idle')
-  const [action] = useState(() => createValidateAction(setState))
-  useEffect(() => () => action.dispose(), [action])
-  return { state, press: action.press, settle: action.settle, reset: action.reset }
-}
-
-/** The download sequence as a hook. `start`, `advance` and `finish` are driven by real bytes. */
 export function useDownloadAction(): {
   readonly state: DownloadState
   readonly progress: number | undefined

@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import { cx, type StyleWithVars } from '#cx.js'
 import s from './ProgressTrack.module.css'
 
@@ -18,7 +19,7 @@ export interface ProgressTrackProps {
  * three determinate loaders that is not inside a button: a bar in a button is decorative, since
  * the button's own label already reads `Downloading 42%`, but this one carries the number alone.
  */
-export function ProgressTrack(props: ProgressTrackProps) {
+export const ProgressTrack = reatomComponent(function ProgressTrack(props: ProgressTrackProps) {
   const { value, label } = props
   const style: StyleWithVars = { '--jbk-progress-value': `${value}%` }
   return (
@@ -34,4 +35,4 @@ export function ProgressTrack(props: ProgressTrackProps) {
       <div className={s.fill} style={style} />
     </div>
   )
-}
+}, 'ProgressTrack')

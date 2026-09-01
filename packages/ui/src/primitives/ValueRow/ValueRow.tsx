@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import { cx } from '#cx.js'
 import type { ButtonState } from '#primitives/Button/Button.js'
 import { CheckIcon } from '#primitives/icons/CheckIcon.js'
@@ -42,7 +43,7 @@ const states = {
  * because a clipboard the browser has blocked is not something a second press fixes. Everything a
  * caller might want to retry with lives in the state it passes.
  */
-export function ValueRow(props: ValueRowProps) {
+export const ValueRow = reatomComponent(function ValueRow(props: ValueRowProps) {
   const {
     value,
     state = 'idle',
@@ -65,4 +66,4 @@ export function ValueRow(props: ValueRowProps) {
       )}
     </div>
   )
-}
+}, 'ValueRow')

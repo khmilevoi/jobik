@@ -16,7 +16,6 @@ export {
   createValidateAction,
   useCopyAction,
   useDownloadAction,
-  useValidateAction,
 } from './actionState.js'
 export type { BadgeProps } from './Badge/Badge.js'
 export { Badge } from './Badge/Badge.js'

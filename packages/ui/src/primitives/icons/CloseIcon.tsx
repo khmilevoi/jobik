@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import type { IconProps } from './types.js'
 
 /**
@@ -6,7 +7,7 @@ import type { IconProps } from './types.js'
  * It lives here rather than in the modal because it is one of the four icons the design draws, and
  * `08-buttons.md` is what fixes the borderless icon button that holds it.
  */
-export function CloseIcon(props: IconProps) {
+export const CloseIcon = reatomComponent(function CloseIcon(props: IconProps) {
   const { size = 10, strokeWidth = 1.3 } = props
   return (
     <svg
@@ -26,4 +27,4 @@ export function CloseIcon(props: IconProps) {
       />
     </svg>
   )
-}
+}, 'CloseIcon')
