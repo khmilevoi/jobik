@@ -68,6 +68,34 @@ describe('RunInputControl', () => {
     expect(input.className).toBe(line)
   })
 
+  it('forwards the schema bounds so the browser can report an out-of-range value', () => {
+    const bounded: InputFieldDescriptor = {
+      field: 'latitude',
+      required: true,
+      annotation: 'number',
+      // forecast's own field: `z.number().min(-90).max(90)`.
+      control: { kind: 'number', integer: false, minimum: -90, maximum: 90 },
+    }
+    render(<RunInputControl field={bounded} value="50.45" />)
+    const input = screen.getByTestId('run-input-latitude')
+    expect(input).toHaveAttribute('min', '-90')
+    expect(input).toHaveAttribute('max', '90')
+    expect((input as HTMLInputElement).validity.rangeUnderflow).toBe(false)
+  })
+
+  it('emits no bound a field does not declare', () => {
+    const unbounded: InputFieldDescriptor = {
+      field: 'width',
+      required: true,
+      annotation: 'number',
+      control: { kind: 'number', integer: true },
+    }
+    render(<RunInputControl field={unbounded} value="1024" />)
+    const input = screen.getByTestId('run-input-width')
+    expect(input).not.toHaveAttribute('min')
+    expect(input).not.toHaveAttribute('max')
+  })
+
   it('draws a boolean as a checkbox and reports its next value', async () => {
     const onChange = vi.fn()
     const field: InputFieldDescriptor = {

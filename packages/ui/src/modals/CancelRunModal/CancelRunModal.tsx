@@ -21,19 +21,29 @@ export interface CancelRunModalProps {
 }
 
 /**
- * §5, verbatim, with the node identifier substituted at both mono runs.
+ * §5's sentence, with the node identifier substituted at both mono runs.
  *
- * `07-copy.md` §4.5: *"`render` finishes writing its current frame, then the run stops. Completed
- * nodes stay cached, so a re-run resumes from `render`."*
+ * **A deliberate departure from the design's copy**, which reads: *"`render` finishes writing its
+ * current frame, then the run stops. Completed nodes stay cached, so a re-run resumes from
+ * `render`."* Both halves of that promise are false in v1, and this dialog is the one place a user
+ * is told what cancelling costs, so stating it wrongly is worse than departing from `07-copy.md`
+ * §4.5.
+ *
+ * What the engine actually does, from `run/execute.ts`: the in-flight node is handed the run's
+ * `AbortSignal`, and the run settles on `Promise.race([invoked, aborted])` — it does **not** wait
+ * for that handler, whose later output and log lines are dropped. And there is no caching at all:
+ * `DEFERRED.md` §3 records `cached` as an unreachable status, so every reachable node executes
+ * again on a re-run. "Finishes writing its current frame" was also written for an image node and
+ * says nothing about an arbitrary flow.
  */
 export function cancelRunMessage(nodeId: string): readonly ProseSegment[] {
   return [
     { text: nodeId, mono: true },
     {
-      text: ' finishes writing its current frame, then the run stops. Completed nodes stay cached, so a re-run resumes from ',
+      text: ' is asked to stop and the run settles at once, without waiting for it. Nothing is kept, so a re-run starts from the beginning and executes ',
     },
     { text: nodeId, mono: true },
-    { text: '.' },
+    { text: ' again.' },
   ]
 }
 

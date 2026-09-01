@@ -23,7 +23,7 @@ describe('cancelRunMessage', () => {
     const segments = cancelRunMessage('render')
     expect(segments.filter((segment) => segment.mono === true)).toHaveLength(2)
     expect(segments.map((segment) => segment.text).join('')).toBe(
-      'render finishes writing its current frame, then the run stops. Completed nodes stay cached, so a re-run resumes from render.',
+      'render is asked to stop and the run settles at once, without waiting for it. Nothing is kept, so a re-run starts from the beginning and executes render again.',
     )
   })
 })
@@ -55,7 +55,7 @@ describe('CancelRunModal', () => {
   it('draws the body sentence with the node it was given', () => {
     renderModal({ nodeId: 'publish' })
     expect(screen.getByTestId('cancel-run-message')).toHaveTextContent(
-      'publish finishes writing its current frame, then the run stops. Completed nodes stay cached, so a re-run resumes from publish.',
+      'publish is asked to stop and the run settles at once, without waiting for it. Nothing is kept, so a re-run starts from the beginning and executes publish again.',
     )
   })
 

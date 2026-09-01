@@ -220,6 +220,110 @@ function toFailurePayload(error: Error): WireErrorPayload {
   return { _tag: typeof tag === 'string' ? tag : null, message: error.message }
 }
 
+/**
+ * What the run panel is currently pointed at, as `adopt` needs to see it — the descriptor the
+ * input draft was seeded from and the start it was seeded for.
+ *
+ * `selectedNodeId` is deliberately absent: nothing in this hook's surface can move it away from
+ * the selected start (`selectNode` went in R10 and has not come back), so `seedStart` is its only
+ * writer and it always holds `startId`. A predicate that keeps `startId` valid keeps it valid too.
+ */
+type RunSelection = {
+  readonly descriptor: SafeFlowDescriptorPayload | undefined
+  readonly startId: string | undefined
+}
+
+/**
+ * F10 — whether a reload leaves the run panel pointed at the same thing, and therefore whether the
+ * input draft it is holding is still a draft *of* something.
+ *
+ * The draft is derived from the start node's **descriptor**, which is authored in TypeScript; the
+ * document a reload replaces carries only `connections`, `literals` and `layout`. So the ordinary
+ * reload — the one that answers a revision conflict — cannot invalidate a single typed character,
+ * and re-seeding on it silently destroys work at the exact moment the UI asked the user to choose
+ * between reloading and keeping it.
+ *
+ * Two things genuinely do invalidate it, and both are checked here:
+ *
+ *   * the selected start is no longer declared, or no longer has a node — there is nothing left
+ *     for the draft to be a draft of, and `adopt` falls back to `startIds[0]` as it always has;
+ *   * that start's input descriptor is no longer the same one — a field added, dropped, retyped or
+ *     re-defaulted means a kept draft would disagree with the controls rendered from the new
+ *     descriptor, which is worse than an empty one.
+ *
+ * Note what is *not* in the predicate: whether the start **set** changed. A flow that gained or
+ * lost some other start says nothing about the start this panel is on, and clearing on that would
+ * be the same gratuitous loss in a rarer costume.
+ *
+ * The comparison is `JSON.stringify` because the descriptor arrives as parsed wire JSON produced
+ * by one serialiser from one shape, so equal descriptors serialise identically. It is deliberately
+ * conservative in the safe direction: the only failure mode is a false *negative*, which re-seeds —
+ * exactly the behaviour that shipped before this predicate existed.
+ */
+function keepsRunSelection(previous: RunSelection, next: SafeFlowDescriptorPayload): boolean {
+  const { descriptor, startId } = previous
+  if (descriptor === undefined || startId === undefined) return false
+  if (!next.startIds.includes(startId)) return false
+  const before = descriptor.nodes.find((node) => node.id === startId)
+  const after = next.nodes.find((node) => node.id === startId)
+  if (before === undefined || after === undefined) return false
+  return JSON.stringify(before.input) === JSON.stringify(after.input)
+}
+
+/**
+ * F06 — the nodes one selected start can actually execute, as core's `resolveRunGraph` decides it.
+ *
+ * A flow may declare several starts, and `pokedex` does: `card`'s pipeline and `roster`'s share a
+ * document and a canvas and not one node. Seeding the session with every node in the flow therefore
+ * painted the other pipeline `queued` for the length of a run that was never going to touch it, and
+ * left it queued inside the settled report — `rank` reading `Waiting on roster.names` under a run
+ * that had already finished, and, on a failure, a truthfully `skipped` node sitting beside a
+ * `queued` one: two words for *did not run*, of which only one was true. Nothing on the wire ever
+ * agreed, and `run-started`'s `nodeCount` — until now only the progress denominator — is the check.
+ *
+ * Two rules, both core's. Forward reachability from the start; then, because a forward-reachable
+ * node can still carry an input edge from a node this run never reaches, every such node is dropped
+ * along with everything below it. Core settles the second in one pass over a topological order the
+ * browser has no equivalent of, so it runs here as a fixpoint instead — same set, no order needed.
+ *
+ * The document to ask is `savedDocument`: the server executes what is on disk, and a dirty draft
+ * does not block a run. An unsaved edit moves the canvas, not the run.
+ *
+ * **This is a second implementation of `resolveRunGraph`, and the duplication is forced.** That
+ * function takes a `ValidatedFlowGraph`, which is built from the authored `BoundFlow` and its Zod
+ * schemas; the browser has the document and nothing else. So the rule is restated here, and
+ * `useStudioSession.runGraph.test.ts` is what holds the two together — it runs both against the
+ * same flows and asserts the node id sets are equal, rather than against a list written by hand.
+ * Change either side and that test is where it shows. It is exported for that test alone and is
+ * not on the package barrel.
+ */
+export function runGraphNodeIds(document: FlowDocument, startId: string): ReadonlySet<string> {
+  const reachable = new Set<string>([startId])
+  const pending = [startId]
+  while (pending.length > 0) {
+    const from = pending.pop()
+    for (const connection of document.connections) {
+      if (connection.from.node !== from) continue
+      if (reachable.has(connection.to.node)) continue
+      reachable.add(connection.to.node)
+      pending.push(connection.to.node)
+    }
+  }
+
+  let dropped = true
+  while (dropped) {
+    dropped = false
+    for (const connection of document.connections) {
+      if (!reachable.has(connection.to.node)) continue
+      if (reachable.has(connection.from.node)) continue
+      reachable.delete(connection.to.node)
+      dropped = true
+    }
+  }
+
+  return reachable
+}
+
 export function useStudioSession(args: {
   client: JobikClient
   flowId?: string
@@ -289,6 +393,14 @@ export function useStudioSession(args: {
   externalsRef.current = args.externals
   const importModuleRef = useRef(args.importModule)
   importModuleRef.current = args.importModule
+  /**
+   * What the run panel is pointed at right now, for `reloadFromDisk` to hand to `adopt`. Mirrored
+   * into a ref rather than closed over so the judgement is made against the selection as it stands
+   * when the response *lands* — `selectStart` is free to move it while the request is in flight —
+   * and so `adopt` itself keeps its stable identity. See `adopt`.
+   */
+  const runSelectionRef = useRef<RunSelection>({ descriptor: undefined, startId: undefined })
+  runSelectionRef.current = { descriptor, startId }
 
   /**
    * Derived, never stored. `lastReport` used to be its own `useState`, written after the stream
@@ -323,11 +435,25 @@ export function useStudioSession(args: {
     [],
   )
 
+  /**
+   * Takes a loaded flow as the state of the world.
+   *
+   * `previous` is what makes the two callers different, and it is passed in rather than read from
+   * state on purpose: `adopt` is a dependency of the mount load effect, so anything it closed over
+   * that a load itself changes — the descriptor above all — would refetch the flow on every load,
+   * forever. Only `reloadFromDisk` passes it, and it is read at the moment the response lands, so
+   * a start selected while the request was in flight is the one the predicate judges.
+   *
+   * Without it, `adopt` re-seeded the run panel unconditionally, and `Reload` — which exists to
+   * resolve a *document* conflict — wiped every typed run input as a side effect (F10). See
+   * `keepsRunSelection` for when a reload does still invalidate the draft.
+   */
   const adopt = useCallback(
-    (loaded: LoadedFlowPayload) => {
+    (loaded: LoadedFlowPayload, previous?: RunSelection) => {
       setDescriptor(loaded.descriptor)
       setDraft(createDraft(loaded.document, loaded.revision))
       setSaveState({ kind: 'idle' })
+      if (previous !== undefined && keepsRunSelection(previous, loaded.descriptor)) return
       seedStart(loaded.descriptor, loaded.descriptor.startIds[0])
     },
     [seedStart],
@@ -567,6 +693,14 @@ export function useStudioSession(args: {
     })()
   }, [client, draft, flowId, running])
 
+  /**
+   * `## UI and persistence`'s other half of the conflict offer: take what is on disk.
+   *
+   * It resolves a **document** conflict, and that is the whole of what it discards — the draft.
+   * The typed run inputs and the start they belong to survive it, because neither is derived from
+   * the document; `adopt`'s `previous` argument is what carries them across, and
+   * `keepsRunSelection` is where the exception lives.
+   */
   const reloadFromDisk = useCallback(() => {
     if (flowId === undefined) return
     loadGenerationRef.current += 1
@@ -575,7 +709,7 @@ export function useStudioSession(args: {
       const loaded = await client.loadFlow(flowId)
       if (loadGenerationRef.current !== generation) return
       if (loaded instanceof Error) return
-      adopt(loaded)
+      adopt(loaded, runSelectionRef.current)
     })()
   }, [client, flowId, adopt])
 
@@ -585,13 +719,21 @@ export function useStudioSession(args: {
     void globalThis.navigator?.clipboard?.writeText(text)
   }, [draft])
 
+  /**
+   * Pulled out of `draft` so `run` depends on the document that decides the run graph rather than
+   * on the draft as a whole: `savedDocument` changes only on a load or a save, while `draft` gets a
+   * new identity on every drag.
+   */
+  const savedDocument = draft?.savedDocument
+
   const run = useCallback(
     (values: Record<string, unknown>) => {
       if (
         runningRef.current ||
         flowId === undefined ||
         descriptor === undefined ||
-        startId === undefined
+        startId === undefined ||
+        savedDocument === undefined
       ) {
         return
       }
@@ -606,12 +748,16 @@ export function useStudioSession(args: {
         startedAtRef.current = now()
         runTokenRef.current = undefined
 
+        // Declaration order, filtered — not the traversal order `runGraphNodeIds` happens to
+        // build the set in, which is nothing the panel or the canvas should inherit.
+        const runGraph = runGraphNodeIds(savedDocument, startId)
+
         // The one write in this run that is deliberately not a functional updater: a fresh run
         // *replaces* whatever the panel was showing rather than folding into it.
         setSession(
           createRunSession({
             startId,
-            nodeIds: descriptor.nodes.map((node) => node.id),
+            nodeIds: descriptor.nodes.map((node) => node.id).filter((id) => runGraph.has(id)),
             startedAt: startedAtRef.current,
           }),
         )
@@ -677,7 +823,7 @@ export function useStudioSession(args: {
         }
       })()
     },
-    [client, descriptor, flowId, now, startId],
+    [client, descriptor, flowId, now, savedDocument, startId],
   )
 
   const cancel = useCallback(() => {

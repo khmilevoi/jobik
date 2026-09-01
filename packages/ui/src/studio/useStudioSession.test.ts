@@ -1,7 +1,7 @@
-import type { FlowDocument, NodeStatus } from '@jobik/core'
+import type { FlowDocument, NodeKind, NodeStatus } from '@jobik/core'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { JobikClient, RunStreamEvent } from '#client/index.js'
+import type { JobikClient, RunStreamEvent, WireErrorPayload } from '#client/index.js'
 import { JobikServerError, JobikTransportError, NdjsonParseError } from '#client/index.js'
 import { useStudioSession } from './useStudioSession.js'
 
@@ -39,6 +39,48 @@ const DESCRIPTOR = {
         nodeId: 'start1',
         fields: [{ field: 'title', required: true, annotation: 'string' }],
       },
+    },
+  ],
+}
+
+/** The same flow after a *document* edit — a card dragged on disk, nothing else. */
+const MOVED_DOCUMENT = {
+  ...DOCUMENT,
+  layout: { start1: { x: 800, y: 0 } },
+} as unknown as FlowDocument
+
+/** The same start id, authored since with a second field: the seeded draft no longer fits. */
+const RESHAPED_DESCRIPTOR = {
+  ...DESCRIPTOR,
+  nodes: [
+    {
+      ...DESCRIPTOR.nodes[0],
+      input: {
+        nodeId: 'start1',
+        fields: [
+          ...DESCRIPTOR.nodes[0].input.fields,
+          {
+            field: 'markdown',
+            required: true,
+            annotation: 'string',
+            control: { kind: 'string' as const },
+          },
+        ],
+      },
+    },
+  ],
+}
+
+/** The start the panel was pointed at is gone; the flow declares another one. */
+const RESTARTED_DESCRIPTOR = {
+  ...DESCRIPTOR,
+  startIds: ['start2'],
+  nodes: [
+    {
+      ...DESCRIPTOR.nodes[0],
+      id: 'start2',
+      input: { ...DESCRIPTOR.nodes[0].input, nodeId: 'start2' },
+      output: { ...DESCRIPTOR.nodes[0].output, nodeId: 'start2' },
     },
   ],
 }
@@ -305,6 +347,75 @@ describe('validate and save', () => {
     expect(result.current.draft?.baseRevision).toBe('rev-9')
     expect(result.current.draft?.dirty).toBe(false)
     expect(result.current.saveState).toEqual({ kind: 'idle' })
+  })
+
+  /**
+   * F10. `Reload` answers a **document** conflict, and the run input draft is derived from the
+   * start's *descriptor*, which no document edit can touch. Wiping what the user typed is the one
+   * thing this recovery path must not do — it is the exact moment the UI asked them to choose
+   * between reloading and keeping their work.
+   */
+  it('keeps the typed run inputs across a reload that leaves the start descriptor alone', async () => {
+    const loadFlow = vi
+      .fn()
+      .mockResolvedValueOnce({ descriptor: DESCRIPTOR, document: DOCUMENT, revision: 'rev-1' })
+      .mockResolvedValueOnce({
+        descriptor: DESCRIPTOR,
+        document: MOVED_DOCUMENT,
+        revision: 'rev-9',
+      })
+    const { result } = setup(stubClient({ loadFlow }))
+    await waitForReady(result)
+    act(() => result.current.setInputField('title', 'Half a typed headline'))
+
+    await act(async () => result.current.reloadFromDisk())
+
+    expect(result.current.draft?.baseRevision).toBe('rev-9')
+    expect(result.current.draft?.document.layout.start1).toEqual({ x: 800, y: 0 })
+    expect(result.current.inputDraft.title).toBe('Half a typed headline')
+    expect(result.current.startId).toBe('start1')
+    expect(result.current.selectedNodeId).toBe('start1')
+  })
+
+  // The other half of F10's predicate: a draft kept against a schema it no longer fits would be
+  // worse than one cleared, so a reload whose start declares different fields re-seeds.
+  it('re-seeds the run inputs when the reload changes the start input schema', async () => {
+    const loadFlow = vi
+      .fn()
+      .mockResolvedValueOnce({ descriptor: DESCRIPTOR, document: DOCUMENT, revision: 'rev-1' })
+      .mockResolvedValueOnce({
+        descriptor: RESHAPED_DESCRIPTOR,
+        document: DOCUMENT,
+        revision: 'rev-9',
+      })
+    const { result } = setup(stubClient({ loadFlow }))
+    await waitForReady(result)
+    act(() => result.current.setInputField('title', 'Half a typed headline'))
+
+    await act(async () => result.current.reloadFromDisk())
+
+    expect(result.current.inputDraft).toEqual({ title: '', markdown: '' })
+    expect(result.current.startId).toBe('start1')
+  })
+
+  it('re-seeds the run inputs when the reload no longer declares the selected start', async () => {
+    const loadFlow = vi
+      .fn()
+      .mockResolvedValueOnce({ descriptor: DESCRIPTOR, document: DOCUMENT, revision: 'rev-1' })
+      .mockResolvedValueOnce({
+        descriptor: RESTARTED_DESCRIPTOR,
+        document: DOCUMENT,
+        revision: 'rev-9',
+      })
+    const { result } = setup(stubClient({ loadFlow }))
+    await waitForReady(result)
+    act(() => result.current.setInputField('title', 'Half a typed headline'))
+
+    await act(async () => result.current.reloadFromDisk())
+
+    expect(result.current.startId).toBe('start2')
+    expect(result.current.selectedNodeId).toBe('start2')
+    expect(result.current.inputDraft).toEqual({ title: '' })
   })
 
   // Minor: `reloadFromDisk()` and the mount load effect both call `adopt()`, and without a
@@ -1427,5 +1538,259 @@ describe('extension bundle', () => {
     rerender({ externals: {}, importModule: async () => ({}) })
 
     expect(fetchSpy).toHaveBeenCalledTimes(1)
+  })
+})
+
+/**
+ * `pokedex`, in the shape F06 was observed against: two starts whose pipelines share a document
+ * and a canvas and not one node.
+ *
+ * ```
+ *   card ──▶ lookup ──▶ sprite ──▶ compose
+ *   roster ─▶ rank ───▶ standings
+ * ```
+ */
+const PIPELINES_DOCUMENT = {
+  format: 'jobik.flow',
+  version: 1,
+  connections: [
+    { from: { node: 'card', field: 'out' }, to: { node: 'lookup', field: 'in' } },
+    { from: { node: 'lookup', field: 'out' }, to: { node: 'sprite', field: 'in' } },
+    { from: { node: 'lookup', field: 'out' }, to: { node: 'compose', field: 'in' } },
+    { from: { node: 'sprite', field: 'out' }, to: { node: 'compose', field: 'in' } },
+    { from: { node: 'roster', field: 'out' }, to: { node: 'rank', field: 'in' } },
+    { from: { node: 'rank', field: 'out' }, to: { node: 'standings', field: 'in' } },
+  ],
+  literals: {},
+  layout: {},
+} as unknown as FlowDocument
+
+/**
+ * The join `pokedex`'s own binding warns against: `merge` is forward-reachable from `card` through
+ * `compose`, but it is also fed by `standings`, which `card`'s run never produces. Core drops it,
+ * and `publish` below it, from both runs.
+ */
+const JOINED_DOCUMENT = {
+  ...PIPELINES_DOCUMENT,
+  connections: [
+    ...PIPELINES_DOCUMENT.connections,
+    { from: { node: 'compose', field: 'out' }, to: { node: 'merge', field: 'in' } },
+    { from: { node: 'standings', field: 'out' }, to: { node: 'merge', field: 'in' } },
+    { from: { node: 'merge', field: 'out' }, to: { node: 'publish', field: 'in' } },
+  ],
+} as unknown as FlowDocument
+
+function pipelineNode(id: string, kind: NodeKind) {
+  return {
+    id,
+    kind,
+    title: id,
+    input: {
+      nodeId: id,
+      fields: [
+        { field: 'in', required: true, annotation: 'string', control: { kind: 'string' as const } },
+      ],
+    },
+    output: { nodeId: id, fields: [{ field: 'out', required: true, annotation: 'string' }] },
+  }
+}
+
+const PIPELINES_DESCRIPTOR = {
+  id: 'pokedex',
+  name: 'pokedex',
+  documentFile: 'flow.jobik.json',
+  sourceFile: 'index.ts',
+  startIds: ['card', 'roster'],
+  nodes: [
+    pipelineNode('card', 'start'),
+    pipelineNode('lookup', 'transform'),
+    pipelineNode('sprite', 'transform'),
+    pipelineNode('compose', 'transform'),
+    pipelineNode('roster', 'start'),
+    pipelineNode('rank', 'transform'),
+    pipelineNode('standings', 'transform'),
+  ],
+}
+
+const JOINED_DESCRIPTOR = {
+  ...PIPELINES_DESCRIPTOR,
+  nodes: [
+    ...PIPELINES_DESCRIPTOR.nodes,
+    pipelineNode('merge', 'transform'),
+    pipelineNode('publish', 'sink'),
+  ],
+}
+
+function pipelinesClient(overrides: Partial<JobikClient> = {}): JobikClient {
+  return stubClient({
+    listFlows: async () => [{ id: 'pokedex', name: 'pokedex', nodeCount: 7 }],
+    loadFlow: async () => ({
+      descriptor: PIPELINES_DESCRIPTOR,
+      document: PIPELINES_DOCUMENT,
+      revision: 'rev-1',
+    }),
+    ...overrides,
+  })
+}
+
+function reportNode(nodeId: string, status: NodeStatus, error: WireErrorPayload | null = null) {
+  return { nodeId, status, elapsedMs: 10, output: {}, assets: {}, error }
+}
+
+const CARD_REPORT = {
+  flowName: 'pokedex',
+  startId: 'card',
+  runNumber: 221,
+  status: 'ok' as const,
+  elapsedMs: 2400,
+  nodes: [
+    reportNode('card', 'ok'),
+    reportNode('lookup', 'ok'),
+    reportNode('sprite', 'ok'),
+    reportNode('compose', 'ok'),
+  ],
+  logs: [],
+  error: null,
+}
+
+const LOOKUP_FAILED = { _tag: 'NodeHandlerError', message: 'pokeapi said no' }
+
+const CARD_FAILURE_REPORT = {
+  ...CARD_REPORT,
+  status: 'failed' as const,
+  nodes: [
+    reportNode('card', 'ok'),
+    reportNode('lookup', 'failed', LOOKUP_FAILED),
+    reportNode('sprite', 'skipped'),
+    reportNode('compose', 'skipped'),
+  ],
+  error: LOOKUP_FAILED,
+}
+
+function statusesOf(result: { current: ReturnType<typeof useStudioSession> }) {
+  return Object.fromEntries(
+    [...(result.current.session?.nodes ?? [])].map(([nodeId, record]) => [nodeId, record.status]),
+  )
+}
+
+/**
+ * F06. The session used to be seeded with every node in the flow, so `pokedex`'s other pipeline was
+ * painted `queued` for the length of a run that could never reach it — and stayed queued inside the
+ * settled report, with `rank` reading `Waiting on roster.names` under a run that had finished.
+ */
+describe('the run graph the panel seeds', () => {
+  it('seeds only the nodes the selected start can reach', async () => {
+    const { result } = setup(pipelinesClient())
+    await waitForReady(result)
+
+    await act(async () => result.current.run({ in: 'pikachu' }))
+    await waitFor(() => expect(result.current.running).toBe(false))
+
+    expect(statusesOf(result)).toEqual({
+      card: 'queued',
+      lookup: 'queued',
+      sprite: 'queued',
+      compose: 'queued',
+    })
+    // `run-started`'s `nodeCount` is the wire's own answer, and the progress denominator reads
+    // this until that line lands. They have to be the same number.
+    expect(result.current.session?.nodeCount).toBe(4)
+  })
+
+  it('seeds the other pipeline when the panel is pointed at the other start', async () => {
+    const { result } = setup(pipelinesClient())
+    await waitForReady(result)
+    act(() => result.current.selectStart('roster'))
+
+    await act(async () => result.current.run({ in: 'attack' }))
+    await waitFor(() => expect(result.current.running).toBe(false))
+
+    expect(Object.keys(statusesOf(result))).toEqual(['roster', 'rank', 'standings'])
+  })
+
+  // Core's second rule: a node fed from outside the run can never execute, and neither can anything
+  // below it. The browser has no topological order to settle that in one pass, so this is what
+  // proves the fixpoint standing in for one actually cascades.
+  it('drops a node fed by both starts, and everything below it, from either run', async () => {
+    const { result } = setup(
+      pipelinesClient({
+        loadFlow: async () => ({
+          descriptor: JOINED_DESCRIPTOR,
+          document: JOINED_DOCUMENT,
+          revision: 'rev-1',
+        }),
+      }),
+    )
+    await waitForReady(result)
+
+    await act(async () => result.current.run({ in: 'pikachu' }))
+    await waitFor(() => expect(result.current.running).toBe(false))
+
+    expect(Object.keys(statusesOf(result))).toEqual(['card', 'lookup', 'sprite', 'compose'])
+  })
+
+  it('holds exactly the nodes the report names once the run settles', async () => {
+    const { result } = setup(
+      pipelinesClient({
+        startRun: async () =>
+          streamOf([
+            { type: 'run-accepted', runToken: 'tok' },
+            {
+              type: 'run-started',
+              runNumber: 221,
+              flowName: 'pokedex',
+              startId: 'card',
+              nodeCount: 4,
+            },
+            { type: 'run-settled', report: CARD_REPORT },
+          ]),
+      }),
+    )
+    await waitForReady(result)
+
+    await act(async () => result.current.run({ in: 'pikachu' }))
+    await waitFor(() => expect(result.current.running).toBe(false))
+
+    expect(statusesOf(result)).toEqual({
+      card: 'ok',
+      lookup: 'ok',
+      sprite: 'ok',
+      compose: 'ok',
+    })
+  })
+
+  /**
+   * The sharpest form of the finding. A failed run really does settle nodes as `skipped`, so the
+   * panel used to print `sprite skipped` beside `roster queued` — two words for *did not run*, of
+   * which only one was true, and only one was about this run at all.
+   */
+  it('never leaves a queued node beside a skipped one when a run fails', async () => {
+    const { result } = setup(
+      pipelinesClient({
+        startRun: async () =>
+          streamOf([
+            { type: 'run-accepted', runToken: 'tok' },
+            {
+              type: 'run-started',
+              runNumber: 221,
+              flowName: 'pokedex',
+              startId: 'card',
+              nodeCount: 4,
+            },
+            { type: 'run-settled', report: CARD_FAILURE_REPORT },
+          ]),
+      }),
+    )
+    await waitForReady(result)
+
+    await act(async () => result.current.run({ in: 'pikachu' }))
+    await waitFor(() => expect(result.current.running).toBe(false))
+
+    expect(statusesOf(result)).toEqual({
+      card: 'ok',
+      lookup: 'failed',
+      sprite: 'skipped',
+      compose: 'skipped',
+    })
   })
 })

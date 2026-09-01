@@ -132,6 +132,13 @@ export function RunInputControl(props: RunInputControlProps) {
           id={domId}
           type="number"
           step={control.integer ? 1 : 'any'}
+          // The schema's own bounds, so the browser can report an out-of-range value. React omits
+          // an `undefined` attribute, so a field with no bound emits none. Only the INCLUSIVE
+          // bounds exist to forward: `min`/`max` are inclusive by definition, and the descriptor
+          // carries nothing else — `z.number().gt(0)` converts to `exclusiveMinimum`, which
+          // `deriveInputControls` does not read.
+          min={control.minimum}
+          max={control.maximum}
           value={text}
           onChange={(event) => emit(event.target.value)}
           className={shell}
