@@ -196,6 +196,44 @@ describe('extension bundle', () => {
     })
   })
 
+  /**
+   * The regression this case exists for, and the reason `reset` is not `withAsyncData`'s own.
+   *
+   * `FlowSwitchModel.switchTo` calls every `reset` and only then moves `flowId`, so a reset always
+   * lands on this model *before* the id it is keyed on changes. `withAsyncData().reset` is Reatom's
+   * `reset(target)`: it splices the computed's `pubs` down to the actualization slot, dropping every
+   * recorded dependency — `flowId` among them — and it deliberately does not refetch. Nothing pulled
+   * the computed back afterwards, so the id stopped reaching it and the *first* flow switch of a
+   * session detached the flow-local renderer for the rest of that session: `pokedex` and everything
+   * after it silently fell back to the generic JSON viewer.
+   *
+   * The `await`s between the reset and the change are the whole point. Without them both land in one
+   * transaction and the write still travels the stale link, which is why every case above passed
+   * while the Studio was broken.
+   */
+  it('asks for the new flow’s bundle after a reset has already landed', async () => {
+    const fetchSpy = servedBundle()
+    vi.stubGlobal('fetch', fetchSpy)
+
+    await context.start(async () => {
+      const flowId = atom<string | undefined>('publication', 'studio.flows.flowId')
+      const model = reatomExtension(deps(), { flowId }, 'studio.extension')
+      const off = connect(model)
+      await wrap(until(() => model.descriptor() !== undefined, 'the first bundle'))
+
+      model.reset()
+      await wrap(macrotask())
+      await wrap(macrotask())
+
+      flowId.set('pokedex')
+
+      await wrap(until(() => fetchSpy.mock.calls.length === 2, 'the second bundle'))
+      expect(fetchSpy).toHaveBeenLastCalledWith('/api/flows/pokedex/ui.js')
+      await wrap(until(() => model.descriptor() !== undefined, 'the new flow’s renderer'))
+      off()
+    })
+  })
+
   /** What one flow switch does to this model: `FlowSwitchModel.switchTo` calls every `reset`. */
   it('drops the renderer it is holding when it is reset', async () => {
     const fetchSpy = servedBundle()

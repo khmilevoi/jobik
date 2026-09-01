@@ -59,10 +59,25 @@ export function reatomExtension(
   }, `${name}.descriptor`)
 
   /**
-   * `withAsyncData`'s own reset already *is* this action — it drops the computed's dependencies and
-   * puts `.data()` back to `undefined`, which is the whole of what a flow switch has to do to the
-   * extension. Wrapping it in a second action that only called it would be an identity forwarder
-   * (RTM-S01), so the model exposes the real one under its own name.
+   * **The reset a flow switch wants is `data`'s, not the computed's.**
+   *
+   * `withAsyncData().reset` looks like the obvious one and was the obvious one, but it is Reatom's
+   * `reset(target)`: it splices the computed's `pubs` down to the actualization slot, discarding
+   * every recorded dependency — `flowId` above all, the one key this whole model is keyed on — and
+   * it deliberately does not refetch (`async.md`, *Status, Retry, Reset*). Recomputing is pull-based
+   * and nothing pulls a computed whose only subscriber has just been emptied, so the dependency was
+   * never re-registered and every later `flowId` write went nowhere.
+   *
+   * `FlowSwitchModel.switchTo` calls this on every switch, before it moves `flowId`, which made the
+   * *first* switch of a session detach the flow-local renderer for the rest of it: the bundle was
+   * fetched once, for whichever flow the Studio booted on, and never again. Nothing looked broken —
+   * an absent renderer is the generic JSON viewer's own case — so a flow with its own output
+   * component silently lost it.
+   *
+   * `data.reset` drops the renderer being held and touches nothing else. That is the whole of what
+   * a flow switch owes this model: `flowId` moves on the next line, the computed is still keyed on
+   * it, and `withAbort('last-in-win')` — which `withAsyncData` carries — is what keeps a load still
+   * in flight for the flow being left from landing over the one being switched to.
    */
-  return { bundle, descriptor, reset: bundle.reset }
+  return { bundle, descriptor, reset: bundle.data.reset }
 }

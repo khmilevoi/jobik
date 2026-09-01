@@ -619,3 +619,62 @@ describe('the global keys', () => {
     })
   })
 })
+
+/**
+ * The flow-local renderer across a flow switch — a composition case, because the defect was in the
+ * transition and not in either module on its own.
+ *
+ * `flowSwitch.switchTo` calls `extension.reset()` and only then `flows.selectFlow`. That reset used
+ * to be `withAsyncData`'s own, which is Reatom's `reset(target)`: it splices the computed's `pubs`
+ * down to the actualization slot — dropping `flowId`, the very key the bundle is keyed on — and it
+ * deliberately does not refetch. `GET /api/flows/:id/ui.js` therefore fired for the flow the Studio
+ * booted on and never again, and every flow switched to afterwards fell back to the generic JSON
+ * viewer with no request in the network tab to show for it.
+ *
+ * This case wires its own frame rather than going through {@link inFrame}: it needs a `fetch` that
+ * serves a descriptor instead of the 404 every other case here wants, a client that gives each flow
+ * its own bundle url, and — the part that reproduces it — a subscription to `extension.descriptor`
+ * standing from before the first flow lands, which is when `StudioApp` reads it.
+ */
+describe('the flow-local renderer across a switch', () => {
+  it('asks for each flow’s own ui.js, switch after switch', async () => {
+    const fetchSpy = vi.fn(
+      async () => ({ ok: true, text: async () => 'export default {}' }) as unknown as Response,
+    )
+    vi.stubGlobal('fetch', fetchSpy)
+
+    const deps: StudioDeps = {
+      client: stubClient({
+        extensionBundleUrl: (flowId: string) => `/api/flows/${flowId}/ui.js`,
+      } as unknown as Partial<JobikClient>),
+      importModule: async () => ({ default: { nodes: {} } }),
+      now: () => 1_000,
+    }
+
+    await wrap(
+      context.start(async () => {
+        const model = reatomStudio(deps, 'studio')
+        const off = connect(model)
+        const offExtension = model.extension.descriptor.subscribe(() => {})
+        try {
+          await wrap(until(() => fetchSpy.mock.calls.length === 1, 'the first bundle'))
+          expect(fetchSpy).toHaveBeenLastCalledWith('/api/flows/publication/ui.js')
+
+          model.flowSwitch.switchTo('pokedex')
+
+          await wrap(until(() => fetchSpy.mock.calls.length === 2, 'the second bundle'))
+          expect(fetchSpy).toHaveBeenLastCalledWith('/api/flows/pokedex/ui.js')
+          await wrap(until(() => model.extension.descriptor() !== undefined, 'the new renderer'))
+
+          model.flowSwitch.switchTo('publication')
+
+          await wrap(until(() => fetchSpy.mock.calls.length === 3, 'the third bundle'))
+          expect(fetchSpy).toHaveBeenLastCalledWith('/api/flows/publication/ui.js')
+        } finally {
+          offExtension()
+          off()
+        }
+      }),
+    )
+  })
+})
