@@ -70,13 +70,20 @@ function harness(save: SaveFn = async () => ({ revision: 'rev-2' })) {
   const flowId = atom<string | undefined>('publication', 'test.flowId')
   const running = atom(false, 'test.running')
   const locked = computed(() => running(), 'test.locked')
+  /**
+   * What the next load answers with. A `let` rather than a unit: `retry()` drops the computation's
+   * dependencies and re-runs it, so the reload case below changes this and asks for the answer
+   * again, which is what `FlowsModel.reloadFromDisk` does to the real one.
+   */
+  let payload: LoadedFlowPayload = {
+    descriptor: DESCRIPTOR,
+    document: DOCUMENT,
+    revision: 'rev-1',
+  }
   // Annotated rather than inferred: `FlowsModel['loaded']` is an `AsyncData<LoadedFlowPayload |
   // Error>`, and a body that can only ever resolve a payload infers the narrower half of that union.
   const loaded = computed(
-    async (): Promise<LoadedFlowPayload | Error> =>
-      await wrap(
-        Promise.resolve({ descriptor: DESCRIPTOR, document: DOCUMENT, revision: 'rev-1' }),
-      ),
+    async (): Promise<LoadedFlowPayload | Error> => await wrap(Promise.resolve(payload)),
     'test.loaded',
   ).extend(withAsyncData())
 
@@ -99,6 +106,11 @@ function harness(save: SaveFn = async () => ({ revision: 'rev-2' })) {
      * different frame than the one these models were built in.
      */
     load: () => wrap(loaded()),
+    /** A reload landing another revision of the same flow, as `Reload` on the conflict chip asks. */
+    reload: (next: LoadedFlowPayload) => {
+      payload = next
+      return wrap(loaded.retry())
+    },
   }
 }
 
@@ -132,6 +144,36 @@ describe('validate and save', () => {
       })
       expect(h.draft.dirty()).toBe(true)
       expect(h.saved).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  /**
+   * New, and the other half of the conflict offer.
+   *
+   * `## UI and persistence` offers `Reload` or `Copy draft`, and `Reload` is the only escape from
+   * the conflict state that stays in the flow. `useStudioSession.adopt` cleared `saveState` on
+   * every landed load; here it is a derivation off the document on disk, so the chip goes when the
+   * document it was about does — and a drag, which changes the draft but not the disk, leaves it
+   * standing.
+   */
+  it('clears the conflict once a reload lands another revision, and a drag does not', async () => {
+    await context.start(async () => {
+      const h = harness(async () => CONFLICT)
+      await h.load()
+      h.draft.moveNode({ nodeId: 'start1', position: { x: 5, y: 5 } })
+      await wrap(h.model.save())
+      expect(h.model.state().kind).toBe('conflict')
+
+      h.draft.moveNode({ nodeId: 'start1', position: { x: 6, y: 6 } })
+      expect(h.model.state().kind).toBe('conflict')
+
+      await h.reload({
+        descriptor: DESCRIPTOR,
+        document: { ...DOCUMENT, layout: { start1: { x: 900, y: 400 } } } as FlowDocument,
+        revision: 'rev-9',
+      })
+
+      expect(h.model.state()).toEqual({ kind: 'idle' })
     })
   })
 

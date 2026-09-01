@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import { type ReactNode, useState } from 'react'
 import type {
   FlowNodeSummary,
@@ -101,7 +102,18 @@ export interface StudioProps {
   readonly onRun?: () => void
 }
 
-export function Studio(props: StudioProps) {
+/**
+ * The frame, and the only two pieces of state that are genuinely its own.
+ *
+ * It is a `reatomComponent` so that a subtree rendered through its slots can read the model without
+ * this component standing between the read and the re-render — but it reads nothing itself, and it
+ * is not going to: **every value it draws arrives as a prop**, with an artboard fixture as the
+ * default, which is what lets `Studio.test.tsx` drive it with no server and no model at all.
+ * `leftCollapsed` and `rightCollapsed` stay `useState`: which sidebars this instance has docked is
+ * not a fact about the flow, the run or the document, and putting it on the model would make two
+ * Studios in one page share one layout.
+ */
+export const Studio = reatomComponent(function Studio(props: StudioProps) {
   const [leftCollapsed, setLeftCollapsed] = useState(false)
   const [rightCollapsed, setRightCollapsed] = useState(false)
 
@@ -190,4 +202,4 @@ export function Studio(props: StudioProps) {
       {...(props.status === undefined ? {} : { status: props.status })}
     />
   )
-}
+}, 'Studio')

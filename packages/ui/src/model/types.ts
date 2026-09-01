@@ -150,8 +150,8 @@ export type { SaveState, ValidationState }
  * what it is retrying *from* — the error is carried rather than looked up, because the run that
  * produced it is gone from `session` the moment the new one replaces it.
  *
- * Declared here rather than moved: `StudioApp.tsx`'s copy is module-private and that file is not
- * this task's to edit. The two are identical, and the wave that rewrites `StudioApp` collapses them.
+ * This is now the only declaration of it: `StudioApp.tsx` held an identical module-private copy
+ * until the wave that made that file read the model, and the two collapsed into this one.
  */
 export interface RetryState {
   readonly nodeId: string
@@ -548,6 +548,20 @@ export interface CanvasModel {
    */
   readonly overlays: Computed<ReadonlyMap<string, NodeOverlay> | undefined>
   readonly nodes: Computed<readonly FlowCanvasNode[]>
+  /**
+   * {@link CanvasModel.nodes} with every overlay already folded into the cards — and a bridge that
+   * is meant to be deleted.
+   *
+   * `FlowCanvas` takes one array of cards, and `NodeCard` still reads its run state out of the node
+   * object it is handed rather than from {@link CanvasModel.nodeOverlay}. Until the wave that
+   * changes that, a container has to give the canvas the decorated array, so the split this module
+   * exists for is real inside the model and not yet visible on screen.
+   *
+   * Reading this is a subscription to every node's overlay, so its identity changes on every stream
+   * frame — exactly the hazard {@link CanvasModel.nodes} removes. Nothing but the container that
+   * owns the whole canvas may read it, and the day a card reads its own overlay this member goes.
+   */
+  readonly decoratedNodes: Computed<readonly FlowCanvasNode[]>
   readonly edges: Computed<readonly FlowCanvasEdge[]>
   /**
    * One node's overlay, created on first ask and never rebuilt.

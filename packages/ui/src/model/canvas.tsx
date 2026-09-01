@@ -83,10 +83,10 @@ import type {
  * would read as a measurement.
  *
  * Together with {@link toCardState} and {@link annotationsFor} this is the per-node half of
- * `studio/runPresenter.ts`'s `toNodeOverlays`, which still serves `StudioApp` until the wave that
- * rewrites it. That function takes a whole `RunSession` and cannot be split without editing a file
- * this task does not own, so the two are held together by a test in `canvas.test.tsx` instead —
- * see *agrees with `toNodeOverlays`*.
+ * `studio/runPresenter.ts`'s `toNodeOverlays`. That function has no caller left — `StudioApp` reads
+ * this module's overlays now — so what holds the two spellings together is the test in
+ * `canvas.test.tsx` named *agrees with `toNodeOverlays`*, and the sweep that removes one of them is
+ * the one that decides which.
  */
 const SETTLED_WITH_TIME: ReadonlySet<NodeStatus> = new Set<NodeStatus>(['ok', 'failed', 'cached'])
 
@@ -426,11 +426,41 @@ export function reatomCanvas(
     })
   }, `${name}.nodes`)
 
+  /**
+   * The same array with the overlays folded back in — the bridge {@link CanvasModel.decoratedNodes}
+   * describes, and the one thing in this module that gives the identity back up.
+   *
+   * It exists because `NodeCard` still reads its run state off the node object `FlowCanvas` hands
+   * it. With no session there is nothing to fold, so it hands back {@link nodes} itself rather than
+   * a copy: an idle canvas keeps the stable identity, and only a run gives it up.
+   */
+  const decoratedNodes = computed<readonly FlowCanvasNode[]>(() => {
+    const overlaid = overlays()
+    if (overlaid === undefined) return nodes()
+    const descriptor = input.descriptor()
+    const document = input.document()
+    if (descriptor === undefined || document === undefined) return []
+    const selectedNodeId = input.selectedNodeId()
+    return toCanvasNodes({
+      descriptor,
+      document,
+      ...(selectedNodeId === undefined ? {} : { selectedNodeId }),
+      overlays: overlaid,
+      problems: input.problems(),
+    })
+  }, `${name}.decoratedNodes`)
+
   const edges = computed<readonly FlowCanvasEdge[]>(() => {
     const document = input.document()
     if (document === undefined) return []
     return toCanvasEdges(document, input.problems())
   }, `${name}.edges`)
 
-  return { overlays, nodes, edges, nodeOverlay: (nodeId) => model(nodeId).overlay }
+  return {
+    overlays,
+    nodes,
+    decoratedNodes,
+    edges,
+    nodeOverlay: (nodeId) => model(nodeId).overlay,
+  }
 }

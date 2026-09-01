@@ -1,4 +1,13 @@
-import { type Atom, action, atom, type Computed, withAsync, wrap } from '@reatom/core'
+import {
+  type Atom,
+  action,
+  atom,
+  type Computed,
+  computed,
+  withAsync,
+  withComputed,
+  wrap,
+} from '@reatom/core'
 import { isRevisionConflictPayload, JobikServerError } from '#client/index.js'
 import type { FlowDraft } from '#studio/draft.js'
 import type { DraftModel, SaveModel, SaveState, StudioDeps } from './types.js'
@@ -49,7 +58,39 @@ export function reatomSave(
   },
   name: string,
 ): SaveModel {
-  const state = atom<SaveState>({ kind: 'idle' }, `${name}.state`)
+  /** One shared idle, so a load that clears nothing does not hand out a new identity. */
+  const IDLE: SaveState = { kind: 'idle' }
+
+  /**
+   * The document as it stands on disk, as the draft reports it.
+   *
+   * It is derived here rather than taken as an input because it is one read of `draft`, which this
+   * module already has, and adding an input would put the same value on the wiring twice. It is
+   * cut as its own `computed` on purpose: `draft` gets a new identity on every drag, and
+   * `savedDocument` changes only when a load lands or a save is adopted — which is exactly the
+   * distinction {@link state} below turns on.
+   */
+  const _savedDocument = computed(() => input.draft()?.savedDocument, `${name}._savedDocument`)
+
+  /**
+   * What a save is doing, or what it found — and what a landed load says about it.
+   *
+   * A conflict is a statement about one document: *this* draft cannot be written over *that*
+   * revision. Once a load has replaced what is on disk, the statement is about a document nobody
+   * holds any more, so it goes. That is what `Reload` on the conflict chip means, and it is the one
+   * escape from the conflict state that does not leave the flow — `useStudioSession.adopt` cleared
+   * `saveState` on every landed load for the same reason, and this is that line, as a derivation
+   * (RTM-S02) rather than a fourth write inside a load callback.
+   *
+   * A drag does not clear it: `_savedDocument` above is what this depends on, and a drag changes
+   * the draft without changing what is on disk.
+   */
+  const state = atom<SaveState>(IDLE, `${name}.state`).extend(
+    withComputed((current) => {
+      _savedDocument()
+      return current.kind === 'idle' ? current : IDLE
+    }),
+  )
 
   const save = action(async () => {
     // The double-click guard. `save()` had none of its own in the hook and `3F` supplied one by
@@ -111,7 +152,7 @@ export function reatomSave(
    * document in a flow, so it cannot outlive the flow it was reported for.
    */
   const reset = action(() => {
-    state.set({ kind: 'idle' })
+    state.set(IDLE)
   }, `${name}.reset`)
 
   return { state, save, reset }

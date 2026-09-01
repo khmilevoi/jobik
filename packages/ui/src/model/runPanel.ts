@@ -64,9 +64,9 @@ type RunPanelKind = 'idle' | 'running' | 'failed' | 'completed'
 /**
  * `### Run panel`'s idle note, and `Run panel — states`' running one.
  *
- * The copies in `studio/StudioApp/StudioApp.tsx` are the same two strings and stay there until the
- * wave that rewrites that file; neither module may import the other's private constants, the same
- * way `model/run.ts` restates `DROPPED_STREAM_PAYLOAD`.
+ * `StudioApp` no longer carries a copy — it renders the state this module builds. The remaining
+ * duplicate is `studio/useStudioSession.ts`'s, which goes with that file; neither module may import
+ * the other's private constants, the same way `model/run.ts` restates `DROPPED_STREAM_PAYLOAD`.
  */
 const IDLE_NOTE =
   'Inputs are typed from the flow declaration. Only downstream nodes of the selected entry point run.'
