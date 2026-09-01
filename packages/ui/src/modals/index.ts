@@ -15,9 +15,11 @@
 import '../canvas/canvasTokens.css'
 import './modalTokens.css'
 
-// `CancelRunModalProps` and `ValidationModalProps` are gone rather than deprecated: both dialogs
-// read `packages/ui/src/model/` and take no props at all, so there was nothing left for the types
-// to describe. The other three still take props and say so in their own doc comments.
+// `CancelRunModalProps`, `SwitchFlowModalProps` and `ValidationModalProps` are gone rather than
+// deprecated: each of those three dialogs reads `packages/ui/src/model/` and takes no props at all,
+// so there was nothing left for the types to describe. `SwitchFlowBody` stays — it is the shape
+// `FlowSwitchModel.body` computes, so the model and the dialog share it. `Download` and
+// `Stack trace` still take props and say so in their own doc comments.
 export { CancelRunModal, cancelRunMessage } from './CancelRunModal/CancelRunModal.js'
 export type {
   DownloadFile,
@@ -41,10 +43,7 @@ export type {
   StackTraceModalProps,
 } from './StackTraceModal/StackTraceModal.js'
 export { StackTraceModal } from './StackTraceModal/StackTraceModal.js'
-export type {
-  SwitchFlowBody,
-  SwitchFlowModalProps,
-} from './SwitchFlowModal/SwitchFlowModal.js'
+export type { SwitchFlowBody } from './SwitchFlowModal/SwitchFlowModal.js'
 export {
   SwitchFlowModal,
   switchFlowRunningMessage,

@@ -114,13 +114,10 @@ const StudioAppBody = reatomComponent(function StudioAppBody(props: StudioAppBod
   // run's kind and numbers instead, so neither ever sees the tick.
   const runMeta = runPanel.meta()
   const runStatus = runPanel.dockStatus()
-  const switchBody = flowSwitch.body()
-  const pendingFlowName = flowSwitch.pendingFlowName()
 
   // RTM-C02: every handler below is invoked from a DOM event, which runs outside the frame this
   // render is in. `useAction` binds each to the frame the model lives in, once.
   const requestFlow = useAction(flowSwitch.requestFlow)
-  const stayOnFlow = useAction(flowSwitch.stay)
   const selectStart = useAction(inputs.selectStart)
   const selectRun = useAction(run.selectRun)
   const runFromDraft = useAction(run.runFromDraft)
@@ -293,17 +290,12 @@ const StudioAppBody = reatomComponent(function StudioAppBody(props: StudioAppBod
         ghosts give something up, so a stray backdrop click must not stand in for one. `esc` is the
         third action, and the footer hint names the flow it keeps.
 
-        `body` is the shape the dialog wants, and reading it is also what arms `3F`'s
-        self-answering switch — see `model/flowSwitch.ts`.
+        Unconditional too. The dialog reads `flowSwitch.body` and `pendingFlowName` for itself, and
+        reading `body` is also what arms `3F`'s self-answering switch — see `model/flowSwitch.ts`.
+        Holding that read here instead put this whole component on `body`, which carries the run's
+        elapsed time and so moves ten times a second for the length of a run.
       */}
-      {switchBody === undefined || pendingFlowName === undefined ? null : (
-        <SwitchFlowModal
-          currentFlowName={descriptor?.name ?? flowId ?? ''}
-          targetFlowName={pendingFlowName}
-          body={switchBody}
-          onDismiss={stayOnFlow}
-        />
-      )}
+      <SwitchFlowModal />
     </>
   )
 }, 'StudioAppBody')

@@ -41,10 +41,13 @@ export * from './modals/index.js'
 // Artboard `3F`: the `Switch flow` confirm — one modal, two bodies, guarding a switch that would
 // drop an unsaved draft or leave a run running with nothing left to cancel it. It also reaches
 // consumers through the `./modals/index.js` star export above; named here so this barrel states it.
-export type {
-  SwitchFlowBody,
-  SwitchFlowModalProps,
-} from './modals/SwitchFlowModal/SwitchFlowModal.js'
+//
+// `SwitchFlowModalProps` was removed from this block by explicit operator decision when the dialog
+// was converted to read `packages/ui/src/model/`: it takes no props, so the type described nothing
+// and this line exported nothing. That is the ONE authorised edit to this append-only barrel and it
+// is not a precedent — every other line here, and the other two barrels, stay append-only.
+// `SwitchFlowBody` stays: it is the shape `FlowSwitchModel.body` computes.
+export type { SwitchFlowBody } from './modals/SwitchFlowModal/SwitchFlowModal.js'
 export { SwitchFlowModal } from './modals/SwitchFlowModal/SwitchFlowModal.js'
 
 // --- reatom-model foundation ---
