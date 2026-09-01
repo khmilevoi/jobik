@@ -73,12 +73,12 @@ export const TopBar = reatomComponent(function TopBar(props: TopBarProps) {
    * assertions built on its absence keep meaning what they meant.
    */
   const saveState = running ? null : props.dirty ? (
-    <div data-testid="studio-dirty" className={cx(s.saveState, !compact && s.saveStateInset)}>
+    <div data-testid="studio-dirty" className={cx(s.saveState, !dense && s.saveStateInset)}>
       <div data-testid="studio-dirty-dot" className={cx(s.saveStateDot, s.dotUnsaved)} />
       <div className={s.saveStateLabel}>{compact ? 'Unsaved' : 'Unsaved changes'}</div>
     </div>
   ) : (
-    <div data-testid="studio-saved" className={cx(s.saveState, !compact && s.saveStateInset)}>
+    <div data-testid="studio-saved" className={cx(s.saveState, !dense && s.saveStateInset)}>
       <div data-testid="studio-saved-dot" className={cx(s.saveStateDot, s.dotSaved)} />
       <div className={s.saveStateLabel}>Saved</div>
     </div>

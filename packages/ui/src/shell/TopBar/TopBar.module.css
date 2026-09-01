@@ -61,7 +61,12 @@
   gap: 6px;
 }
 
-/* `Studio — default` (and `2A`) sit the group 2px off the badge before it. */
+/*
+ * `Studio — default` (design 1269) is the one artboard that sits the group 2px off the badge
+ * before it. `2A` (:888) draws a plain `display:flex;gap:6px` sibling with no inset, and so do
+ * the two compact bars — i.e. every bar but the plain identity row. Hence `!dense`, not
+ * `!compact`.
+ */
 .saveStateInset {
   margin-left: 2px;
 }
