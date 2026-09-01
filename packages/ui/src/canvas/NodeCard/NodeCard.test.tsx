@@ -173,10 +173,17 @@ describe('NodeCard — the Studio — run in progress artboard', () => {
     expect(screen.getByTestId('field-annotation-dim')).toHaveTextContent('pending')
   })
 
-  it('renders no progress bar when there is no progress', async () => {
+  /**
+   * `4A`, Node state: the card keeps its exact box across every state, so the 2px track is present
+   * on a card that is not running and only its bar is withheld. Mounting the track with the run is
+   * what made a node grow 2px on the frame it started — the reflow the artboard forbids, and the
+   * one the card's own 140ms colour ease would otherwise have drawn attention to.
+   */
+  it('reserves the progress track in every state and draws a bar only while running', async () => {
     mountCard(<NodeCard data={{ id: 'publish', state: 'idle', status: 'idle' }} />)
     await screen.findByTestId('node-card-publish')
-    expect(screen.queryByTestId('node-progress-track')).toBeNull()
+    expect(screen.getByTestId('node-progress-track')).toBeInTheDocument()
+    expect(screen.queryByTestId('node-progress-bar')).toBeNull()
   })
 })
 

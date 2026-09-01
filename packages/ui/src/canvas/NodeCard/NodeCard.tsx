@@ -104,11 +104,19 @@ export const NodeCard = reatomComponent(function NodeCard(props: NodeCardProps) 
     >
       <NodeCardHeader data={data} chrome={chrome} />
 
-      {data.progress === undefined ? null : (
-        <div data-testid="node-progress-track" className={s.progressTrack}>
+      {/*
+        The track is always here, in every state, and only its groove and its bar are conditional —
+        `4A` requires the card to keep its exact box while its colours ease, and mounting the track
+        with the run made the card 2px taller on exactly the frame the ease begins.
+      */}
+      <div
+        data-testid="node-progress-track"
+        className={cx(s.progressTrack, data.progress !== undefined && s.progressTrackFilled)}
+      >
+        {progressStyle === undefined ? null : (
           <div data-testid="node-progress-bar" className={s.progressBar} style={progressStyle} />
-        </div>
-      )}
+        )}
+      </div>
 
       {inputs.length === 0 ? null : (
         <Section

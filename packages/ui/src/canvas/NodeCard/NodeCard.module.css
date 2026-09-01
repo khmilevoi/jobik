@@ -22,8 +22,21 @@
   padding: 0 var(--jbk-canvas-card-padding-x);
 }
 
+/*
+ * `4A`, Node state: *"Colour is the only thing that moves — border, dot and glow ease together
+ * while the node keeps its exact box, so a running graph never reflows."*
+ *
+ * The track is therefore rendered in EVERY state and only its paint depends on the run. `.progressTrack`
+ * reserves the 2px and paints nothing; `.progressTrackFilled` is what a running card adds, and it is
+ * the only rule that draws the groove. Without the reservation the card grew 2px on the frame it
+ * started running — the reflow `4A` forbids, and the one the 140ms ease on `.card` would have made
+ * more visible rather than less.
+ */
 .progressTrack {
   height: var(--jbk-canvas-progress-bar-height);
+}
+
+.progressTrackFilled {
   background: var(--jbk-canvas-progress-track);
 }
 
