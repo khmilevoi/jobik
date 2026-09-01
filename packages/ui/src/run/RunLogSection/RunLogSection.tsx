@@ -1,3 +1,5 @@
+import { reatomComponent } from '@reatom/react'
+import { memo } from 'react'
 import { cx } from '#cx.js'
 import { SectionLabel } from '#primitives/index.js'
 import type { RunLog } from '#run/types.js'
@@ -21,35 +23,48 @@ export interface RunLogSectionProps {
  * arrow-form message of its own — the artboard's `start1 → emit title, markdown` is whatever the
  * node logged, prefixed with the node id — so this renders exactly the two cells the panel is
  * given and composes nothing.
+ *
+ * **Memoised, because the log is what the run's 100ms clock must never reach.** `model/runPanel.ts`
+ * exists to keep that promise on its side — a tick invalidates neither `_runningLog` nor
+ * `_completedLog`, so the same `RunLog` comes back at the same identity, and `model/runPanel.test.ts`
+ * pins it. The panel above still re-renders on every tick, because `RunRunningState.elapsed` is a
+ * field of the state it reads; the shallow compare here is what converts the model's stable identity
+ * into a log that is not re-rendered ten times a second. A `log` prop rebuilt per render by any
+ * caller defeats it — pass the model's value through, never a fresh literal.
  */
-export function RunLogSection(props: RunLogSectionProps) {
-  const { log } = props
+export const RunLogSection = memo(
+  reatomComponent(function RunLogSection(props: RunLogSectionProps) {
+    const { log } = props
 
-  return (
-    <div className={cx(s.log, props.className)}>
-      <div className={s.head}>
-        <SectionLabel data-testid="run-log-label">{props.label}</SectionLabel>
-        {log.followLabel === undefined ? null : (
-          <div data-testid="run-log-follow" className={s.follow}>
-            {log.followLabel}
-          </div>
-        )}
+    return (
+      <div className={cx(s.log, props.className)}>
+        <div className={s.head}>
+          <SectionLabel data-testid="run-log-label">{props.label}</SectionLabel>
+          {log.followLabel === undefined ? null : (
+            <div data-testid="run-log-follow" className={s.follow}>
+              {log.followLabel}
+            </div>
+          )}
+        </div>
+        <div className={s.lines}>
+          {log.lines.map((line, index) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: the log is append-only, so the index is a stable key.
+            <div key={index} data-testid={`run-log-line-${index}`}>
+              <span
+                data-testid={`run-log-time-${index}`}
+                className={s.time}
+              >{`${line.time} `}</span>
+              {line.text}
+            </div>
+          ))}
+          {log.pending === undefined ? null : (
+            <div data-testid="run-log-pending" className={s.pending}>
+              <span data-testid="run-log-caret" className={s.caret} />
+              {log.pending}
+            </div>
+          )}
+        </div>
       </div>
-      <div className={s.lines}>
-        {log.lines.map((line, index) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: the log is append-only, so the index is a stable key.
-          <div key={index} data-testid={`run-log-line-${index}`}>
-            <span data-testid={`run-log-time-${index}`} className={s.time}>{`${line.time} `}</span>
-            {line.text}
-          </div>
-        ))}
-        {log.pending === undefined ? null : (
-          <div data-testid="run-log-pending" className={s.pending}>
-            <span data-testid="run-log-caret" className={s.caret} />
-            {log.pending}
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
+    )
+  }, 'RunLogSection'),
+)

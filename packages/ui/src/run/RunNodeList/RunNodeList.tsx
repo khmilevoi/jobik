@@ -1,3 +1,5 @@
+import { reatomComponent } from '@reatom/react'
+import { memo } from 'react'
 import { cx } from '#cx.js'
 import { runNodeStatusLabel } from '#run/format.js'
 import { type RunDotTone, RunSpinner, RunStatusDot } from '#run/RunChrome/RunChrome.js'
@@ -95,7 +97,10 @@ export function resolveRunNodeTone(
   return fixedTones[status]
 }
 
-function RunNodeDot(props: { readonly tone: RunNodeTone; readonly nodeId: string }) {
+const RunNodeDot = reatomComponent(function RunNodeDot(props: {
+  readonly tone: RunNodeTone
+  readonly nodeId: string
+}) {
   const { nodeId } = props
   const dot = props.tone.dot
   if (dot.kind === 'spinner') return <RunSpinner data-testid={`run-node-spinner-${nodeId}`} />
@@ -106,42 +111,54 @@ function RunNodeDot(props: { readonly tone: RunNodeTone; readonly nodeId: string
       tone={dot.kind === 'round' ? dot.tone : undefined}
     />
   )
-}
+}, 'RunNodeDot')
 
 export interface RunNodeRowsProps {
   readonly nodes: readonly RunNodeTiming[]
   readonly className?: string
 }
 
-/** The 30px node rows of `Studio — run in progress` (lines 607–620). */
-export function RunNodeRows(props: RunNodeRowsProps) {
-  return (
-    <div data-testid="run-node-rows" className={cx(s.rows, props.className)}>
-      {props.nodes.map((node) => {
-        const tone = resolveRunNodeTone(node.status, 'rows')
-        return (
-          <div
-            key={node.nodeId}
-            data-testid={`run-node-row-${node.nodeId}`}
-            className={cx(s.row, node.status === 'running' && s.rowActive)}
-          >
-            <RunNodeDot tone={tone} nodeId={node.nodeId} />
-            <div data-testid={`run-node-name-${node.nodeId}`} className={cx(s.rowName, tone.name)}>
-              {node.nodeId}
-            </div>
-            <div className={s.spacer} />
+/**
+ * The 30px node rows of `Studio — run in progress` (lines 607–620).
+ *
+ * **Memoised for the same reason `RunLogSection` is.** `nodes` comes from `model/runPanel.ts`'s
+ * `_runningNodes`, which the run's 100ms tick does not invalidate, so the array arrives at the
+ * identity it already had and the shallow compare keeps the whole list out of the tick's way. Pass
+ * the model's array through; a fresh `nodes.map(...)` in a caller would defeat it.
+ */
+export const RunNodeRows = memo(
+  reatomComponent(function RunNodeRows(props: RunNodeRowsProps) {
+    return (
+      <div data-testid="run-node-rows" className={cx(s.rows, props.className)}>
+        {props.nodes.map((node) => {
+          const tone = resolveRunNodeTone(node.status, 'rows')
+          return (
             <div
-              data-testid={`run-node-value-${node.nodeId}`}
-              className={cx(s.rowValue, tone.value)}
+              key={node.nodeId}
+              data-testid={`run-node-row-${node.nodeId}`}
+              className={cx(s.row, node.status === 'running' && s.rowActive)}
             >
-              {runNodeStatusLabel(node)}
+              <RunNodeDot tone={tone} nodeId={node.nodeId} />
+              <div
+                data-testid={`run-node-name-${node.nodeId}`}
+                className={cx(s.rowName, tone.name)}
+              >
+                {node.nodeId}
+              </div>
+              <div className={s.spacer} />
+              <div
+                data-testid={`run-node-value-${node.nodeId}`}
+                className={cx(s.rowValue, tone.value)}
+              >
+                {runNodeStatusLabel(node)}
+              </div>
             </div>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
+          )
+        })}
+      </div>
+    )
+  }, 'RunNodeRows'),
+)
 
 /** The three compact lists, spelled out; `satisfies` makes a fourth variant a type error. */
 const timingsSizes = {
@@ -157,25 +174,28 @@ export interface RunNodeTimingsProps {
   readonly className?: string
 }
 
-export function RunNodeTimings(props: RunNodeTimingsProps) {
-  return (
-    <div
-      data-testid="run-timings"
-      className={cx(s.timings, timingsSizes[props.variant], props.className)}
-    >
-      {props.nodes.map((node) => {
-        const tone = resolveRunNodeTone(node.status, props.variant)
-        return (
-          <div key={node.nodeId} className={s.timingRow}>
-            <span data-testid={`run-timing-name-${node.nodeId}`} className={tone.name}>
-              {node.nodeId}
-            </span>
-            <span data-testid={`run-timing-value-${node.nodeId}`} className={tone.value}>
-              {runNodeStatusLabel(node)}
-            </span>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
+/** The compact lists. Memoised on the same guarantee as {@link RunNodeRows}. */
+export const RunNodeTimings = memo(
+  reatomComponent(function RunNodeTimings(props: RunNodeTimingsProps) {
+    return (
+      <div
+        data-testid="run-timings"
+        className={cx(s.timings, timingsSizes[props.variant], props.className)}
+      >
+        {props.nodes.map((node) => {
+          const tone = resolveRunNodeTone(node.status, props.variant)
+          return (
+            <div key={node.nodeId} className={s.timingRow}>
+              <span data-testid={`run-timing-name-${node.nodeId}`} className={tone.name}>
+                {node.nodeId}
+              </span>
+              <span data-testid={`run-timing-value-${node.nodeId}`} className={tone.value}>
+                {runNodeStatusLabel(node)}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+    )
+  }, 'RunNodeTimings'),
+)

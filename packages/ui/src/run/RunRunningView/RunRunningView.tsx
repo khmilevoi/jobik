@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import type { StyleWithVars } from '#cx.js'
 import { SectionLabel } from '#primitives/index.js'
 import { formatNodesComplete } from '#run/format.js'
@@ -35,8 +36,16 @@ export function progressWidth(progress: number): string {
  * with `variant` choosing which of the two node treatments the run is drawn with.
  *
  * Returns a fragment: `RunDock`'s body supplies the padding and the `16px` gap between blocks.
+ *
+ * **This is the body the run's 100ms clock reaches, and the two blocks under it are the ones that
+ * must not feel it.** `state.elapsed` is a field of the state `RunPanel` reads, so this view
+ * re-renders on every tick; `state.nodes` and `state.log`, however, come back from
+ * `model/runPanel.ts` at the identity they already had — the tick invalidates neither computed, and
+ * `model/runPanel.test.ts` pins that. `RunNodeRows`, `RunNodeTimings` and `RunLogSection` are
+ * memoised on exactly that guarantee, so a tick redraws the elapsed readout and the bar and stops
+ * there. Do not read the clock again below: a second reader would put the log back on it.
  */
-export function RunRunningView(props: RunRunningViewProps) {
+export const RunRunningView = reatomComponent(function RunRunningView(props: RunRunningViewProps) {
   const { state } = props
   const log = state.log
   const card = props.variant === 'card'
@@ -92,4 +101,4 @@ export function RunRunningView(props: RunRunningViewProps) {
       </RunAction>
     </>
   )
-}
+}, 'RunRunningView')

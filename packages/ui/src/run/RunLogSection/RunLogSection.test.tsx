@@ -51,4 +51,43 @@ describe('RunLogSection', () => {
     expect(screen.queryByTestId('run-log-caret')).toBeNull()
     expect(screen.queryByTestId('run-log-follow')).toBeNull()
   })
+
+  /**
+   * The perf half of `model/runPanel.ts`, arriving in the DOM.
+   *
+   * A run's 100ms tick rebuilds `RunPanelModel.state` — the elapsed is a field of it — but not the
+   * log: `_runningLog` is its own computed, the tick does not invalidate it, and the same `RunLog`
+   * comes back at the same identity. `model/runPanel.test.ts` pins that on the model's side. This is
+   * the other side: given the same value back, this component does not render again, so a tick
+   * cannot cost a re-render of the whole log.
+   *
+   * `lines` is read behind a counting getter because a render is not otherwise observable from
+   * outside the component, and a render that draws no line is not a render of the log.
+   */
+  it('does not render again when its parent does and the log has not changed', () => {
+    let reads = 0
+    const counted: RunLog = {
+      followLabel: 'follow',
+      get lines() {
+        reads += 1
+        return LOG.lines
+      },
+    }
+
+    function Parent(props: { readonly elapsed: string }) {
+      return (
+        <>
+          <div data-testid="parent-elapsed">{props.elapsed}</div>
+          <RunLogSection log={counted} label="Live log" />
+        </>
+      )
+    }
+
+    const view = render(<Parent elapsed="1.3s" />)
+    expect(reads).toBe(1)
+
+    view.rerender(<Parent elapsed="1.4s" />)
+    expect(screen.getByTestId('parent-elapsed').textContent).toBe('1.4s')
+    expect(reads).toBe(1)
+  })
 })

@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import { StripePlaceholder } from '#canvas/index.js'
 import { Button, SectionLabel } from '#primitives/index.js'
 import { formatAssetMeta } from '#run/format.js'
@@ -85,7 +86,9 @@ export interface RunCompletedViewProps {
  *
  * The card's `Completed` header is `RunStateHeader`'s, not this view's.
  */
-export function RunCompletedView(props: RunCompletedViewProps) {
+export const RunCompletedView = reatomComponent(function RunCompletedView(
+  props: RunCompletedViewProps,
+) {
   const { state } = props
   const inputs = state.inputs
   const log = state.log
@@ -137,4 +140,4 @@ export function RunCompletedView(props: RunCompletedViewProps) {
       )}
     </>
   )
-}
+}, 'RunCompletedView')

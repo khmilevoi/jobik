@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import { cx } from '#cx.js'
 import { formatRunMeta } from '#run/format.js'
 import { RunSpinner, RunStatusDot } from '#run/RunChrome/RunChrome.js'
@@ -49,8 +50,11 @@ const titleByKind = {
  * replaced by the run number" now lives in `RunDock` itself (its `runMeta` prop), because the
  * docked header keeps the flow's entry point on its left (design 264–273, 586–591) rather than the
  * state title this component draws. The two are deliberately separate headers, not one hoisted.
+ *
+ * It stays prop-driven because it is not in `StudioApp`'s tree at all: `RunPanelCard` is its only
+ * caller, and that card is the standalone artboard, mountable with no Studio model above it.
  */
-export function RunStateHeader(props: RunStateHeaderProps) {
+export const RunStateHeader = reatomComponent(function RunStateHeader(props: RunStateHeaderProps) {
   const { state } = props
   const failed = state.kind === 'failed'
 
@@ -95,4 +99,4 @@ export function RunStateHeader(props: RunStateHeaderProps) {
       )}
     </div>
   )
-}
+}, 'RunStateHeader')

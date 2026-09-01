@@ -60,3 +60,10 @@ export { assetMetaParts } from './format.js'
 // `export * from './types.js'` above.
 export type { RunLogSectionProps } from './RunLogSection/RunLogSection.js'
 export { RunLogSection } from './RunLogSection/RunLogSection.js'
+
+// --- Reatom model layer: the panel reads its state, the card is still handed one ---
+// `RunPanel` lost its `state` prop — it reads `RunPanelModel.state` — so the four-arm dispatch it
+// used to be moved into `RunPanelBody`, which is what `RunPanelCard` and any other caller holding a
+// `RunPanelState` renders. Nothing was withdrawn: the prop-driven path is this export.
+export type { RunPanelBodyProps } from './RunPanel/RunPanel.js'
+export { RunPanelBody } from './RunPanel/RunPanel.js'
