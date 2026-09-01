@@ -411,6 +411,22 @@ export function reatomRunPanel(
    * `2A`: once a run settles, the dock header's left half is `● Completed` or `● Run failed` rather
    * than `Run <entry>`. `Studio — run in progress` keeps the entry point while the run is in
    * flight, and the idle artboard has no state at all, so this is `undefined` in both.
+   *
+   * ## The missing third arm is an unsettled artboard disagreement, not an oversight
+   *
+   * `Run panel — states` (design 2013-2019) draws a running header too: a 9px `jspin` ring, the
+   * word `Running`, and `#219` on the right. `RunStateHeader` implements it faithfully and
+   * `RunPanelCard` draws it, so the artboard is not unimplemented — but the *dock* never reaches
+   * it, because this returns `undefined` while a run is in flight and `RunDock` falls back to
+   * `Run <entry>` in a `PanelHeader`.
+   *
+   * That is what `Studio — run in progress` draws, and the two artboards are the same generation:
+   * neither carries a `2A`-style prefix, so the "newer wins" tie-break does not apply and no
+   * artboard settles it. It is an operator decision. **Do not add a `running` arm here on your own
+   * authority** — it would change what the Studio shows during every run, and the disagreement is
+   * recorded rather than resolved on purpose. If the standalone card wins, the arm goes here and
+   * `RunDockStatus` grows a `running` member; if the full-page artboard wins, this comment is the
+   * answer and the next auditor can stop re-finding it.
    */
   const dockStatus = computed<RunDockStatus | undefined>(() => {
     const kind = _kind()
