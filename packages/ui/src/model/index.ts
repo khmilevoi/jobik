@@ -8,19 +8,30 @@
  *
  * An ordinary directory barrel, not append-only: edit it freely as modules land.
  */
+// --- T2.1: the canvas arrays, and the per-node overlays behind them ---
+export type { CanvasOverlaysModel } from './canvas.js'
+export { reatomCanvas } from './canvas.js'
 export type { StudioModelProviderProps } from './context.js'
 export { StudioModelProvider, useStudioModel } from './context.js'
 export { reatomDraft } from './draft.js'
 // --- T1.2: flow discovery, and the flow-local UI bundle ---
 export { reatomExtension } from './extension.js'
+// --- T2.4: `3F`'s guarded switch, and the four global keys ---
+export { reatomFlowSwitch } from './flowSwitch.js'
 export { reatomFlows } from './flows.js'
 // --- T1.4: the selected start, the typed run inputs, and `3D`'s validation chip ---
 export { reatomInputs } from './inputs.js'
+// --- T2.3: the output viewer, the dock strings, and `3A`'s copy and download ---
+export type { OutputActionsModel } from './output.js'
+export { reatomOutput } from './output.js'
 // --- T1.1: the run session ---
 export type { RunNodeModel, RunNodesModel } from './run.js'
 export { reatomRun, reatomRunNodes } from './run.js'
 export { runGraphNodeIds } from './runGraph.js'
+// --- T2.2: the run dock's body and its one header ---
+export { reatomRunPanel } from './runPanel.js'
 export { reatomSave } from './save.js'
+export { reatomShortcuts } from './shortcuts.js'
 export { reatomStudio } from './studio.js'
 export type {
   AsyncAction,
