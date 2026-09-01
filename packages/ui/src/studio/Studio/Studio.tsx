@@ -123,6 +123,13 @@ export const Studio = reatomComponent(function Studio(props: StudioProps) {
   const inventory = props.inventory ?? FIXTURE_INVENTORY
   const entryNodeId = props.entryNodeId ?? 'start1'
   const activeFlow = flows.find((flow) => flow.id === activeFlowId)
+  const running = props.running === true
+  /**
+   * `3B`: a control dims to 45% whenever something around it already reports progress. A run in
+   * flight is exactly that, so the run chip is blocked while one streams as well as while
+   * validation stands in the way.
+   */
+  const runBlocked = props.runBlocked === true || running
 
   return (
     <StudioFrame
@@ -153,16 +160,23 @@ export const Studio = reatomComponent(function Studio(props: StudioProps) {
                 entryNodeId={entryNodeId}
                 onExpand={() => setRightCollapsed(false)}
                 onRun={props.onRun}
-                runBlocked={props.runBlocked}
+                runBlocked={runBlocked}
               />
             ) : undefined
           }
+          // `Studio — run in progress` (design 1706–1714) puts exactly three things in the actions
+          // cluster: the running pill, then `Validate` and `Save` at 45%. There is no `Run start1`
+          // pill beside the chip — while a run streams the chip *is* the run affordance, and a
+          // second one would offer a second run over the first. Hence `running` drops this slot;
+          // where the control is still drawn (the collapsed dock, which is also the panel's expand
+          // affordance) `runBlocked` dims its accent chip instead, which is `3B`'s rule for a
+          // button the surface has already spoken for.
           runControl={
-            rightCollapsed ? undefined : (
+            rightCollapsed || running ? undefined : (
               <DockedRunControl
                 entryNodeId={entryNodeId}
                 onRun={props.onRun}
-                runBlocked={props.runBlocked}
+                runBlocked={runBlocked}
               />
             )
           }

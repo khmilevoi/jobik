@@ -72,6 +72,32 @@ describe('Studio', () => {
     expect(screen.queryByRole('button', { name: 'Expand run panel' })).toBeNull()
   })
 
+  /**
+   * `Studio — run in progress` (design 1706–1714) draws the running pill, `Validate` and `Save`,
+   * and no `Run start1` pill: while a run streams the chip is the run affordance, and a second one
+   * beside it would offer a second run over the first.
+   */
+  it('withdraws the top-bar run pill while a run streams', () => {
+    render(<Studio running runningChip={<div data-testid="running-chip" />} />)
+    expect(screen.getByTestId('running-chip')).toBeInTheDocument()
+    expect(screen.queryByTestId('studio-docked-run')).toBeNull()
+    expect(screen.getByTestId('studio-dock')).toBeInTheDocument()
+  })
+
+  /**
+   * Collapsed, the same control is the dock's expand affordance, so it stays drawn — and `3B` then
+   * applies: a run in flight already reports progress, so the accent chip dims and answers nothing.
+   */
+  it('blocks the docked run chip while a run streams', async () => {
+    const onRun = vi.fn()
+    render(<Studio running onRun={onRun} runningChip={<div data-testid="running-chip" />} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Collapse run panel' }))
+    expect(screen.getByTestId('studio-docked-run')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Run' })).toBeDisabled()
+    await userEvent.click(screen.getByRole('button', { name: 'Run' }))
+    expect(onRun).not.toHaveBeenCalled()
+  })
+
   it('collapses both panels and gives the whole body to the canvas', async () => {
     render(<Studio />)
     await userEvent.click(screen.getByRole('button', { name: 'Collapse flows and nodes' }))
