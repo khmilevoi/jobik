@@ -13,8 +13,8 @@ export type GraphNode = {
   /** Literal values for this node's unconnected input fields. Always empty for a start. */
   readonly literals: Readonly<Record<string, unknown>>
   /**
-   * Distinct upstream node ids, ordered by first appearance in the document. In a `RunGraph` an id
-   * here may name a node outside the run, for the same reason an input edge can — see `RunGraph`.
+   * Distinct upstream node ids, ordered by first appearance in the document. In a `RunGraph` every
+   * id here names a node of that same run graph — see `RunGraph`.
    */
   readonly dependencies: readonly string[]
   /** Distinct downstream node ids, ordered by first appearance in the document. */
@@ -36,7 +36,11 @@ export type RunGraph = {
   readonly flowName: string
   readonly startId: string
   readonly start: GraphNode
-  /** The reachable nodes only. An input edge from a node absent here is fed by another start. */
+  /**
+   * The executable nodes only, and closed under `dependencies`: every node here has every node it
+   * needs here too. A forward-reachable node fed by a second start is therefore absent, because
+   * nothing in this run could ever produce that input — see `resolveRunGraph`.
+   */
   readonly nodes: ReadonlyMap<string, GraphNode>
   /** Topological order of the reachable subgraph. The start is always first. */
   readonly order: readonly string[]

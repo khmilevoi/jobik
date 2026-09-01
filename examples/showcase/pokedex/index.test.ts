@@ -83,11 +83,11 @@ describe('pokedex binding', () => {
 /**
  * The invariant this whole example exists to demonstrate.
  *
- * `resolveRunGraph` narrows a run to the nodes forward-reachable from ONE start, and any node whose
- * dependency lies outside that subgraph is settled `skipped` with `UpstreamFailedError`. Two starts
- * are therefore only useful when they are two independent pipelines. The graph validator would
- * accept a converging graph and the damage would appear at run time instead, so the disjointness
- * has to be asserted here.
+ * `resolveRunGraph` narrows a run to the nodes forward-reachable from ONE start, then drops any of
+ * those whose dependencies did not survive the same narrowing. A node fed by both starts is
+ * therefore in neither run and never executes, with nothing said about it anywhere. Two starts are
+ * only useful when they are two independent pipelines. The graph validator accepts a converging
+ * graph and the loss would be silent, so the disjointness has to be asserted here.
  */
 describe('the two starts are two disjoint pipelines', () => {
   it('declares exactly two starts', () => {
@@ -123,8 +123,8 @@ describe('the two starts are two disjoint pipelines', () => {
       const runGraph = await runGraphFor(startId)
       for (const [nodeId, node] of runGraph.nodes) {
         for (const dependency of node.dependencies) {
-          // This is exactly `blockedBy`'s first check in `run/execute.ts`. A dependency it cannot
-          // find is what turns a node `skipped`, and it is what a converging graph would produce.
+          // `resolveRunGraph` now guarantees this closure, and `blockedBy` in `run/execute.ts`
+          // relies on it. A converging graph loses its join node here, not at run time.
           expect(runGraph.nodes.has(dependency), `${nodeId} depends on ${dependency}`).toBe(true)
         }
       }

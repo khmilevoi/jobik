@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { okOrThrow, publicationDocument, publicationFlow } from '#graph/fixtures.js'
+import { UpstreamFailedError } from '#errors.js'
+import {
+  branchDocument,
+  branchFlow,
+  okOrThrow,
+  publicationDocument,
+  publicationFlow,
+} from '#graph/fixtures.js'
 import { resolveRunGraph } from '#graph/run-graph.js'
 import { validateFlowGraph } from '#graph/validate.js'
 import { readAsset } from './assets.js'
@@ -76,5 +83,30 @@ describe('executeRunGraph()', () => {
     // plan specifies `toBeGreaterThanOrEqual(0)` here for that reason.
     expect(report.nodes[1].elapsedMs).toBeGreaterThanOrEqual(0)
     expect(report.elapsedMs).toBeGreaterThanOrEqual(report.nodes[1].elapsedMs)
+  })
+
+  it('never reports ok while blaming a node this run never contained', async () => {
+    // branchFlow: s1 -> a -> {b, d} and s2 -> c -> d. `d` also needs `c`, which a run from `s1`
+    // never reaches, so `d` cannot execute here however the run goes.
+    const graph = okOrThrow(validateFlowGraph({ flow: branchFlow, document: branchDocument() }))
+    const runGraph = okOrThrow(resolveRunGraph({ graph, startId: 's1' }))
+    const report = await executeRunGraph({
+      graph: runGraph,
+      startOutput: { seed: 'x' },
+      runNumber: 1,
+    })
+
+    // `errore` types a `$variable` placeholder as `string | number`; node ids are always strings.
+    const blamedOutsiders = report.nodes.flatMap((node) =>
+      node.error instanceof UpstreamFailedError &&
+      !runGraph.nodes.has(String(node.error.upstreamNodeId))
+        ? [`${node.nodeId} blamed on ${node.error.upstreamNodeId}`]
+        : [],
+    )
+    expect(blamedOutsiders).toEqual([])
+
+    // An `ok` run is a run that ran everything it said it contained.
+    const notOk = report.nodes.filter((node) => node.status !== 'ok').map((node) => node.nodeId)
+    expect(report.status === 'ok' ? notOk : []).toEqual([])
   })
 })

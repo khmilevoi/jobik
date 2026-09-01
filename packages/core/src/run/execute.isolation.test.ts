@@ -48,8 +48,11 @@ describe('executeRunGraph() failure isolation', () => {
     expect(error.runNumber).toBe(4)
   })
 
-  it('skips a node whose input comes from a start this run did not execute', async () => {
-    // branchFlow: s1 -> a -> {b, d} and s2 -> c -> d. Running s1 reaches d, but d also needs c.
+  it('never blames a node the run does not contain, and reports ok only for a run that ran', async () => {
+    // branchFlow: s1 -> a -> {b, d} and s2 -> c -> d. Running s1 reaches d, but d also needs c, so
+    // `resolveRunGraph` leaves d out and this run is exactly the three nodes it could execute.
+    // It used to keep d, settle it `skipped` with an `UpstreamFailedError` naming c — a node that
+    // never ran — and still call the whole run `ok`.
     const graph = okOrThrow(validateFlowGraph({ flow: branchFlow, document: branchDocument() }))
     const runGraph = okOrThrow(resolveRunGraph({ graph, startId: 's1' }))
 
@@ -58,10 +61,9 @@ describe('executeRunGraph() failure isolation', () => {
       startOutput: { seed: 'x' },
       runNumber: 1,
     })
-    const d = nodeReport(report, 'd')
 
-    expect(statusesOf(report)).toEqual({ s1: 'ok', a: 'ok', b: 'ok', d: 'skipped' })
-    expect(errorOrThrow(d.error, UpstreamFailedError).upstreamNodeId).toBe('c')
+    expect(statusesOf(report)).toEqual({ s1: 'ok', a: 'ok', b: 'ok' })
+    expect(report.nodes.every((node) => node.error === null)).toBe(true)
     expect(report.status).toBe('ok')
   })
 })

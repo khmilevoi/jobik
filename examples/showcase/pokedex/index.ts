@@ -18,9 +18,10 @@ import { pokedexCardInput, pokedexRosterInput } from './nodes/start.js'
  * ## Two starts are two pipelines
  *
  * `resolveRunGraph` narrows a run to the nodes forward-reachable from the ONE start that was
- * selected, and `execute` settles any node whose dependency is outside that subgraph as `skipped`
- * with `UpstreamFailedError`. So a flow with two starts is two INDEPENDENT pipelines that happen
- * to share a document and a canvas — never two doors into one pipeline.
+ * selected, then drops any of those whose dependencies did not survive the same narrowing — so a
+ * node fed by both starts belongs to no run at all and simply never executes. So a flow with two
+ * starts is two INDEPENDENT pipelines that happen to share a document and a canvas — never two
+ * doors into one pipeline.
  *
  * ```
  *   card ──▶ lookup ──▶ sprite ──▶ compose        renders a PNG with jimp

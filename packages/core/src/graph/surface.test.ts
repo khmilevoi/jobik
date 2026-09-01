@@ -17,8 +17,9 @@ describe('@jobik/core graph surface', () => {
     const graph = okOrThrow(
       jobik.validateFlowGraph({ flow: branchFlow, document: branchDocument() }),
     )
+    // `d` is a join fed by both starts, so no single-start run can feed it — see `run-graph.ts`.
     const run = okOrThrow(jobik.resolveRunGraph({ graph, startId: 's1' }))
-    expect(run.order).toEqual(['s1', 'a', 'b', 'd'])
+    expect(run.order).toEqual(['s1', 'a', 'b'])
   })
 
   it('still exposes what P2 and P3 put there', () => {

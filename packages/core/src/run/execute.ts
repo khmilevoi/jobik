@@ -152,7 +152,7 @@ export async function executeRunGraph(args: {
         continue
       }
 
-      const blocker = blockedBy({ node, graph, statuses, failureOrigin })
+      const blocker = blockedBy({ node, statuses, failureOrigin })
       if (blocker !== undefined) {
         failureOrigin.set(nodeId, blocker)
         settle({
@@ -283,10 +283,7 @@ export async function executeRunGraph(args: {
   return report
 }
 
-/**
- * How the run settled. A run with no failed node is `ok` even when a node was skipped for want of a
- * start that did not run — nothing failed in that run.
- */
+/** How the run settled. A run with no failed node is `ok`. */
 function runStatusOf(nodes: readonly NodeReport[]): RunStatus {
   if (nodes.some((node) => node.status === 'failed')) return 'failed'
   return 'ok'
@@ -296,9 +293,12 @@ function runStatusOf(nodes: readonly NodeReport[]): RunStatus {
  * The node that stops this one from running, or `undefined` when every dependency produced an
  * output.
  *
- * A dependency outside the run graph is fed by a different start and never ran in this run, so it
- * blocks too and names itself. A dependency that was itself skipped names the node whose failure
- * started the cascade, so `UpstreamFailedError`'s message stays true however deep the chain runs.
+ * Every blocker this returns really did fail in this run, which is what makes
+ * `UpstreamFailedError`'s message true. A dependency that was itself skipped names the node whose
+ * failure started the cascade, so that stays true however deep the chain runs. A dependency the run
+ * graph does not contain is not a case here: `RunGraph.nodes` is closed under `dependencies`, and a
+ * node fed from outside the selected start's reach never enters the run at all — it used to, and
+ * calling it upstream-*failed* blamed a node that had never run.
  *
  * The `?? dependency` fallback below is unreachable today: it would only fire for a `skipped`
  * dependency with no `failureOrigin` entry, and the only such dependency is one skipped by
@@ -308,12 +308,10 @@ function runStatusOf(nodes: readonly NodeReport[]): RunStatus {
  */
 function blockedBy(args: {
   node: GraphNode
-  graph: RunGraph
   statuses: ReadonlyMap<string, NodeStatus>
   failureOrigin: ReadonlyMap<string, string>
 }): string | undefined {
   for (const dependency of args.node.dependencies) {
-    if (!args.graph.nodes.has(dependency)) return dependency
     const status = args.statuses.get(dependency)
     if (status === 'failed') return dependency
     if (status === 'skipped') return args.failureOrigin.get(dependency) ?? dependency
