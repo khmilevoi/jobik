@@ -13,6 +13,23 @@
   border: var(--jbk-card-border);
   background: var(--jbk-card-surface);
   box-shadow: var(--jbk-card-halo);
+  /*
+   * `4A`'s one normative node transition, and the only two properties it names: the border colour
+   * and the glow, together, on the settling curve. The surface is deliberately NOT in the list —
+   * rule 02 is that one property moves at a time, and the artboard's own tile transitions exactly
+   * these two.
+   *
+   * It is declared on the painted properties rather than on the `--jbk-card-*` variables the state
+   * class swaps, because a custom property is not interpolable; the border and the shadow resolve
+   * from it and are. The dashed-to-solid step of `queued → running` still snaps, which is right —
+   * a border STYLE is not a colour.
+   *
+   * `globalStyles.css` zeroes every `--jbk-motion-duration-*` under `prefers-reduced-motion`, so
+   * this needs no query of its own.
+   */
+  transition:
+    border-color var(--jbk-motion-duration-state) var(--jbk-motion-ease-settle),
+    box-shadow var(--jbk-motion-duration-state) var(--jbk-motion-ease-settle);
 }
 
 .sectionRow {

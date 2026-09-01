@@ -47,8 +47,10 @@ export const canvasColors = {
   zoomControlBorder: '#202327',
 
   /** `2A`: the slot caption's `inspect` action is an accent inline link, and every accent inline
-   *  link in the file swaps to this on hover (`01-foundations` §6.4 — `style-hover`, instantaneous,
-   *  the design fixes no transition anywhere). `tokens.ts` carries no accent hover step yet; this
+   *  link in the file swaps to this on hover (`01-foundations` §6.4 — `style-hover`, instantaneous;
+   *  `4A` rule 01 keeps it that way, since "a 140 ms hover reads as lag, not as polish", even
+   *  though it now gives the card's own border and glow 140 ms). `tokens.ts` carries no accent
+   *  hover step yet; this
    *  is the canvas's copy of a value that belongs beside `accent.base`. */
 
   /** Node titles the shell's text ramp does not reach. */

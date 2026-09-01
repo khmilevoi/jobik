@@ -97,7 +97,10 @@
 /*
  * `3B` column 2 — while the retry runs, both footer buttons drop to 45% and nothing else about
  * them changes. The node header's spinner and its 2 px bar are the loader; these two only dim.
- * The dim is static: `3A` §4.3 notes the design fixes no transition on `opacity`.
+ * The dim is static, and stays static under `4A`: its coverage row says the drop to 45% is
+ * instant, because "a disabled list should never look like it is thinking". `4A` reverses the old
+ * zero-transition rule for the card's own border and glow — see `NodeCard.module.css` — and
+ * deliberately not for this.
  */
 .dimmed {
   opacity: 0.45;

@@ -14,10 +14,22 @@
   border-bottom: 1px solid var(--jbk-card-header-divider);
 }
 
+/*
+ * `4A`'s second half of the node transition: the dot eases its fill on the SAME 140ms, but linear
+ * — a fill is opacity-like, and the settling curve belongs to the border and the glow. The dot's
+ * colour itself is `--jbk-card-status`, set by the card's state class, so the transition is
+ * declared on the property that actually paints.
+ *
+ * It spans `idle → queued`, `queued → ok`, `ok → failed` and every other step where the dot is the
+ * element on both sides. It cannot span `→ running` or `running →`: the header swaps the dot for a
+ * spinner there, so there is no element to interpolate. That is F-C3, a separate, wider change —
+ * it moves the title 5px on four of the five `Node states` cards — and it is not made here.
+ */
 .kindDot {
   width: var(--jbk-canvas-kind-dot-size);
   height: var(--jbk-canvas-kind-dot-size);
   border-radius: var(--jbk-radius-kind-dot);
+  transition: background-color var(--jbk-motion-duration-state) var(--jbk-motion-ease-linear);
 }
 
 .title {
