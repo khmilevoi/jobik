@@ -1,69 +1,158 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import type { FlowDocument } from '@jobik/core'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { JobikClient, SafeFlowDescriptorPayload, ValidatePayload } from '#client/index.js'
+import type { StudioDeps, StudioModel } from '#model/index.js'
+import { reatomStudio, StudioModelProvider } from '#model/index.js'
 import type { ProblemRow } from './ProblemsStrip.js'
 import { ProblemsStrip, problemCountLabel } from './ProblemsStrip.js'
 
-afterEach(cleanup)
+/**
+ * `3D` §3D.3, the invalid board's strip, reading `ValidationModel`.
+ *
+ * **The wire carries one finding, so the rendered cases assert one row.** `studio/problems.ts`'s
+ * `toFlowProblems` builds exactly one `error` row out of the single `WireErrorPayload` the validate
+ * endpoint returns — no second finding, no `warning`, and no `source`. `3D`'s own board draws
+ * `2 errors, 1 warning` over three rows with a `flow.ts:41` location, and the cases that asserted
+ * those through props were deleted with the props. The arithmetic that produced them is still
+ * pinned directly, as a function: {@link problemCountLabel} is exported and takes rows, so its
+ * plural forms stay covered without pretending the endpoint can send them.
+ */
 
-const three: readonly ProblemRow[] = [
-  {
-    severity: 'error',
-    code: 'TypeMismatch',
-    message: 'render.markdown receives Buffer',
-    source: 'flow.ts:41',
-  },
-  { severity: 'error', code: 'UnconnectedInput', message: 'publish.caption has no source' },
-  { severity: 'warning', code: 'UnusedOutput', message: 'render.caption is never read' },
-]
+const DOCUMENT = {
+  format: 'jobik.flow',
+  version: 1,
+  connections: [],
+  literals: {},
+  layout: { start1: { x: 0, y: 0 }, render: { x: 300, y: 0 } },
+} as unknown as FlowDocument
+
+const DESCRIPTOR = {
+  id: 'publication',
+  name: 'publication',
+  documentFile: 'flow.jobik.json',
+  sourceFile: 'flow.ts',
+  startIds: ['start1'],
+  nodes: [
+    {
+      id: 'start1',
+      kind: 'start' as const,
+      title: 'start',
+      input: { nodeId: 'start1', fields: [] },
+      output: { nodeId: 'start1', fields: [] },
+    },
+  ],
+} as unknown as SafeFlowDescriptorPayload
+
+const REJECTED: ValidatePayload = {
+  valid: false,
+  error: { _tag: 'TypeMismatch', message: 'render.markdown receives Buffer' },
+} as unknown as ValidatePayload
+
+function stubClient(overrides: Partial<JobikClient> = {}): JobikClient {
+  return {
+    listFlows: vi.fn(async () => [{ id: 'publication', name: 'publication', nodeCount: 2 }]),
+    loadFlow: vi.fn(async () => ({
+      descriptor: DESCRIPTOR,
+      document: DOCUMENT,
+      revision: 'rev-1',
+    })),
+    validate: vi.fn<JobikClient['validate']>(async () => REJECTED),
+    save: vi.fn(),
+    startRun: vi.fn(),
+    cancelRun: vi.fn(),
+    assetUrl: vi.fn(() => '/api/assets/x'),
+    extensionBundleUrl: vi.fn(() => '/api/flows/x/ui.js'),
+    ...overrides,
+  } as unknown as JobikClient
+}
+
+const connected: (() => void)[] = []
+
+afterEach(() => {
+  for (const off of connected.splice(0)) off()
+  cleanup()
+})
 
 /**
- * `3D` §3D.3, the invalid board's strip. The header count is the thing worth pinning: it is
- * derived from the rows, so a strip can never claim more findings than it was handed.
+ * The strip over a flow whose check has been rejected. `validation.reset()` runs at teardown
+ * because `3D`'s resolved chip stands for `validatedHoldMs` through `wrap(sleep(…))`, and `reset`
+ * is what aborts that hold rather than leaving a four-second timer behind every case.
  */
-describe('ProblemsStrip', () => {
-  it('counts the rows it was given, comma-joined', () => {
-    render(<ProblemsStrip problems={three} />)
+async function mountInvalid(client: JobikClient = stubClient()): Promise<{ model: StudioModel }> {
+  const deps: StudioDeps = { client, now: () => 1_700_000_000_000 }
+  const model = reatomStudio(deps)
+  connected.push(model.flows.descriptor.subscribe(() => {}))
+  connected.push(() => model.validation.reset())
 
-    expect(screen.getByTestId('studio-problems-count')).toHaveTextContent('2 errors, 1 warning')
-    expect(screen.getAllByTestId('studio-problem-row')).toHaveLength(3)
+  render(
+    <StudioModelProvider model={model}>
+      <ProblemsStrip />
+    </StudioModelProvider>,
+  )
+  await waitFor(() => {
+    expect(model.flows.descriptor()).toBeDefined()
   })
+  await act(async () => {
+    model.validation.validate()
+  })
+  await waitFor(() => {
+    expect(model.validation.problems().problems).toHaveLength(1)
+  })
+  return { model }
+}
 
-  it('says 1 error when that is all there is, and never mentions warnings it does not have', () => {
-    render(<ProblemsStrip problems={[three[0] as ProblemRow]} />)
+describe('ProblemsStrip', () => {
+  it('says 1 error when that is all there is, and never mentions warnings it does not have', async () => {
+    await mountInvalid()
 
     expect(screen.getByTestId('studio-problems-count')).toHaveTextContent('1 error')
     expect(screen.getByTestId('studio-problems-count').textContent).not.toContain('warning')
+    expect(screen.getAllByTestId('studio-problem-row')).toHaveLength(1)
   })
 
+  /**
+   * The header count is derived from the rows rather than passed in, so a strip can never claim
+   * more findings than the model holds. Pinned here as a function because the endpoint cannot yet
+   * produce a second row, let alone a warning — see this file's own header.
+   */
   it('derives every plural form from the list alone', () => {
+    const error: ProblemRow = { severity: 'error', code: 'TypeMismatch', message: 'a' }
+    const warning: ProblemRow = { severity: 'warning', code: 'UnusedOutput', message: 'b' }
+
     expect(problemCountLabel([])).toBe('')
-    expect(problemCountLabel(three)).toBe('2 errors, 1 warning')
-    expect(problemCountLabel([three[2] as ProblemRow])).toBe('1 warning')
-    expect(
-      problemCountLabel([three[2] as ProblemRow, { ...(three[2] as ProblemRow), code: 'Other' }]),
-    ).toBe('2 warnings')
+    expect(problemCountLabel([error])).toBe('1 error')
+    expect(problemCountLabel([error, { ...error, code: 'Other' }, warning])).toBe(
+      '2 errors, 1 warning',
+    )
+    expect(problemCountLabel([warning])).toBe('1 warning')
+    expect(problemCountLabel([warning, { ...warning, code: 'Other' }])).toBe('2 warnings')
   })
 
-  it('draws a row code, its message and its source, and omits a source nothing can supply', () => {
-    render(<ProblemsStrip problems={three} />)
+  /**
+   * The row is the server's own tag and its own words. No location cell is drawn at all:
+   * `WireErrorPayload` carries no source, and `toFlowProblems` leaves `source` off rather than
+   * guessing one.
+   */
+  it('draws the row code and its message, and no location the wire cannot supply', async () => {
+    await mountInvalid()
 
     expect(screen.getByText('TypeMismatch')).toBeInTheDocument()
     expect(screen.getByText('render.markdown receives Buffer')).toBeInTheDocument()
-    expect(screen.getByText('flow.ts:41')).toBeInTheDocument()
-    // The second row carries no `source`, so no location cell is drawn for it at all.
-    expect(screen.queryByText('flow.ts:58')).toBeNull()
+    expect(screen.getByTestId('studio-problem-row').textContent).not.toContain('flow.ts')
   })
 
-  it('opens the report from the header action, and drops the action when nothing can open one', async () => {
-    const onOpenReport = vi.fn()
-    render(<ProblemsStrip problems={three} onOpenReport={onOpenReport} />)
+  it('opens the report from the header action', async () => {
+    const { model } = await mountInvalid()
+    // The check opens the dialog by itself, so this asserts the button re-opens a closed one.
+    await act(async () => {
+      model.validation.closeReport()
+    })
+    expect(model.validation.reportOpen()).toBe(false)
 
     await userEvent.click(screen.getByRole('button', { name: 'Open report' }))
-    expect(onOpenReport).toHaveBeenCalledTimes(1)
 
-    cleanup()
-    render(<ProblemsStrip problems={three} />)
-    expect(screen.queryByTestId('studio-problems-open-report')).toBeNull()
+    expect(model.validation.reportOpen()).toBe(true)
   })
 })

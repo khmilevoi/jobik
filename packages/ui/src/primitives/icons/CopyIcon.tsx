@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import type { IconProps } from './types.js'
 
 /**
@@ -8,7 +9,7 @@ import type { IconProps } from './types.js'
  * the toolbar button's label, the icon button's `aria-label`. A second name here would be read
  * twice.
  */
-export function CopyIcon(props: IconProps) {
+export const CopyIcon = reatomComponent(function CopyIcon(props: IconProps) {
   const { size = 10, strokeWidth = 1.1 } = props
   return (
     <svg
@@ -38,4 +39,4 @@ export function CopyIcon(props: IconProps) {
       />
     </svg>
   )
-}
+}, 'CopyIcon')

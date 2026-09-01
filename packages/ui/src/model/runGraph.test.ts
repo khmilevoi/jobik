@@ -11,7 +11,7 @@ import {
 } from '@jobik/core'
 import { describe, expect, it } from 'vitest'
 import * as z from 'zod'
-import { runGraphNodeIds } from './useStudioSession.js'
+import { runGraphNodeIds } from './runGraph.js'
 
 /**
  * `runGraphNodeIds` restates core's `resolveRunGraph`, and this is where the two are pinned

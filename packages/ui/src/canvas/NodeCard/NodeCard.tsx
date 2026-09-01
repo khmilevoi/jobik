@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import type { Node, NodeProps } from '@xyflow/react'
 import { resolveCardChrome, resolveCardWidth } from '#canvas/cardChrome.js'
 import { fieldHandleId } from '#canvas/fields.js'
@@ -5,8 +6,10 @@ import { NodeCardHeader } from '#canvas/NodeCardHeader/NodeCardHeader.js'
 import { NodeFieldRow } from '#canvas/NodeFieldRow/NodeFieldRow.js'
 import { NodeOutputSlot } from '#canvas/NodeOutputSlot/NodeOutputSlot.js'
 import { NodeStateBody } from '#canvas/NodeStateBody/NodeStateBody.js'
+import { applyNodeOverlay } from '#canvas/overlay.js'
 import type { HandleDirection, NodeCardData, NodeFieldSpec } from '#canvas/types.js'
 import { cx, type StyleWithVars } from '#cx.js'
+import { useStudioModel } from '#model/context.js'
 import { SectionLabel } from '#primitives/index.js'
 import { px, textColors } from '#tokens.js'
 import s from './NodeCard.module.css'
@@ -52,10 +55,28 @@ function Section(props: {
 
 /**
  * `### Node cards`: header, optional progress bar, `Inputs`, optional inline output slot,
- * `Outputs`, optional state body, 8px footer. Pure — every branch comes from `data`.
+ * `Outputs`, optional state body, 8px footer.
+ *
+ * **The card reads its own run state, and that is the refactor's headline fix.** `data` carries
+ * structure — the node's id, its fields, whether it is a start, `3D`'s marks — and everything a run
+ * has to say about this node arrives from `CanvasModel.nodeOverlay(data.id)`, a computed of its
+ * own, created once per node id and invalidated by exactly the `node-status` lines that name that
+ * node. The array `FlowCanvas` holds therefore stops carrying the run: it is invalidated zero times
+ * across a whole run, an in-flight drag survives one, and a status line for `render` re-renders
+ * `render`'s card and nothing else. `canvas/overlay.ts` states the merge, and it is
+ * `studio/graphModel.ts`'s own precedence, so both spellings agree while both exist.
+ *
+ * Reading the model means this needs a `<StudioModelProvider>` above it — the same bargain
+ * `RunPanel` takes, and the reason `RunPanelCard` refuses it. There is no undecorated fallback:
+ * a card outside the Studio's tree is a component mounted outside the tree it was written for, and
+ * `useStudioModel` says so loudly rather than drawing a plausible idle card. With a model but no
+ * run, `nodeOverlay` answers `undefined` and `data` is drawn exactly as handed over — which is what
+ * every artboard case in this component's test does.
  */
-export function NodeCard(props: NodeCardProps) {
-  const { data } = props
+export const NodeCard = reatomComponent(function NodeCard(props: NodeCardProps) {
+  // RTM-C01: one read, of one node's own computed. Reading the whole `overlays` map here — or
+  // taking the run off `nodes` — is what put every card on every frame.
+  const data = applyNodeOverlay(props.data, useStudioModel().canvas.nodeOverlay(props.data.id)())
   const isStart = data.isStart === true
   const chrome = resolveCardChrome({
     state: data.state,
@@ -124,13 +145,19 @@ export function NodeCard(props: NodeCardProps) {
       )}
     </div>
   )
-}
+}, 'NodeCard')
 
 export type JobikFlowNode = Node<NodeCardData, 'jobikNode'>
 
-/** The `nodeTypes` entry. `data.selected` wins; React Flow's own selection is the fallback. */
-export function JobikNode(props: NodeProps<JobikFlowNode>) {
+/**
+ * The `nodeTypes` entry. `data.selected` wins; React Flow's own selection is the fallback.
+ *
+ * It reads nothing itself — the overlay subscription belongs one level down, in the card React Flow
+ * re-renders on its own account — so this is the plain adapter it always was, wrapped only to keep
+ * the directory uniform.
+ */
+export const JobikNode = reatomComponent(function JobikNode(props: NodeProps<JobikFlowNode>) {
   const data =
     props.data.selected === undefined ? { ...props.data, selected: props.selected } : props.data
   return <NodeCard data={data} />
-}
+}, 'JobikNode')

@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import type { OutputSurface } from '#output/flowUi.js'
 import { type OutputPrimarySpec, PrimaryImage } from '#output/PrimaryImage/PrimaryImage.js'
 import { type TypedValue, TypedValueGrid } from '#output/TypedValueGrid/TypedValueGrid.js'
@@ -41,7 +42,7 @@ const columnClass = {
  * custom component composing the design rather than reinventing it: `examples/showcase/publication` renders
  * exactly this at `surface: 'viewer'`.
  */
-export function OutputPreview(props: OutputPreviewProps) {
+export const OutputPreview = reatomComponent(function OutputPreview(props: OutputPreviewProps) {
   const surface = props.surface ?? 'viewer'
   const variants = props.variants ?? []
   const emptyVariants = props.emptyVariants ?? 0
@@ -66,4 +67,4 @@ export function OutputPreview(props: OutputPreviewProps) {
       </div>
     </div>
   )
-}
+}, 'OutputPreview')

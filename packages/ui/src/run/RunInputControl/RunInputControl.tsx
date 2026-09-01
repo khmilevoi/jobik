@@ -1,4 +1,5 @@
 import type { InputFieldDescriptor } from '@jobik/core'
+import { reatomComponent } from '@reatom/react'
 import { useId } from 'react'
 import { cx } from '#cx.js'
 import { TypeAnnotation } from '#primitives/index.js'
@@ -60,8 +61,17 @@ export interface RunInputControlProps {
  *
  * `literal` and `asset` are never editable and render disabled: a literal is fixed, and an
  * unconnected asset input is a graph validation error rather than an empty form control.
+ *
+ * It keeps its four props rather than reading `InputsModel`. `field` — which control this is — has
+ * no model home: it is one element of `startNode().input.fields`, and the same component draws the
+ * failed and completed cards' `RunInputForm`, whose descriptor is the model's too. Reading the
+ * draft here instead would also cost `RunPanelCard` the ability to draw a form outside a Studio,
+ * and buys nothing: a keystroke already rebuilds `RunPanelModel.state`, so the panel re-renders
+ * either way.
  */
-export function RunInputControl(props: RunInputControlProps) {
+export const RunInputControl = reatomComponent(function RunInputControl(
+  props: RunInputControlProps,
+) {
   const { field, onChange } = props
   const control = field.control
   const testId = `run-input-${field.field}`
@@ -183,4 +193,4 @@ export function RunInputControl(props: RunInputControlProps) {
       {element}
     </div>
   )
-}
+}, 'RunInputControl')

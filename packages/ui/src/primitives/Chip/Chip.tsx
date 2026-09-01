@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import type { ReactNode } from 'react'
 import { cx, type StyleWithVars } from '#cx.js'
 import { px } from '#tokens.js'
@@ -43,7 +44,7 @@ export interface ChipProps extends Omit<ChipStyleOptions, 'hasTrailing'> {
   readonly 'data-testid'?: string
 }
 
-export function Chip(props: ChipProps) {
+export const Chip = reatomComponent(function Chip(props: ChipProps) {
   const { tone, gap, leading, children, trailing } = props
   const box = chipBox({ tone, gap, hasTrailing: trailing !== undefined })
   return (
@@ -57,4 +58,4 @@ export function Chip(props: ChipProps) {
       {trailing}
     </div>
   )
-}
+}, 'Chip')

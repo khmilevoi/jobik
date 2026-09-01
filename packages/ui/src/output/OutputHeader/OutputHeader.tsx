@@ -1,15 +1,14 @@
+import { reatomComponent, useAction } from '@reatom/react'
 import type { ReactNode } from 'react'
 import { cx } from '#cx.js'
+import { useStudioModel } from '#model/context.js'
 import { OUTPUT_TABS, type OutputViewerTab } from '#output/tabs.js'
 import {
   Button,
   CopyIcon,
   type CopyState,
-  type CopyWrite,
   DownloadIcon,
   type DownloadState,
-  useCopyAction,
-  useDownloadAction,
 } from '#primitives/index.js'
 import s from './OutputHeader.module.css'
 
@@ -37,16 +36,19 @@ export interface OutputHeaderProps {
   /** The right-aligned mono readout the `Raw` card shows instead of a context line. */
   readonly meta?: string
   /**
-   * The clipboard write itself. `3A` runs the button through the sequence around it, so returning
-   * an `Error` is what puts the button in its failed cell — the repository's convention, and the
-   * only way a caller can report that the browser refused.
+   * Whether this surface draws `3A`'s `Copy all` at all — which is the only part of it a caller
+   * still decides. `2A` draws it and the design's `Raw` card instance draws neither button, so the
+   * presence stays a prop while the sequence behind it does not: `OutputModel.copyState` is
+   * the cell and `OutputModel.copyAll` is the press, both on the model, because what a copy does
+   * is serialise the run report and that belongs where the report is.
    */
-  readonly onCopyAll?: CopyWrite
+  readonly copyAll?: boolean
   /**
-   * The download itself. It reports no percentage because nothing on the wire carries a byte
-   * count, so the button stays on `3A` rule 03's indeterminate branch: spinner, then `Saved`.
+   * Whether this surface draws `Download`. It reports no percentage because nothing on the wire
+   * carries a byte count, so the button stays on `3A` rule 03's indeterminate branch: spinner,
+   * then `Saved`.
    */
-  readonly onDownload?: () => void | Promise<void>
+  readonly download?: boolean
   /** The dock's dismiss group — the second rule, the `esc` hint and the close button. */
   readonly trailing?: ReactNode
 }
@@ -67,7 +69,7 @@ const COPY_LABELS = {
 
 /**
  * `3A` §3.1, verbatim. `progress` is unreachable here and stays for exhaustiveness: the label only
- * appears beside a percentage, and no percentage exists — see `onDownload`.
+ * appears beside a percentage, and no percentage exists — see `download`.
  */
 const DOWNLOAD_LABELS = {
   idle: 'Download',
@@ -83,28 +85,33 @@ const DOWNLOAD_LABELS = {
  * `transition` declarations in the whole file, and §6.7 names the tab underline explicitly. So the
  * 1.5px accent `border-bottom` simply moves to whichever tab is active, and the inactive-to-active
  * colour change is instant.
+ *
+ * ## The two buttons read the model, and that is the whole of this wave's change here
+ *
+ * `3A`'s copy and download matrices used to run inside this component, through
+ * `useCopyAction`/`useDownloadAction` — two `setTimeout` machines whose lifetime was a React
+ * unmount. They are now `model/output.ts`'s `copyState`/`downloadState` and `copyAll`/`download`,
+ * each hold `await wrap(sleep(ms))` inside an action extended with `withAbort()` (RTM-A05), which
+ * is what lets a flow switch cancel a hold that would otherwise return a button to idle inside a
+ * flow that never pressed it. This header draws the cell and sends the press.
+ *
+ * Reading the model makes this component — and so both output surfaces — require a
+ * `StudioModelProvider` above it. That is deliberate: a `Copy all` whose sequence ran locally
+ * could report `Copied` for a clipboard write that never happened, because the payload it copies
+ * is the run report and only the model has one.
  */
-export function OutputHeader(props: OutputHeaderProps) {
-  const hasActions = props.onCopyAll !== undefined || props.onDownload !== undefined
-  const { onCopyAll, onDownload } = props
-  const copy = useCopyAction()
-  const download = useDownloadAction()
+export const OutputHeader = reatomComponent(function OutputHeader(props: OutputHeaderProps) {
+  const { output } = useStudioModel()
 
-  const runCopy = (): void => {
-    if (onCopyAll === undefined) return
-    void copy.copy(onCopyAll)
-  }
+  // RTM-C02: both presses come from a DOM event, outside the frame this render is in.
+  const copyAll = useAction(output.copyAll)
+  const download = useAction(output.download)
 
-  const runDownload = (): void => {
-    if (onDownload === undefined) return
-    download.start()
-    void Promise.resolve(onDownload()).then(
-      () => download.finish(),
-      // `3A` draws no failed cell for a download, so a failure returns the button to idle rather
-      // than inventing chrome the design does not have.
-      () => download.reset(),
-    )
-  }
+  // RTM-C01: each cell is read only on the branch that draws its button, so a surface that wires
+  // neither action subscribes to neither sequence.
+  const copyCell = props.copyAll === true ? output.copyState() : undefined
+  const downloadCell = props.download === true ? output.downloadState() : undefined
+  const hasActions = copyCell !== undefined || downloadCell !== undefined
 
   return (
     <div data-testid="output-viewer-header" className={cx(s.header, variantClass[props.variant])}>
@@ -149,30 +156,30 @@ export function OutputHeader(props: OutputHeaderProps) {
             `3A` rule 02 — each button reserves the width of its longest label (`106` for copy,
             `112` for download), so `Copy all` → `Copied` → `Copy failed` never shifts the row.
           */}
-          {onCopyAll === undefined ? null : (
+          {copyCell === undefined ? null : (
             <Button
               variant="quiet"
               size="md"
-              state={copy.state}
+              state={copyCell}
               icon={<CopyIcon />}
               reserveWidth={106}
-              onClick={runCopy}
+              onClick={copyAll}
               data-testid="output-copy-all"
             >
-              {COPY_LABELS[copy.state]}
+              {COPY_LABELS[copyCell]}
             </Button>
           )}
-          {onDownload === undefined ? null : (
+          {downloadCell === undefined ? null : (
             <Button
               variant="outlined"
               size="md"
-              state={download.state}
+              state={downloadCell}
               icon={<DownloadIcon />}
               reserveWidth={112}
-              onClick={runDownload}
+              onClick={download}
               data-testid="output-download"
             >
-              {DOWNLOAD_LABELS[download.state]}
+              {DOWNLOAD_LABELS[downloadCell]}
             </Button>
           )}
           {props.trailing}
@@ -180,4 +187,4 @@ export function OutputHeader(props: OutputHeaderProps) {
       ) : null}
     </div>
   )
-}
+}, 'OutputHeader')

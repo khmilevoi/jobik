@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import type { IconProps } from './types.js'
 
 /**
@@ -7,7 +8,7 @@ import type { IconProps } from './types.js'
  * inline mono link, `1.6` at 9 px inside the `3C` accent checkbox. The default is the button
  * weight.
  */
-export function CheckIcon(props: IconProps) {
+export const CheckIcon = reatomComponent(function CheckIcon(props: IconProps) {
   const { size = 10, strokeWidth = 1.4 } = props
   return (
     <svg
@@ -28,4 +29,4 @@ export function CheckIcon(props: IconProps) {
       />
     </svg>
   )
-}
+}, 'CheckIcon')

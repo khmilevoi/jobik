@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import type { ReactNode } from 'react'
 import { cx } from '#cx.js'
 import type { ButtonState } from '#primitives/Button/Button.js'
@@ -34,7 +35,7 @@ const states = {
  * `stroke-width` 1.5 once copied. Both sizes are stated by `08-buttons.md` §1 and §2.3 and are the
  * reason the ring has an 8 px step at all.
  */
-export function InlineAction(props: InlineActionProps) {
+export const InlineAction = reatomComponent(function InlineAction(props: InlineActionProps) {
   const { children, state = 'idle' } = props
   return (
     <button
@@ -49,4 +50,4 @@ export function InlineAction(props: InlineActionProps) {
       {children}
     </button>
   )
-}
+}, 'InlineAction')

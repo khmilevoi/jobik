@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import { ImageFrame } from '#output/ImageFrame/ImageFrame.js'
 import s from './VariantRow.module.css'
 
@@ -19,7 +20,7 @@ export interface VariantRowProps {
 }
 
 /** design 911–931 — the row of secondary variants beside the primary image. */
-export function VariantRow(props: VariantRowProps) {
+export const VariantRow = reatomComponent(function VariantRow(props: VariantRowProps) {
   const empties = Array.from({ length: props.emptyVariants ?? 0 }, (_, index) => index)
   return (
     <div data-testid="output-variant-row" className={s.row}>
@@ -50,4 +51,4 @@ export function VariantRow(props: VariantRowProps) {
       ))}
     </div>
   )
-}
+}, 'VariantRow')

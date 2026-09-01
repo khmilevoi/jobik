@@ -169,8 +169,8 @@ describe('the Studio over the publication example', () => {
     //
     // `waitFor`, not a bare read — and NOT for the reason this comment used to give. The hook's
     // own tear (`lastReport` and `session` as two `useState` values settled by two setter calls)
-    // is gone: `useStudioSession` derives the report from the session, so the dock and the node
-    // overlays now settle in one commit, and `useStudioSession.test.ts` asserts that per commit.
+    // is gone: the model derives the report from the session, so the dock and the node overlays
+    // now settle in one commit, and `model/run.test.ts` asserts that per commit.
     // What survives is downstream and outside this fix: `FlowCanvas` mirrors its `nodes` prop into
     // its own `useState` from a `useEffect` (`canvas/FlowCanvas.tsx`), so the canvas DOM is one
     // commit behind the run panel, which renders from props directly. Removing this wait fails

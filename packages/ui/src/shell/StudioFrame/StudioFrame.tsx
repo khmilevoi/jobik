@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import type { ReactNode } from 'react'
 import type { StyleWithVars } from '#cx.js'
 import { StudioStyles } from '#globalStyles.js'
@@ -25,7 +26,12 @@ export interface StudioFrameProps {
   readonly status?: ReactNode
 }
 
-export function StudioFrame(props: StudioFrameProps) {
+/**
+ * A `reatomComponent` with an unchanged prop API: it holds no state and there is no atom for a
+ * frame to read, so wrapping it buys uniformity and the option of an `Atom<T>` prop later — not a
+ * model read. Every value it draws still arrives from `Studio`.
+ */
+export const StudioFrame = reatomComponent(function StudioFrame(props: StudioFrameProps) {
   const style: StyleWithVars = { '--accent': props.accent ?? accentTokens.base }
   return (
     <div data-jobik-studio="" data-testid="studio-frame" className={s.frame} style={style}>
@@ -39,4 +45,4 @@ export function StudioFrame(props: StudioFrameProps) {
       {props.status}
     </div>
   )
-}
+}, 'StudioFrame')

@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import { cx } from '#cx.js'
 import s from './Toggle.module.css'
 
@@ -19,7 +20,7 @@ export interface ToggleProps {
  *
  * The off state is an extrapolation, not a drawing; see `Toggle.module.css`.
  */
-export function Toggle(props: ToggleProps) {
+export const Toggle = reatomComponent(function Toggle(props: ToggleProps) {
   const { checked, label, onChange } = props
   return (
     <button
@@ -35,4 +36,4 @@ export function Toggle(props: ToggleProps) {
       <span className={cx(s.knob, !checked && s.knobOff)} />
     </button>
   )
-}
+}, 'Toggle')

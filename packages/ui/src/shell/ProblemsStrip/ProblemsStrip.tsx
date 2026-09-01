@@ -1,4 +1,6 @@
+import { reatomComponent, useAction } from '@reatom/react'
 import { cx } from '#cx.js'
+import { useStudioModel } from '#model/context.js'
 import s from './ProblemsStrip.module.css'
 
 /**
@@ -21,12 +23,6 @@ export interface ProblemRow {
   readonly message: string
   /** `flow.ts:41`. Omitted when nothing can say where — see the report. */
   readonly source?: string
-}
-
-export interface ProblemsStripProps {
-  readonly problems: readonly ProblemRow[]
-  /** `Open report` — the accent action at the right of the header. */
-  readonly onOpenReport?: () => void
 }
 
 /** `2 errors, 1 warning`, `1 error`, `3 warnings` — comma-joined, singular at one, empty clauses dropped. */
@@ -59,8 +55,29 @@ const selectedCodeTones = {
   warning: s.codeWarning,
 } satisfies Record<ProblemSeverity, string>
 
-export function ProblemsStrip(props: ProblemsStripProps) {
-  const { problems } = props
+/**
+ * It reads the model and takes no props: the rows are `ValidationModel.problems`, and `Open report`
+ * is `ValidationModel.openReport` — the same named transition `esc` and the top bar already call,
+ * so the three ways into the `3C` dialog cannot drift apart.
+ *
+ * **The model can only ever describe one problem.** `studio/problems.ts`'s `toFlowProblems` builds
+ * exactly one `error` row out of the single `WireErrorPayload` the validate endpoint returns — no
+ * second finding, no `warning`, and no `source`, because the wire carries none. So `3D`'s
+ * `2 errors, 1 warning`, its warning tone and its `flow.ts:41` location cell are **drawn but
+ * unexercised** here: the arithmetic in {@link problemCountLabel} is still pinned directly as a
+ * function, but no rendered case can reach a second row. Nothing is padded out to fill the
+ * artboard, and the day the wire carries a second finding nothing here changes.
+ *
+ * `StudioApp` still owns *whether* this strip or `StatusStrip` fills the shell's bottom edge —
+ * that is a slot decision between two components, not this one's own guard.
+ */
+export const ProblemsStrip = reatomComponent(function ProblemsStrip() {
+  const { validation } = useStudioModel()
+
+  // RTM-C02: pressed from a DOM event, outside the frame this render is in.
+  const openReport = useAction(validation.openReport)
+
+  const problems = validation.problems().problems
 
   return (
     <div data-testid="studio-problems-strip" className={s.strip}>
@@ -70,16 +87,14 @@ export function ProblemsStrip(props: ProblemsStripProps) {
           {problemCountLabel(problems)}
         </div>
         <div className={s.spacer} />
-        {props.onOpenReport === undefined ? null : (
-          <button
-            type="button"
-            data-testid="studio-problems-open-report"
-            onClick={props.onOpenReport}
-            className={s.openReport}
-          >
-            Open report
-          </button>
-        )}
+        <button
+          type="button"
+          data-testid="studio-problems-open-report"
+          onClick={openReport}
+          className={s.openReport}
+        >
+          Open report
+        </button>
       </div>
       {problems.map((problem, index) => {
         // The artboard fills the first row only — the problem currently being read.
@@ -107,4 +122,4 @@ export function ProblemsStrip(props: ProblemsStripProps) {
       })}
     </div>
   )
-}
+}, 'ProblemsStrip')

@@ -1,139 +1,238 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import type { FlowDocument } from '@jobik/core'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ValidationModal, type ValidationModalProps } from './ValidationModal.js'
+import type { JobikClient, SafeFlowDescriptorPayload, ValidatePayload } from '#client/index.js'
+import type { StudioDeps, StudioModel } from '#model/index.js'
+import { reatomStudio, StudioModelProvider } from '#model/index.js'
+import { ValidationModal } from './ValidationModal.js'
 
-afterEach(cleanup)
+/**
+ * The dialog reads `ValidationModel` and takes no props, so every case drives one — a real
+ * `reatomStudio` in a `StudioModelProvider`, with the check actually run against a stub server that
+ * rejects the document. That is the only way this dialog opens: `reportOpen` derives itself from
+ * `active()?.kind === 'invalid'`.
+ *
+ * **The wire carries one finding, so these cases assert one finding.** `POST
+ * /api/flows/:id/validate` answers `{ valid: false, error }` with a single `WireErrorPayload` — no
+ * severity, no second entry and no source location — and `ValidationModel.findings` passes no
+ * `onRevealNode`, so no action links either. Artboard `3C` draws three findings across two
+ * severities with `flow.ts:41` refs and `Reveal node` links, and the cases that used to assert
+ * those shapes through props were deleted with the props: the component still draws them, nothing
+ * can reach them, and inventing a model member to fill them is the fabrication
+ * `toValidationFindings` refuses. What is kept here is everything the endpoint can actually
+ * produce, plus the absences — no source cell, no action row — which are themselves assertions
+ * about the wire.
+ */
 
-/** The three findings artboard `3C` draws, verbatim from `07-copy.md` §4.2. */
-const artboardFindings: ValidationModalProps['findings'] = [
-  {
-    severity: 'error',
-    code: 'TypeMismatch',
-    source: 'flow.ts:41',
-    message: [
-      { text: 'render.markdown', mono: true },
-      { text: ' expects string, receives ' },
-      { text: 'Buffer', mono: true },
-      { text: ' from ' },
-      { text: 'start1.markdown', mono: true },
-      { text: '.' },
-    ],
-    actions: [
-      { label: 'Reveal node', tone: 'accent' },
-      { label: 'Open in editor', tone: 'muted' },
-    ],
-  },
-  {
-    severity: 'error',
-    code: 'UnconnectedInput',
-    source: 'flow.ts:58',
-    message: [
-      { text: 'publish.caption', mono: true },
-      { text: ' has no source. The node will be skipped at run time.' },
-    ],
-    actions: [{ label: 'Reveal node', tone: 'accent' }],
-  },
-  {
-    severity: 'warning',
-    code: 'UnusedOutput',
-    source: 'flow.ts:44',
-    message: [{ text: 'render.caption', mono: true }, { text: ' is never read downstream.' }],
-  },
-]
+const DOCUMENT = {
+  format: 'jobik.flow',
+  version: 1,
+  connections: [],
+  literals: {},
+  layout: { start1: { x: 0, y: 0 }, render: { x: 300, y: 0 } },
+} as unknown as FlowDocument
 
-function renderModal(overrides: Partial<ValidationModalProps> = {}) {
-  const onDismiss = overrides.onDismiss ?? vi.fn()
+const DESCRIPTOR = {
+  id: 'publication',
+  name: 'publication',
+  documentFile: 'flow.jobik.json',
+  sourceFile: 'flow.ts',
+  startIds: ['start1'],
+  nodes: [
+    {
+      id: 'start1',
+      kind: 'start' as const,
+      title: 'start',
+      input: { nodeId: 'start1', fields: [] },
+      output: { nodeId: 'start1', fields: [] },
+    },
+  ],
+} as unknown as SafeFlowDescriptorPayload
+
+/** The one finding the endpoint can send, with the node it names — which `toProse` sets in mono. */
+const REJECTED: ValidatePayload = {
+  valid: false,
+  error: {
+    _tag: 'TypeMismatch',
+    message: 'render.markdown expects string, receives Buffer',
+    nodeId: 'render.markdown',
+  },
+} as unknown as ValidatePayload
+
+function stubClient(overrides: Partial<JobikClient> = {}): JobikClient {
+  return {
+    listFlows: vi.fn(async () => [{ id: 'publication', name: 'publication', nodeCount: 2 }]),
+    loadFlow: vi.fn(async () => ({
+      descriptor: DESCRIPTOR,
+      document: DOCUMENT,
+      revision: 'rev-1',
+    })),
+    validate: vi.fn(async () => REJECTED),
+    save: vi.fn(),
+    startRun: vi.fn(),
+    cancelRun: vi.fn(),
+    assetUrl: vi.fn(() => '/api/assets/x'),
+    extensionBundleUrl: vi.fn(() => '/api/flows/x/ui.js'),
+    ...overrides,
+  } as unknown as JobikClient
+}
+
+const connected: (() => void)[] = []
+
+afterEach(() => {
+  for (const off of connected.splice(0)) off()
+  cleanup()
+})
+
+interface World {
+  readonly model: StudioModel
+}
+
+/**
+ * Mounts the dialog over a loaded flow, with no check run yet.
+ *
+ * It subscribes to `flows.descriptor` itself because a shut dialog reads `reportOpen` and nothing
+ * else — that is what moving the guard into the component bought — so without this subscription no
+ * flow would ever load, and `validate` has no document to send.
+ *
+ * The teardown calls `validation.reset()`: `3D`'s resolved chip stands for `validatedHoldMs`
+ * through `wrap(sleep(…))`, and `reset` is what aborts that hold rather than leaving a four-second
+ * timer behind every case.
+ */
+async function mount(client: JobikClient = stubClient()): Promise<World> {
+  const deps: StudioDeps = { client, now: () => 1_700_000_000_000 }
+  const model = reatomStudio(deps)
+  connected.push(model.flows.descriptor.subscribe(() => {}))
+  connected.push(() => model.validation.reset())
+
   render(
-    <ValidationModal
-      context="publication · flow.ts"
-      findings={artboardFindings}
-      onDismiss={onDismiss}
-      {...overrides}
-    />,
+    <StudioModelProvider model={model}>
+      <ValidationModal />
+    </StudioModelProvider>,
   )
-  return { onDismiss }
+  await waitFor(() => {
+    expect(model.flows.descriptor()).toBeDefined()
+  })
+  return { model }
+}
+
+/** The check having run and been rejected — the only state this dialog is drawn in. */
+async function mountRejected(client: JobikClient = stubClient()): Promise<World> {
+  const world = await mount(client)
+  await act(async () => {
+    world.model.validation.validate()
+  })
+  await screen.findByTestId('validation-modal')
+  return world
 }
 
 describe('ValidationModal', () => {
-  it('draws the artboard header', () => {
-    renderModal()
+  it('draws the artboard header, over the one finding the wire carries', async () => {
+    await mountRejected()
+
     expect(screen.getByRole('heading', { name: 'Validation' })).toBeInTheDocument()
     expect(screen.getByTestId('modal-context')).toHaveTextContent('publication · flow.ts')
-    expect(screen.getByTestId('validation-error-count')).toHaveTextContent('2 errors')
-    expect(screen.getByTestId('validation-warning-count')).toHaveTextContent('1 warning')
+    expect(screen.getByTestId('validation-error-count')).toHaveTextContent('1 error')
+    // A count of zero draws no badge, and the wire has no way to say `warning` at all.
+    expect(screen.queryByTestId('validation-warning-count')).toBeNull()
   })
 
-  it('draws every finding, in order, with its class and source ref', () => {
-    renderModal()
+  /**
+   * The two absences are the point. `3C` puts a `flow.ts:41` at the right of every tag row and two
+   * action links under the first two findings; `WireErrorPayload` carries no source location, and
+   * `ValidationModel.findings` passes no `onRevealNode`, so neither is ever drawn today.
+   */
+  it('draws the finding’s class, with no source ref and no action links the wire can fill', async () => {
+    await mountRejected()
+
+    expect(screen.getAllByTestId('validation-finding')).toHaveLength(1)
     expect(screen.getAllByTestId('validation-code').map((node) => node.textContent)).toEqual([
       'TypeMismatch',
-      'UnconnectedInput',
-      'UnusedOutput',
     ])
-    expect(screen.getAllByTestId('validation-source').map((node) => node.textContent)).toEqual([
-      'flow.ts:41',
-      'flow.ts:58',
-      'flow.ts:44',
-    ])
+    expect(screen.queryByTestId('validation-source')).toBeNull()
+    expect(screen.queryByTestId('validation-action')).toBeNull()
   })
 
-  it('renders a message with its identifiers inlined', () => {
-    renderModal()
-    expect(screen.getAllByTestId('validation-message')[0]).toHaveTextContent(
-      'render.markdown expects string, receives Buffer from start1.markdown.',
+  it('renders a message with its identifiers inlined', async () => {
+    await mountRejected()
+
+    expect(screen.getByTestId('validation-message')).toHaveTextContent(
+      'render.markdown expects string, receives Buffer',
     )
   })
 
-  it('gives a warning no action links', () => {
-    renderModal()
-    // Two on the first finding, one on the second, none on the warning.
-    expect(screen.getAllByTestId('validation-action').map((node) => node.textContent)).toEqual([
-      'Reveal node',
-      'Open in editor',
-      'Reveal node',
-    ])
-  })
+  it('draws the footer verbatim', async () => {
+    await mountRejected()
 
-  it('calls the action it was given', () => {
-    const onSelect = vi.fn()
-    renderModal({
-      findings: [
-        { ...artboardFindings[0], actions: [{ label: 'Reveal node', tone: 'accent', onSelect }] },
-      ],
-    })
-    fireEvent.click(screen.getByTestId('validation-action'))
-    expect(onSelect).toHaveBeenCalledTimes(1)
-  })
-
-  it('counts pluralise, and a zero count draws no badge', () => {
-    renderModal({ findings: [artboardFindings[2]] })
-    expect(screen.queryByTestId('validation-error-count')).toBeNull()
-    expect(screen.getByTestId('validation-warning-count')).toHaveTextContent('1 warning')
-  })
-
-  it('draws the footer verbatim', () => {
-    renderModal()
     expect(screen.getByTestId('modal-hint')).toHaveTextContent('esc to close')
     expect(screen.getByRole('button', { name: /Copy report/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Re-validate' })).toBeInTheDocument()
   })
 
-  it('runs the footer actions', () => {
-    const onCopyReport = vi.fn()
-    const onRevalidate = vi.fn()
-    renderModal({ onCopyReport, onRevalidate })
-    fireEvent.click(screen.getByRole('button', { name: /Copy report/ }))
+  /**
+   * `Re-validate` is `ValidationModel.validate`, so the assertion is that the server is asked
+   * again. It is asked from a chip that has returned to idle — §3D.4 refuses a press while a result
+   * still stands — which is what `reset` between the two presses stands in for.
+   *
+   * `Copy report` has no handler at all: `3C` §2 draws the button, no model unit backs it, and
+   * `StudioApp` never passed `onCopyReport` either, so nothing about what it does has changed.
+   */
+  it('asks the server again from Re-validate', async () => {
+    const validate = vi.fn<JobikClient['validate']>(async () => REJECTED)
+    const { model } = await mountRejected(stubClient({ validate }))
+    expect(validate).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      model.validation.chip.set('idle')
+    })
     fireEvent.click(screen.getByRole('button', { name: 'Re-validate' }))
-    expect(onCopyReport).toHaveBeenCalledTimes(1)
-    expect(onRevalidate).toHaveBeenCalledTimes(1)
+
+    expect(validate).toHaveBeenCalledTimes(2)
   })
 
-  it('is non-destructive: esc and the backdrop both dismiss it', () => {
-    const onDismiss = vi.fn()
-    renderModal({ onDismiss })
-    const dialog = screen.getByTestId('validation-modal')
-    fireEvent.keyDown(dialog, { key: 'Escape' })
-    fireEvent.click(dialog)
-    expect(onDismiss).toHaveBeenCalledTimes(2)
+  it('is non-destructive: esc and the backdrop both dismiss it', async () => {
+    const { model } = await mountRejected()
+
+    fireEvent.keyDown(screen.getByTestId('validation-modal'), { key: 'Escape' })
+    expect(model.validation.reportOpen()).toBe(false)
+    await waitFor(() => {
+      expect(screen.queryByTestId('validation-modal')).toBeNull()
+    })
+
+    // Re-opened rather than re-mounted: `3D` makes the findings outlive the dialog, so `openReport`
+    // is enough to put the same report back on screen.
+    await act(async () => {
+      model.validation.openReport()
+    })
+    fireEvent.click(await screen.findByTestId('validation-modal'))
+
+    expect(model.validation.reportOpen()).toBe(false)
+  })
+
+  /**
+   * The guard the caller used to hold: `StudioApp` wrote
+   * `validation.reportOpen() && findings !== undefined ? … : null`. It is here now, so a shut
+   * dialog subscribes to `reportOpen` and reads neither the findings nor the descriptor.
+   */
+  it('draws nothing until a check has rejected the document', async () => {
+    const { model } = await mount()
+    expect(screen.queryByTestId('validation-modal')).toBeNull()
+
+    // A passing check does not open it either: the wire answers `{ valid: true }` with no findings,
+    // and no artboard draws an all-clear dialog.
+    expect(model.validation.reportOpen()).toBe(false)
+
+    cleanup()
+    const passing = await mount(
+      stubClient({ validate: vi.fn<JobikClient['validate']>(async () => ({ valid: true })) }),
+    )
+    await act(async () => {
+      passing.model.validation.validate()
+    })
+    await waitFor(() => {
+      expect(passing.model.validation.active()?.kind).toBe('valid')
+    })
+    expect(screen.queryByTestId('validation-modal')).toBeNull()
+    expect(passing.model.validation.reportOpen()).toBe(false)
   })
 })

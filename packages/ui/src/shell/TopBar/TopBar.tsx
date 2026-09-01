@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import type { ReactNode } from 'react'
 import { cx } from '#cx.js'
 import { Badge, Button, ValidateButton } from '#primitives/index.js'
@@ -49,7 +50,13 @@ export interface TopBarProps {
   readonly onSave?: () => void
 }
 
-export function TopBar(props: TopBarProps) {
+/**
+ * A `reatomComponent` with an unchanged prop API. Every cell it draws — the flow name, the save
+ * state, the validate cell, the run pill — is a value `Studio` was handed, and `Studio` is the
+ * artboard's shell: it renders with fixture defaults, no model and no provider at all, which is
+ * what `Studio.test.tsx` drives. A child that required a `StudioModelProvider` would end that.
+ */
+export const TopBar = reatomComponent(function TopBar(props: TopBarProps) {
   const { dockedLeft, dockedRight, runControl, runningChip, running = false } = props
   const validate: TopBarValidateState = props.validate ?? { state: 'idle' }
   const compact = dockedLeft !== undefined || dockedRight !== undefined || runningChip !== undefined
@@ -140,4 +147,4 @@ export function TopBar(props: TopBarProps) {
       </div>
     </div>
   )
-}
+}, 'TopBar')

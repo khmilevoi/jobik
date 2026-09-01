@@ -10,7 +10,14 @@ export type { FieldEdgeType } from './FieldEdge/FieldEdge.js'
 export { FieldEdge } from './FieldEdge/FieldEdge.js'
 export type { FieldHandleProps } from './FieldHandle/FieldHandle.js'
 export { FieldHandle } from './FieldHandle/FieldHandle.js'
-export { dotGrid, FlowCanvas, toReactFlowEdges, toReactFlowNodes } from './FlowCanvas/FlowCanvas.js'
+export {
+  dotGrid,
+  FlowCanvas,
+  nodePositions,
+  syncReactFlowNodes,
+  toReactFlowEdges,
+  toReactFlowNodes,
+} from './FlowCanvas/FlowCanvas.js'
 export {
   endpointKey,
   fieldAnnotationClass,
@@ -34,6 +41,7 @@ export type { NodeOutputSlotProps } from './NodeOutputSlot/NodeOutputSlot.js'
 export { NodeOutputSlot } from './NodeOutputSlot/NodeOutputSlot.js'
 export type { MetadataRowProps, NodeStateBodyProps } from './NodeStateBody/NodeStateBody.js'
 export { MetadataRow, NodeStateBody } from './NodeStateBody/NodeStateBody.js'
+export { applyNodeOverlay } from './overlay.js'
 export type { StripePlaceholderProps } from './StripePlaceholder/StripePlaceholder.js'
 export { StripePlaceholder } from './StripePlaceholder/StripePlaceholder.js'
 export * from './types.js'

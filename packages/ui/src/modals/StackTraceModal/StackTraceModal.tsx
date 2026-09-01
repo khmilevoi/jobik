@@ -1,4 +1,5 @@
 import type { StackFrame } from '@jobik/core'
+import { reatomComponent } from '@reatom/react'
 import { Fragment } from 'react'
 import { ModalShell } from '#modals/ModalShell/ModalShell.js'
 import { type ProseSegment, ProseText } from '#modals/ProseText/ProseText.js'
@@ -60,8 +61,16 @@ const metaTones = {
  * The header control is the settled `Copied` confirmation the artboard draws. Its idle state is
  * not drawn in `3C`, so it borrows the one `3A` §2.2 fixes — the 24 × 24 icon-only ghost with
  * `title="Copy"` — rather than inventing a label for it.
+ *
+ * **It keeps its prop API for the same reason `DownloadModal` does: nothing renders it.** A failed
+ * node surfaces its error in the run panel and on the card, and no code path opens this dialog, so
+ * there is no unit holding the frames it draws and none holding its `copied` confirmation. Wrapped
+ * and otherwise untouched; a model home is what it needs first, not a `reatomComponent` reading
+ * one that had to be invented for it.
  */
-export function StackTraceModal(props: StackTraceModalProps) {
+export const StackTraceModal = reatomComponent(function StackTraceModal(
+  props: StackTraceModalProps,
+) {
   const numbered = props.frames.map((frame, index) => ({ frame, number: index + 1 }))
 
   const copyControl = props.copied ? (
@@ -162,4 +171,4 @@ export function StackTraceModal(props: StackTraceModalProps) {
       </div>
     </ModalShell>
   )
-}
+}, 'StackTraceModal')

@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import { Button, SectionLabel } from '#primitives/index.js'
 import { formatLastRunMeta } from '#run/format.js'
 import { RunDivider, type RunDotTone, RunStatusDot, RunWell } from '#run/RunChrome/RunChrome.js'
@@ -20,6 +21,11 @@ const lastRunDotTone = {
 /**
  * `Studio — default`, lines 274–315.
  *
+ * The whole body is `RunIdleState`, and that arm has no home of its own in `model/types.ts` — the
+ * model publishes the four-arm union as one `RunPanelModel.state`, which `RunPanel` reads once and
+ * discriminates. So this keeps its prop and is wrapped rather than converted; what changed is where
+ * the object comes from, not what is in it.
+ *
  * Returns a fragment: `RunDock`'s body supplies the `16px 14px` padding and the `16px` gap between
  * these blocks, and P4's contract forbids restating either.
  *
@@ -27,7 +33,7 @@ const lastRunDotTone = {
  * `Start` section or by clicking a start node on the canvas — see `FlowsSidebar` and
  * `FlowCanvas.onSelectStart` — so a single-start flow and a multi-start one look identical here.
  */
-export function RunIdleView(props: RunIdleViewProps) {
+export const RunIdleView = reatomComponent(function RunIdleView(props: RunIdleViewProps) {
   const { state } = props
   const lastRun = state.lastRun
   const issues = state.issues ?? []
@@ -126,4 +132,4 @@ export function RunIdleView(props: RunIdleViewProps) {
       )}
     </>
   )
-}
+}, 'RunIdleView')

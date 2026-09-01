@@ -1,11 +1,33 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
+import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { JobikClient } from '#client/index.js'
+import { reatomStudio, StudioModelProvider } from '#model/index.js'
 import type { OutputComponentProps } from '#output/flowUi.js'
 import { OutputPreview } from '#output/OutputPreview/OutputPreview.js'
 import { OutputViewer } from './OutputViewer.js'
 
 afterEach(cleanup)
+
+/**
+ * The card's header reads `3A`'s two cells off the model, so the card only mounts under a
+ * `StudioModelProvider` — see `OutputHeader`. Nothing here presses either button, so the model is
+ * left exactly as `reatomStudio` builds it and the stub client is never called.
+ */
+function mountViewer(node: ReactNode) {
+  const client = {
+    listFlows: vi.fn(),
+    loadFlow: vi.fn(),
+    validate: vi.fn(),
+    save: vi.fn(),
+    startRun: vi.fn(),
+    cancelRun: vi.fn(),
+    assetUrl: vi.fn(() => '/api/assets/x'),
+    extensionBundleUrl: vi.fn(() => '/api/flows/x/ui.js'),
+  } as unknown as JobikClient
+  return render(<StudioModelProvider model={reatomStudio({ client })}>{node}</StudioModelProvider>)
+}
 
 const output = {
   image: { type: 'Buffer', mime: 'image/png', bytes: 654336, id: 'a1' },
@@ -28,20 +50,20 @@ const descriptor = { nodes: { render: { Output: ArtboardOutput } } }
 
 describe('OutputViewer', () => {
   it('marks the active tab selected and the others not', () => {
-    render(<OutputViewer nodeId="render" output={output} />)
+    mountViewer(<OutputViewer nodeId="render" output={output} />)
     expect(screen.getByRole('tab', { name: 'Preview' })).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByRole('tab', { name: 'Raw' })).toHaveAttribute('aria-selected', 'false')
   })
 
   it('reproduces the artboard Preview instance: source field and both actions', () => {
-    render(
+    mountViewer(
       <OutputViewer
         nodeId="render"
         output={output}
         descriptor={descriptor}
         source="render.image · Buffer[3]"
-        onCopyAll={() => {}}
-        onDownload={() => {}}
+        copyAll
+        download
       />,
     )
     expect(screen.getByTestId('output-viewer-source')).toHaveTextContent('render.image · Buffer[3]')
@@ -52,7 +74,9 @@ describe('OutputViewer', () => {
   })
 
   it('reproduces the artboard Raw instance: no source, no actions, a size readout', () => {
-    render(<OutputViewer nodeId="render" output={output} defaultTab="raw" source="render.image" />)
+    mountViewer(
+      <OutputViewer nodeId="render" output={output} defaultTab="raw" source="render.image" />,
+    )
     expect(screen.queryByTestId('output-viewer-source')).toBeNull()
     expect(screen.queryByTestId('output-viewer-divider')).toBeNull()
     expect(screen.queryByRole('button', { name: 'Copy all' })).toBeNull()
@@ -61,13 +85,15 @@ describe('OutputViewer', () => {
   })
 
   it('serialises the report it is given rather than the node output when both are present', () => {
-    render(<OutputViewer nodeId="render" output={output} raw={{ run: 219 }} defaultTab="raw" />)
+    mountViewer(
+      <OutputViewer nodeId="render" output={output} raw={{ run: 219 }} defaultTab="raw" />,
+    )
     expect(screen.getByTestId('output-viewer-panel')).toHaveTextContent('"run": 219')
     expect(screen.getByTestId('output-viewer-panel')).not.toHaveTextContent('caption')
   })
 
   it('shows the log lines and their count on the Logs tab', () => {
-    render(
+    mountViewer(
       <OutputViewer
         nodeId="render"
         output={output}
@@ -80,7 +106,7 @@ describe('OutputViewer', () => {
   })
 
   it('pluralises the log line count once there is more than one', () => {
-    render(
+    mountViewer(
       <OutputViewer
         nodeId="render"
         output={output}
@@ -96,7 +122,7 @@ describe('OutputViewer', () => {
 
   it('switches tabs on click and reports the change', async () => {
     const onTabChange = vi.fn()
-    render(<OutputViewer nodeId="render" output={output} onTabChange={onTabChange} />)
+    mountViewer(<OutputViewer nodeId="render" output={output} onTabChange={onTabChange} />)
     await userEvent.click(screen.getByRole('tab', { name: 'Raw' }))
     expect(onTabChange).toHaveBeenCalledWith('raw')
     expect(screen.getByRole('tab', { name: 'Raw' })).toHaveAttribute('aria-selected', 'true')
@@ -104,7 +130,7 @@ describe('OutputViewer', () => {
   })
 
   it('falls back to the generic JSON viewer when the node has no registered renderer', () => {
-    render(<OutputViewer nodeId="publish" output={output} descriptor={descriptor} />)
+    mountViewer(<OutputViewer nodeId="publish" output={output} descriptor={descriptor} />)
     expect(screen.getByTestId('generic-output')).toBeInTheDocument()
     expect(screen.queryByTestId('output-preview')).toBeNull()
   })
@@ -115,7 +141,7 @@ describe('OutputViewer', () => {
       seen.push(props)
       return <div data-testid="spy" />
     }
-    render(
+    mountViewer(
       <OutputViewer
         nodeId="render"
         output={output}
@@ -140,7 +166,7 @@ describe('OutputViewer', () => {
         </div>
       )
     }
-    render(
+    mountViewer(
       <OutputViewer
         nodeId="render"
         output={output}

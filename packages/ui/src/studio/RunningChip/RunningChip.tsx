@@ -1,5 +1,8 @@
+import { reatomComponent } from '@reatom/react'
 import { cx } from '#cx.js'
+import { useStudioModel } from '#model/context.js'
 import { Spinner } from '#primitives/Spinner/Spinner.js'
+import { formatElapsed } from '#studio/format.js'
 // The one component that reads `studioTokens.css`, so it is what puts the file in the module
 // graph — the studio directory has no barrel to hang the import on.
 import '../studioTokens.css'
@@ -24,13 +27,32 @@ import s from './RunningChip.module.css'
 
 export interface RunningChipProps {
   readonly startId: string
-  /** Already formatted, e.g. `1.3s`. */
-  readonly elapsed: string
   readonly onCancel?: () => void
   readonly className?: string
 }
 
-export function RunningChip(props: RunningChipProps) {
+/**
+ * **The run clock is read here, and this is the only component in the Studio that reads it.**
+ *
+ * It used to arrive as an already-formatted `elapsed` prop, which meant `StudioAppBody` — the
+ * component that renders the canvas, both sidebars, the run dock and the output dock — called
+ * `run.elapsedMs()` in its own body purely to feed these four characters. `elapsedMs` ticks every
+ * 100ms for the length of a run, so the whole shell re-rendered ten times a second while a run
+ * streamed, and the two `useMemo`s in that file exist only because it did.
+ *
+ * Reading the atom inside the chip is what stops the tick here: `reatomComponent` re-renders the
+ * one component whose read was invalidated and nothing above it, so the clock now reaches a single
+ * 100 × 22 element. `RunningChip.test.tsx` counts that with two `<Profiler>`s rather than asserting
+ * it by inspection.
+ *
+ * `startId` and `onCancel` stay props deliberately. `StudioAppBody` already reads `running` and
+ * `startId` to decide whether this chip exists at all — neither moves on a clock — so taking them
+ * off the model would buy nothing and would tie the chip to a `RunModel` where it currently only
+ * needs the number.
+ */
+export const RunningChip = reatomComponent(function RunningChip(props: RunningChipProps) {
+  const elapsed = formatElapsed(useStudioModel().run.elapsedMs())
+
   return (
     <div data-testid="studio-running-chip" className={cx(s.chip, s.running, props.className)}>
       <Spinner size={11} data-testid="studio-running-spinner" />
@@ -41,7 +63,7 @@ export function RunningChip(props: RunningChipProps) {
         </span>
       </div>
       <div data-testid="studio-running-elapsed" className={s.elapsed}>
-        {props.elapsed}
+        {elapsed}
       </div>
       <button
         type="button"
@@ -53,7 +75,7 @@ export function RunningChip(props: RunningChipProps) {
       </button>
     </div>
   )
-}
+}, 'RunningChip')
 
 export interface SaveConflictChipProps {
   readonly onReload?: () => void

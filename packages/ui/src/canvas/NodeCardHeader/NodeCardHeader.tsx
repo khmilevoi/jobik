@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import type { CardChrome } from '#canvas/cardChrome.js'
 import type { NodeCardData } from '#canvas/types.js'
 import { cx } from '#cx.js'
@@ -42,7 +43,16 @@ function trailingStatus(data: NodeCardData): string | undefined {
   return data.state === 'idle' ? IDLE_STATUS : undefined
 }
 
-export function NodeCardHeader(props: NodeCardHeaderProps) {
+/**
+ * The header of the card it is inside.
+ *
+ * It keeps both props rather than reading the overlay itself. `chrome` has no model home at all —
+ * `resolveCardChrome` derives it from the card's state, selection and `3D` mark together, and it is
+ * the card that knows all three — and `data` is the card's own merged data, which the card has
+ * already read `nodeOverlay(id)` for. A second read here would be a second subscription to the same
+ * computed for the same node, one render deeper, and would still leave `chrome` in props.
+ */
+export const NodeCardHeader = reatomComponent(function NodeCardHeader(props: NodeCardHeaderProps) {
   const { data, chrome } = props
   const label = trailingStatus(data)
   const showStartTag =
@@ -81,4 +91,4 @@ export function NodeCardHeader(props: NodeCardHeaderProps) {
       )}
     </div>
   )
-}
+}, 'NodeCardHeader')

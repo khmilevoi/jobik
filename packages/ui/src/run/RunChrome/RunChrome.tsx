@@ -1,16 +1,26 @@
+import { reatomComponent } from '@reatom/react'
 import type { ReactNode } from 'react'
 import { cx, type StyleWithVars } from '#cx.js'
 import { Spinner } from '#primitives/Spinner/Spinner.js'
 import s from './RunChrome.module.css'
+
+/**
+ * The run panel's chrome — five shapes with no state of anybody's.
+ *
+ * Every one is `reatomComponent`-wrapped and every prop API is unchanged. There is no atom for a
+ * divider to read, and inventing one would be inventing state: what the wrapper buys is a uniform
+ * tree and the option of handing one of these an `Atom<T>` as a prop later, which is the shape the
+ * adapter's own examples use.
+ */
 
 export interface RunDividerProps {
   readonly className?: string
   readonly 'data-testid'?: string
 }
 
-export function RunDivider(props: RunDividerProps) {
+export const RunDivider = reatomComponent(function RunDivider(props: RunDividerProps) {
   return <div data-testid={props['data-testid']} className={cx(s.divider, props.className)} />
-}
+}, 'RunDivider')
 
 export type RunWellTone = 'neutral' | 'error'
 
@@ -40,7 +50,7 @@ const wellTones = {
  * `#212528` on `#0c0e10` at `9px 10px`, `output` is `#1e2124` on `#0a0b0c` at `8px`. Widening that
  * primitive is P4's; this plan reports the gap and builds its own.
  */
-export function RunWell(props: RunWellProps) {
+export const RunWell = reatomComponent(function RunWell(props: RunWellProps) {
   // `padding` is a value the stylesheet cannot know, so it rides in as the custom property the
   // tone rules already read, exactly the way `SectionLabel` carries its `color`.
   const style: StyleWithVars | undefined =
@@ -54,7 +64,7 @@ export function RunWell(props: RunWellProps) {
       {props.children}
     </div>
   )
-}
+}, 'RunWell')
 
 export interface RunActionProps {
   readonly children: ReactNode
@@ -78,7 +88,7 @@ const actionWeights = {
  * `outlined:lg` is `6px 14px` on a `#16181a` fill with a `#2c3033` border and a hint in
  * `rgba(4,33,29,.6)`. An eighth cell is P4's to add; this plan reports the gap.
  */
-export function RunAction(props: RunActionProps) {
+export const RunAction = reatomComponent(function RunAction(props: RunActionProps) {
   return (
     <button
       type="button"
@@ -90,7 +100,7 @@ export function RunAction(props: RunActionProps) {
       {props.hint === undefined ? null : <span className={s.hint}>{props.hint}</span>}
     </button>
   )
-}
+}, 'RunAction')
 
 export type RunDotShape = 'round' | 'hollow' | 'square'
 
@@ -126,7 +136,7 @@ const dotTones = {
   cached: s.toneCached,
 } satisfies Record<RunDotTone, string>
 
-export function RunStatusDot(props: RunStatusDotProps) {
+export const RunStatusDot = reatomComponent(function RunStatusDot(props: RunStatusDotProps) {
   const { tone, color } = props
   const style: StyleWithVars | undefined =
     color === undefined ? undefined : { '--jbk-run-dot-color': color }
@@ -142,7 +152,7 @@ export function RunStatusDot(props: RunStatusDotProps) {
       style={style}
     />
   )
-}
+}, 'RunStatusDot')
 
 export interface RunSpinnerProps {
   readonly className?: string
@@ -156,8 +166,8 @@ export interface RunSpinnerProps {
  * the one place that knows the panel takes the wider `.25` track at 9px — foundations
  * §6-appendix's single exception to track-follows-size.
  */
-export function RunSpinner(props: RunSpinnerProps) {
+export const RunSpinner = reatomComponent(function RunSpinner(props: RunSpinnerProps) {
   return (
     <Spinner size={9} track="wide" data-testid={props['data-testid']} className={props.className} />
   )
-}
+}, 'RunSpinner')

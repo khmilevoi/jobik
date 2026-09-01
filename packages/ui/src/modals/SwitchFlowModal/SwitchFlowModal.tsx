@@ -1,5 +1,7 @@
+import { reatomComponent, useWrap } from '@reatom/react'
 import { ModalShell } from '#modals/ModalShell/ModalShell.js'
 import { type ProseSegment, ProseText } from '#modals/ProseText/ProseText.js'
+import { useStudioModel } from '#model/context.js'
 import { Button } from '#primitives/index.js'
 import { Spinner } from '#primitives/Spinner/Spinner.js'
 import s from './SwitchFlowModal.module.css'
@@ -7,6 +9,10 @@ import s from './SwitchFlowModal.module.css'
 /**
  * The two bodies artboard `3F` draws, and the only two. Each carries its own pair of actions,
  * because the pair *is* the body: the ghost gives something up and the accent primary does not.
+ *
+ * `model/flowSwitch.ts`'s `body` is a `Computed<SwitchFlowBody | undefined>`, so this shape is the
+ * contract between that module and this dialog. It stays declared here, beside the component that
+ * draws it, and `model/types.ts` imports it — the model owns the values, the design owns the shape.
  */
 export type SwitchFlowBody =
   | {
@@ -32,19 +38,6 @@ export type SwitchFlowBody =
       /** The accent primary. The run keeps going and its report still lands in history. */
       readonly onSwitchAndKeepRunning?: () => void
     }
-
-export interface SwitchFlowModalProps {
-  /** The flow being left — both mono runs in the body and the `esc` hint. */
-  readonly currentFlowName: string
-  /** The flow that was clicked. `digest` titles the dialog `Switch to digest?`. */
-  readonly targetFlowName: string
-  readonly body: SwitchFlowBody
-  /**
-   * `esc` lands here, and so does any dismissal the caller wires. A backdrop click does **not**:
-   * like `Cancel run`, this is a destructive dialog.
-   */
-  readonly onDismiss: () => void
-}
 
 /** `3F`, unsaved body, verbatim, with the three identifiers substituted at their mono runs. */
 export function switchFlowUnsavedMessage(args: {
@@ -107,10 +100,67 @@ export function switchFlowRunningMeta(runNumber: number, elapsed: string): strin
  *
  * **Motion:** rule 04 — the spinner turns in the run body only, because the run has not stopped.
  * The unsaved body carries the top bar's own `--jbk-status-unsaved` dot and nothing moves.
+ *
+ * ## It reads the model, and it owns its own open guard
+ *
+ * Every value the artboard draws already had a home: `FlowSwitchModel.body` is literally a
+ * `Computed<SwitchFlowBody | undefined>` and carries the pair of answers with it,
+ * `pendingFlowName` titles the dialog, `flows.descriptor` names the flow being left, and
+ * `flowSwitch.stay` is the dismissal. So it takes no props at all, exactly as `CancelRunModal`
+ * takes none.
+ *
+ * **The guard is here rather than in the caller.** `StudioApp` used to write
+ * `body === undefined || pendingFlowName === undefined ? null : <SwitchFlowModal … />`, which put
+ * the whole Studio body on `flowSwitch.body` — a computed that reads `run.elapsedMs`, so it moves
+ * ten times a second for the length of a run. RTM-C01 is what makes moving it pay: the reads below
+ * the guards never happen while the dialog is shut, so a closed `SwitchFlowModal` subscribes to
+ * `body` alone and the run clock reaches this component only while it is on screen.
+ *
+ * Reading `body` is also what arms `3F`'s self-answering switch: `body` and `pendingFlowName` both
+ * read `pendingFlowId`, and the reaction that answers the question once nothing is at risk hangs
+ * off that atom's connect hook — see `model/flowSwitch.ts`. This component reads `body`
+ * unconditionally, before any guard, so the arming cannot be lost.
  */
-export function SwitchFlowModal(props: SwitchFlowModalProps) {
-  const { body } = props
-  const title = `Switch to ${props.targetFlowName}?`
+export const SwitchFlowModal = reatomComponent(function SwitchFlowModal() {
+  const { flows, flowSwitch } = useStudioModel()
+
+  /**
+   * RTM-C02: the three presses reach Reatom actions from a DOM event, outside the frame this
+   * render is in, so each is wrapped into the model's frame. They are declared above the guards
+   * because they are hooks, and a hook after a conditional return is a React error.
+   *
+   * The two footer handlers read `flowSwitch.body()` **at the press** rather than closing over the
+   * body this render drew, and that keeps the pairing where `model/flowSwitch.ts` put it: the
+   * ghost and the primary differ per arm precisely so a surface cannot pair `Cancel and switch`
+   * with `Save and switch`. Re-reading also means a body that changed under the dialog — a run
+   * settling while it stands — answers with the pair currently on screen.
+   */
+  const pressGhost = useWrap(() => {
+    const current = flowSwitch.body()
+    if (current === undefined) return
+    if (current.kind === 'running') current.onCancelAndSwitch?.()
+    else current.onDiscardChanges?.()
+  }, 'SwitchFlowModal.ghost')
+
+  const pressPrimary = useWrap(() => {
+    const current = flowSwitch.body()
+    if (current === undefined) return
+    if (current.kind === 'running') current.onSwitchAndKeepRunning?.()
+    else current.onSaveAndSwitch?.()
+  }, 'SwitchFlowModal.primary')
+
+  const stay = useWrap(() => {
+    flowSwitch.stay()
+  }, 'SwitchFlowModal.stay')
+
+  // RTM-C01: the guards first, and every value the body draws only after them.
+  const body = flowSwitch.body()
+  if (body === undefined) return null
+  const targetFlowName = flowSwitch.pendingFlowName()
+  if (targetFlowName === undefined) return null
+
+  const currentFlowName = flows.descriptor()?.name ?? flows.flowId() ?? ''
+  const title = `Switch to ${targetFlowName}?`
 
   const mark =
     body.kind === 'running' ? (
@@ -128,31 +178,31 @@ export function SwitchFlowModal(props: SwitchFlowModalProps) {
     body.kind === 'running'
       ? switchFlowRunningMessage({
           nodeId: body.nodeId,
-          currentFlowName: props.currentFlowName,
+          currentFlowName,
           runNumber: body.runNumber,
         })
       : switchFlowUnsavedMessage({
-          currentFlowName: props.currentFlowName,
+          currentFlowName,
           documentFile: body.documentFile,
-          targetFlowName: props.targetFlowName,
+          targetFlowName,
         })
 
   const actions =
     body.kind === 'running' ? (
       <>
-        <Button variant="quiet" size="modal" onClick={body.onCancelAndSwitch}>
+        <Button variant="quiet" size="modal" onClick={pressGhost}>
           Cancel and switch
         </Button>
-        <Button variant="accent" size="modal" onClick={body.onSwitchAndKeepRunning}>
+        <Button variant="accent" size="modal" onClick={pressPrimary}>
           Switch and keep running
         </Button>
       </>
     ) : (
       <>
-        <Button variant="quiet" size="modal" onClick={body.onDiscardChanges}>
+        <Button variant="quiet" size="modal" onClick={pressGhost}>
           Discard changes
         </Button>
-        <Button variant="accent" size="modal" onClick={body.onSaveAndSwitch}>
+        <Button variant="accent" size="modal" onClick={pressPrimary}>
           Save and switch
         </Button>
       </>
@@ -165,9 +215,9 @@ export function SwitchFlowModal(props: SwitchFlowModalProps) {
       width={520}
       bodyGap={9}
       destructive
-      hint={`esc stays in ${props.currentFlowName}`}
+      hint={`esc stays in ${currentFlowName}`}
       actions={actions}
-      onDismiss={props.onDismiss}
+      onDismiss={stay}
     >
       <div className={s.titleRow}>
         {mark}
@@ -185,4 +235,4 @@ export function SwitchFlowModal(props: SwitchFlowModalProps) {
       />
     </ModalShell>
   )
-}
+}, 'SwitchFlowModal')

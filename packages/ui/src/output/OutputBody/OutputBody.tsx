@@ -1,4 +1,5 @@
 import type { AssetDescriptor } from '@jobik/core'
+import { reatomComponent } from '@reatom/react'
 import type { FlowUiDescriptor, OutputSurface, OutputValues } from '#output/flowUi.js'
 import { resolveOutputComponent } from '#output/GenericOutput/GenericOutput.js'
 import { LogLines, type OutputLogLine } from '#output/LogLines/LogLines.js'
@@ -36,7 +37,7 @@ function noUrl(): undefined {
  * rather than the same switch written twice. It paints nothing of its own — the caller's
  * `className` is the only styling it carries, because only the dock needs the panel to fill.
  */
-export function OutputBody(props: OutputBodyProps) {
+export const OutputBody = reatomComponent(function OutputBody(props: OutputBodyProps) {
   const Output = resolveOutputComponent(props.descriptor, props.nodeId)
   return (
     <div role="tabpanel" data-testid="output-viewer-panel" className={props.className}>
@@ -52,4 +53,4 @@ export function OutputBody(props: OutputBodyProps) {
       {props.tab === 'logs' ? <LogLines lines={props.logs} /> : null}
     </div>
   )
-}
+}, 'OutputBody')

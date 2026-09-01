@@ -1,10 +1,47 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import type { ReactElement } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { canvasColors } from '#canvas/canvasTokens.js'
 import type { FlowCanvasEdge, FlowCanvasNode } from '#canvas/types.js'
-import { dotGrid, FlowCanvas, toReactFlowEdges, toReactFlowNodes } from './FlowCanvas.js'
+import type { JobikClient } from '#client/index.js'
+import { reatomStudio, StudioModelProvider } from '#model/index.js'
+import { dragNode } from '#studio/canvasDragTestSupport.js'
+import {
+  dotGrid,
+  FlowCanvas,
+  nodePositions,
+  syncReactFlowNodes,
+  toReactFlowEdges,
+  toReactFlowNodes,
+} from './FlowCanvas.js'
 
 afterEach(cleanup)
+
+/**
+ * The canvas renders `NodeCard`s, and a card reads its own overlay off the model, so mounting one
+ * needs a provider. Nothing in this file drives a run: with no session the overlays are `undefined`
+ * and every card draws the `data` these fixtures state, which is what each case is about.
+ */
+const CLIENT = {
+  listFlows: vi.fn(async () => []),
+  loadFlow: vi.fn(),
+  validate: vi.fn(),
+  save: vi.fn(),
+  startRun: vi.fn(),
+  cancelRun: vi.fn(),
+  assetUrl: vi.fn(() => '/api/assets/x'),
+  extensionBundleUrl: vi.fn(() => '/api/flows/x/ui.js'),
+} as unknown as JobikClient
+
+/** One model per mount, so a `rerender` changes the props and nothing else. */
+function mountCanvas(node: ReactElement) {
+  const model = reatomStudio({ client: CLIENT, externals: {}, importModule: async () => ({}) })
+  const withModel = (child: ReactElement) => (
+    <StudioModelProvider model={model}>{child}</StudioModelProvider>
+  )
+  const mounted = render(withModel(node))
+  return { ...mounted, rerender: (next: ReactElement) => mounted.rerender(withModel(next)) }
+}
 
 /** The `Studio — default` graph, at the artboard's own positions. */
 const nodes: readonly FlowCanvasNode[] = [
@@ -122,6 +159,52 @@ describe('toReactFlowEdges', () => {
   })
 })
 
+/**
+ * The half of "an in-flight drag survives a run" that belongs to the canvas.
+ *
+ * The other half is the model's: `canvas.nodes` carries structure only, so a stream frame no longer
+ * rebuilds the array at all. This is the part that holds even when something does rebuild it —
+ * `nodes` is a prop, and "must be referentially stable" is not a contract a prop can enforce.
+ */
+describe('syncReactFlowNodes', () => {
+  const stated = toReactFlowNodes(nodes, edges, 'start1')
+  const dragged = stated.map((node) =>
+    node.id === 'render' ? { ...node, position: { x: 500, y: 300 } } : node,
+  )
+
+  it('keeps the position React Flow is writing when the props restate the old one', () => {
+    const synced = syncReactFlowNodes(dragged, stated, nodePositions(nodes))
+    expect(synced[1].position).toEqual({ x: 500, y: 300 })
+  })
+
+  it('takes the props’ position when the props actually moved the node', () => {
+    const moved = nodes.map((node) =>
+      node.id === 'render' ? { ...node, position: { x: 700, y: 20 } } : node,
+    )
+    const synced = syncReactFlowNodes(
+      dragged,
+      toReactFlowNodes(moved, edges, 'start1'),
+      nodePositions(nodes),
+    )
+    expect(synced[1].position).toEqual({ x: 700, y: 20 })
+  })
+
+  it('still takes selection from the props, whatever the canvas holds', () => {
+    const held = stated.map((node) => ({ ...node, selected: false }))
+    const synced = syncReactFlowNodes(
+      held,
+      toReactFlowNodes(nodes, edges, 'start1', 'publish'),
+      nodePositions(nodes),
+    )
+    expect(synced[2].selected).toBe(true)
+  })
+
+  it('takes a node the canvas has never seen whole', () => {
+    const synced = syncReactFlowNodes([], stated, new Map())
+    expect(synced).toEqual(stated)
+  })
+})
+
 describe('dotGrid', () => {
   it('is the artboard grid: 22px apart, 2px across, offset -1', () => {
     // React Flow's `size` is the dot's diameter; the artboard's gradient stop is a 1px radius.
@@ -137,12 +220,14 @@ describe('dotGrid', () => {
 
 describe('FlowCanvas', () => {
   it('renders the canvas slot', async () => {
-    render(<FlowCanvas nodes={nodes} edges={edges} startNodeId="start1" />)
+    mountCanvas(<FlowCanvas nodes={nodes} edges={edges} startNodeId="start1" />)
     expect(await screen.findByTestId('flow-canvas')).toBeInTheDocument()
   })
 
   it('renders every node card and every edge', async () => {
-    const { container } = render(<FlowCanvas nodes={nodes} edges={edges} startNodeId="start1" />)
+    const { container } = mountCanvas(
+      <FlowCanvas nodes={nodes} edges={edges} startNodeId="start1" />,
+    )
     expect(await screen.findByTestId('node-card-start1')).toBeInTheDocument()
     expect(screen.getByTestId('node-card-render')).toBeInTheDocument()
     expect(screen.getByTestId('node-card-publish')).toBeInTheDocument()
@@ -153,7 +238,7 @@ describe('FlowCanvas', () => {
   })
 
   it('shows the dot grid by default and hides it on request', async () => {
-    const { container, rerender } = render(
+    const { container, rerender } = mountCanvas(
       <FlowCanvas nodes={nodes} edges={edges} startNodeId="start1" />,
     )
     await waitFor(() => {
@@ -165,7 +250,7 @@ describe('FlowCanvas', () => {
   })
 
   it('carries the zoom controls', async () => {
-    render(<FlowCanvas nodes={nodes} edges={edges} startNodeId="start1" />)
+    mountCanvas(<FlowCanvas nodes={nodes} edges={edges} startNodeId="start1" />)
     expect(await screen.findByTestId('zoom-controls')).toBeInTheDocument()
     expect(screen.getByTestId('zoom-readout')).toHaveTextContent('100%')
   })
@@ -182,7 +267,7 @@ describe('FlowCanvas — selecting a start by clicking its card', () => {
   // quirk with nothing to do with the click handler under test, which only needs the `click` itself.
   it('reports a click on a start card', async () => {
     const onSelectStart = vi.fn()
-    render(
+    mountCanvas(
       <FlowCanvas nodes={nodes} edges={edges} startNodeId="start1" onSelectStart={onSelectStart} />,
     )
     fireEvent.click(await screen.findByTestId('node-card-start1'))
@@ -191,10 +276,55 @@ describe('FlowCanvas — selecting a start by clicking its card', () => {
 
   it('does nothing for a click on a card that is not a start', async () => {
     const onSelectStart = vi.fn()
-    render(
+    mountCanvas(
       <FlowCanvas nodes={nodes} edges={edges} startNodeId="start1" onSelectStart={onSelectStart} />,
     )
     fireEvent.click(await screen.findByTestId('node-card-render'))
     expect(onSelectStart).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * The same claim as `syncReactFlowNodes`, driven through the real drag stack rather than the
+ * function underneath it — because "the canvas kept the node where the pointer left it" is only
+ * true if React Flow agrees, and React Flow reads the position out of the state this component
+ * holds when the next gesture starts.
+ *
+ * Persisting a drop is P14's, so the props still state the pre-drag position throughout: that is
+ * exactly the case a rebuilt array used to lose.
+ */
+describe('FlowCanvas — a drag the props do not know about yet', () => {
+  it('leaves a dropped node where it was dropped when the node array is rebuilt', async () => {
+    const onNodeLayoutChange = vi.fn()
+    const canvas = (
+      <FlowCanvas
+        nodes={nodes}
+        edges={edges}
+        startNodeId="start1"
+        onNodeLayoutChange={onNodeLayoutChange}
+      />
+    )
+    const { container, rerender } = mountCanvas(canvas)
+    await screen.findByTestId('node-card-render')
+
+    dragNode(container, 'render', 40, 30)
+    const dropped = onNodeLayoutChange.mock.lastCall?.[0]
+    expect(dropped).toMatchObject({ nodeId: 'render' })
+
+    // What a stream frame used to do: the same graph, a new array identity.
+    rerender(
+      <FlowCanvas
+        nodes={[...nodes]}
+        edges={[...edges]}
+        startNodeId="start1"
+        onNodeLayoutChange={onNodeLayoutChange}
+      />,
+    )
+
+    dragNode(container, 'render', 10, 10)
+    expect(onNodeLayoutChange.mock.lastCall?.[0]).toEqual({
+      nodeId: 'render',
+      position: { x: dropped.position.x + 10, y: dropped.position.y + 10 },
+    })
   })
 })

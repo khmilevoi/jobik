@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import { Button } from '#primitives/index.js'
 import { formatHiddenFrames, formatStackFrame } from '#run/format.js'
 import { RunAction, RunWell } from '#run/RunChrome/RunChrome.js'
@@ -16,8 +17,12 @@ export interface RunFailedViewProps {
  *
  * Every string here arrives on props. P10 and P13 produce the safe message and the trimmed frames;
  * this view constructs no error and never reads a `cause`.
+ *
+ * `RunFailedState` is why `errore`'s value discipline survives this refactor intact: the failure is
+ * a five-armed payload the panel renders — a tag, a node, a safe message and a trimmed stack — not
+ * a boolean an async unit's `.error()` could carry. It arrives here as data, exactly as it did.
  */
-export function RunFailedView(props: RunFailedViewProps) {
+export const RunFailedView = reatomComponent(function RunFailedView(props: RunFailedViewProps) {
   const { state } = props
   const stack = state.stack
   const hidden = stack === undefined ? undefined : formatHiddenFrames(stack.hiddenFrames)
@@ -86,4 +91,4 @@ export function RunFailedView(props: RunFailedViewProps) {
       </div>
     </>
   )
-}
+}, 'RunFailedView')

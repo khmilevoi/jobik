@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import { cx } from '#cx.js'
 import { SectionLabel } from '#primitives/index.js'
 import { PanelHeader } from '#shell/PanelHeader/PanelHeader.js'
@@ -87,7 +88,14 @@ const dotTone = {
   ok: s.dotOk,
 } satisfies Record<SidebarNodeDotTone, string>
 
-export function FlowsSidebar(props: FlowsSidebarProps) {
+/**
+ * A `reatomComponent` with an unchanged prop API. `flows`, `nodes`, `inventory` and `runs` all have
+ * a model home, but they reach this component through `Studio`, which ships artboard fixtures as
+ * its defaults precisely so the shell can be rendered standalone with no model and no provider.
+ * Reading `FlowsModel` here would make that impossible for the sake of a re-render `Studio`'s own
+ * `useMemo` already bounds.
+ */
+export const FlowsSidebar = reatomComponent(function FlowsSidebar(props: FlowsSidebarProps) {
   const activeFlow = props.flows.find((flow) => flow.id === props.activeFlowId)
   const runs = props.runs ?? []
   const onSelectRun = props.onSelectRun
@@ -244,4 +252,4 @@ export function FlowsSidebar(props: FlowsSidebarProps) {
       </div>
     </div>
   )
-}
+}, 'FlowsSidebar')

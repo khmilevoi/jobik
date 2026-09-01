@@ -1,5 +1,6 @@
 import type { AssetDescriptor } from '@jobik/core'
-import { useState } from 'react'
+import { atom } from '@reatom/core'
+import { reatomFactoryComponent, useWrap } from '@reatom/react'
 import { cx } from '#cx.js'
 import type { FlowUiDescriptor, OutputValues } from '#output/flowUi.js'
 import { outputHeaderMeta } from '#output/headerMeta.js'
@@ -26,46 +27,72 @@ export interface OutputViewerProps {
   readonly logs?: readonly OutputLogLine[]
   readonly defaultTab?: OutputViewerTab
   readonly onTabChange?: (tab: OutputViewerTab) => void
-  readonly onCopyAll?: () => void
-  readonly onDownload?: () => void
+  /**
+   * Whether the card draws `3A`'s two action buttons. The sequences behind them belong to
+   * `model/output.ts` — see `OutputHeader` — so these say only whether the button exists, which is
+   * what the artboard's own instances differ on: the `Preview` card draws both, the `Raw` card
+   * neither.
+   */
+  readonly copyAll?: boolean
+  readonly download?: boolean
   /** Layout only — width and height. Never a colour. */
   readonly className?: string
 }
 
-/** design 880–977 — the whole standalone `Output viewer` card. */
-export function OutputViewer(props: OutputViewerProps) {
-  const [tab, setTab] = useState<OutputViewerTab>(props.defaultTab ?? 'preview')
-  const raw = props.raw === undefined ? props.output : props.raw
-  const logs = props.logs ?? []
+/**
+ * design 880–977 — the whole standalone `Output viewer` card.
+ *
+ * The tab is this card's own, and stays that way: which pane you are looking at is a fact about one
+ * rendered surface, not about the flow or the run, and `model/types.ts` has no home for it. What
+ * changes is that it is a unit rather than `useState` — `reatomFactoryComponent` builds one per
+ * mounted card and aborts it on unmount, so two cards are two tabs and neither outlives its element.
+ *
+ * Its header reads `OutputModel`'s two `3A` cells, so this card only mounts under a
+ * `StudioModelProvider`.
+ */
+export const OutputViewer = reatomFactoryComponent(function OutputViewer(
+  initProps: OutputViewerProps,
+  options: { name: string },
+) {
+  const tab = atom<OutputViewerTab>(initProps.defaultTab ?? 'preview', `${options.name}.tab`)
 
-  const meta = outputHeaderMeta(tab, raw, logs)
+  return (props: OutputViewerProps) => {
+    // RTM-C02: the click runs outside the frame this render is in. `tab.set` at the call site is
+    // what RTM-S01 asks for instead of an action that would only forward the value.
+    const select = useWrap((next: OutputViewerTab) => {
+      tab.set(next)
+      props.onTabChange?.(next)
+    })
 
-  const select = (next: OutputViewerTab): void => {
-    setTab(next)
-    props.onTabChange?.(next)
+    const current = tab()
+    const raw = props.raw === undefined ? props.output : props.raw
+    const logs = props.logs ?? []
+    const meta = outputHeaderMeta(current, raw, logs)
+
+    return (
+      <div data-testid="output-viewer" className={cx(s.viewer, props.className)}>
+        <OutputHeader
+          variant="card"
+          tab={current}
+          onTabChange={select}
+          {...(current === 'preview' && props.source !== undefined
+            ? { context: props.source }
+            : {})}
+          {...(meta === undefined ? {} : { meta })}
+          {...(props.copyAll === undefined ? {} : { copyAll: props.copyAll })}
+          {...(props.download === undefined ? {} : { download: props.download })}
+        />
+        <OutputBody
+          nodeId={props.nodeId}
+          output={props.output}
+          {...(props.descriptor === undefined ? {} : { descriptor: props.descriptor })}
+          {...(props.assetUrl === undefined ? {} : { assetUrl: props.assetUrl })}
+          raw={raw}
+          logs={logs}
+          tab={current}
+          surface="viewer"
+        />
+      </div>
+    )
   }
-
-  return (
-    <div data-testid="output-viewer" className={cx(s.viewer, props.className)}>
-      <OutputHeader
-        variant="card"
-        tab={tab}
-        onTabChange={select}
-        {...(tab === 'preview' && props.source !== undefined ? { context: props.source } : {})}
-        {...(meta === undefined ? {} : { meta })}
-        {...(props.onCopyAll === undefined ? {} : { onCopyAll: props.onCopyAll })}
-        {...(props.onDownload === undefined ? {} : { onDownload: props.onDownload })}
-      />
-      <OutputBody
-        nodeId={props.nodeId}
-        output={props.output}
-        {...(props.descriptor === undefined ? {} : { descriptor: props.descriptor })}
-        {...(props.assetUrl === undefined ? {} : { assetUrl: props.assetUrl })}
-        raw={raw}
-        logs={logs}
-        tab={tab}
-        surface="viewer"
-      />
-    </div>
-  )
-}
+}, 'OutputViewer')

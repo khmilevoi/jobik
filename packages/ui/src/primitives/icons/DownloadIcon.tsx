@@ -1,10 +1,11 @@
+import { reatomComponent } from '@reatom/react'
 import type { IconProps } from './types.js'
 
 /**
  * Foundations §7 — **Download**, 10 × 10, `stroke-width` `1.1` in a button and `1.2` in the `3C`
  * modal footer. One path: the shaft, the arrow head, and the base rule.
  */
-export function DownloadIcon(props: IconProps) {
+export const DownloadIcon = reatomComponent(function DownloadIcon(props: IconProps) {
   const { size = 10, strokeWidth = 1.1 } = props
   return (
     <svg
@@ -25,4 +26,4 @@ export function DownloadIcon(props: IconProps) {
       />
     </svg>
   )
-}
+}, 'DownloadIcon')
