@@ -91,6 +91,8 @@ interface SwitchFlowView {
   readonly body: SwitchFlowBody
   readonly targetFlowName: string
   readonly currentFlowName: string
+  /** `Save and switch`'s own write, in flight. The other three actions report nothing. */
+  readonly saving: boolean
 }
 
 /**
@@ -130,7 +132,7 @@ interface SwitchFlowView {
  * unconditionally, before any guard, so the arming cannot be lost.
  */
 export const SwitchFlowModal = reatomComponent(function SwitchFlowModal() {
-  const { flows, flowSwitch } = useStudioModel()
+  const { flows, flowSwitch, save } = useStudioModel()
 
   /**
    * RTM-C02: the three presses reach Reatom actions from a DOM event, outside the frame this
@@ -174,13 +176,17 @@ export const SwitchFlowModal = reatomComponent(function SwitchFlowModal() {
       body: current,
       targetFlowName: target,
       currentFlowName: flows.descriptor()?.name ?? flows.flowId() ?? '',
+      // `3C` rule 04 — the footer action carries `3A`'s loader while its work runs. `Save and
+      // switch` is the one action here that starts a round trip of its own; `Cancel and switch`
+      // reports nothing yet, and `Switch and keep running` has nothing to report.
+      saving: current.kind === 'unsaved' && save.state().kind === 'saving',
     }
   })()
 
   const exit = useModalExit(view)
   if (exit === undefined) return null
 
-  const { body, targetFlowName, currentFlowName } = exit.view
+  const { body, targetFlowName, currentFlowName, saving } = exit.view
   const title = `Switch to ${targetFlowName}?`
 
   const mark =
@@ -223,7 +229,12 @@ export const SwitchFlowModal = reatomComponent(function SwitchFlowModal() {
         <Button variant="quiet" size="modal" onClick={pressGhost}>
           Discard changes
         </Button>
-        <Button variant="accent" size="modal" onClick={pressPrimary}>
+        <Button
+          variant="accent"
+          size="modal"
+          state={saving ? 'busy' : 'idle'}
+          onClick={pressPrimary}
+        >
           Save and switch
         </Button>
       </>
