@@ -11,6 +11,9 @@
 export type { StudioModelProviderProps } from './context.js'
 export { StudioModelProvider, useStudioModel } from './context.js'
 export { reatomDraft } from './draft.js'
+// --- T1.2: flow discovery, and the flow-local UI bundle ---
+export { reatomExtension } from './extension.js'
+export { reatomFlows } from './flows.js'
 // --- T1.1: the run session ---
 export type { RunNodeModel, RunNodesModel } from './run.js'
 export { reatomRun, reatomRunNodes } from './run.js'
