@@ -17,9 +17,20 @@ describe('resolveTypedValueTone', () => {
     expect(resolveTypedValueTone('https://cdn.jobik.dev/p/219/cover.png')).toBe('url')
   })
 
-  it('is text for everything else, including a scheme-less host', () => {
+  it('is url for the artboard’s scheme-less host and path', () => {
+    expect(resolveTypedValueTone('cdn.jobik.dev/p/219/cover.png')).toBe('url')
+  })
+
+  it('is opaque for a scheme no browser follows', () => {
+    expect(resolveTypedValueTone('sha256:9f2c…d41a')).toBe('opaque')
+    expect(resolveTypedValueTone('urn:isbn:0451450523')).toBe('opaque')
+  })
+
+  it('is text for everything else, including a dotted identifier and a duration', () => {
     expect(resolveTypedValueTone('Release 0.4')).toBe('text')
-    expect(resolveTypedValueTone('cdn.jobik.dev/p/219/cover.png')).toBe('text')
+    expect(resolveTypedValueTone('render.image')).toBe('text')
+    expect(resolveTypedValueTone('2.4s')).toBe('text')
+    expect(resolveTypedValueTone('cdn.jobik.dev')).toBe('text')
   })
 })
 
