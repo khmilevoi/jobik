@@ -15,9 +15,9 @@
 import '../canvas/canvasTokens.css'
 import './modalTokens.css'
 
-// `CancelRunModalProps` is gone rather than deprecated: the dialog reads `RunModel` and takes no
-// props at all, so there was nothing left for the type to describe. It is the one dialog here that
-// converted; the other four say in their own doc comments why they did not.
+// `CancelRunModalProps` and `ValidationModalProps` are gone rather than deprecated: both dialogs
+// read `packages/ui/src/model/` and take no props at all, so there was nothing left for the types
+// to describe. The other three still take props and say so in their own doc comments.
 export { CancelRunModal, cancelRunMessage } from './CancelRunModal/CancelRunModal.js'
 export type {
   DownloadFile,
@@ -56,7 +56,6 @@ export type {
   ValidationAction,
   ValidationActionTone,
   ValidationFinding,
-  ValidationModalProps,
   ValidationSeverity,
 } from './ValidationModal/ValidationModal.js'
 export { ValidationModal } from './ValidationModal/ValidationModal.js'

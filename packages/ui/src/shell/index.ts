@@ -32,11 +32,10 @@ export type { RunDockStatus } from './RunDock/RunDock.js'
 export { shellColors } from './shellTokens.js'
 
 // --- design sync: `3D` (`Validate — press, then valid or invalid`) ---
-export type {
-  ProblemRow,
-  ProblemsStripProps,
-  ProblemSeverity,
-} from './ProblemsStrip/ProblemsStrip.js'
+// `ProblemsStripProps` is gone rather than deprecated: the strip reads `ValidationModel.problems`
+// and `openReport` and takes no props, so there was nothing left for the type to describe.
+// `ProblemRow` stays — `studio/problems.ts` builds those rows and the model carries them.
+export type { ProblemRow, ProblemSeverity } from './ProblemsStrip/ProblemsStrip.js'
 export { problemCountLabel, ProblemsStrip } from './ProblemsStrip/ProblemsStrip.js'
 export type { StatusStripProps } from './StatusStrip/StatusStrip.js'
 export { checkedAgo, StatusStrip } from './StatusStrip/StatusStrip.js'

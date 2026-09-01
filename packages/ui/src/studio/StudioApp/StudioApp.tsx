@@ -103,7 +103,6 @@ const StudioAppBody = reatomComponent(function StudioAppBody(props: StudioAppBod
   const saveState = save.state()
   const validated = validation.active()
   const problems = validation.problems()
-  const findings = validation.findings()
   const runs = run.history()
   const activeRunId = run.activeRunId()
   const viewedReport = run.viewedReport()
@@ -132,7 +131,6 @@ const StudioAppBody = reatomComponent(function StudioAppBody(props: StudioAppBod
   const reloadFromDisk = useAction(flows.reloadFromDisk)
   const validate = useAction(validation.validate)
   const openReport = useAction(validation.openReport)
-  const closeReport = useAction(validation.closeReport)
   // `Copy all` and `Download` are not bound here any more: `OutputHeader` reads `3A`'s two cells
   // off the model and presses `output.copyAll` / `output.download` itself, because a button's
   // state belongs to the sequence rather than to the surface that draws it.
@@ -228,7 +226,7 @@ const StudioAppBody = reatomComponent(function StudioAppBody(props: StudioAppBod
         checkedAt={validated.checkedAt}
       />
     ) : validated?.kind === 'invalid' && problems.problems.length > 0 ? (
-      <ProblemsStrip problems={problems.problems} onOpenReport={openReport} />
+      <ProblemsStrip />
     ) : undefined
 
   return (
@@ -273,18 +271,13 @@ const StudioAppBody = reatomComponent(function StudioAppBody(props: StudioAppBod
       {/*
         `3C`'s `Validation`. It opens only on a rejected document: the wire answers
         `{ valid: true }` with no findings, and no artboard draws an all-clear dialog, so a passing
-        check stays as quiet as it was before. Its context line is `publication · flow.ts` — the
-        module the flow is authored in, the same badge the top bar shows, and the file `3C`'s own
-        findings cite.
+        check stays as quiet as it was before.
+
+        Rendered unconditionally because the dialog owns its own guard now: it reads `reportOpen`
+        and `findings` itself, and builds its own `publication · flow.ts` context line from the
+        descriptor — the module the flow is authored in, the same badge the top bar shows.
       */}
-      {validation.reportOpen() && findings !== undefined ? (
-        <ValidationModal
-          context={`${descriptor?.name ?? ''} · ${descriptor?.sourceFile ?? ''}`}
-          findings={findings}
-          onRevalidate={validate}
-          onDismiss={closeReport}
-        />
-      ) : null}
+      <ValidationModal />
       {/*
         `3C`'s `Cancel run #219?`. Destructive, so a backdrop click does not dismiss it — only
         `esc`, `Keep running`, or the cancel itself.
