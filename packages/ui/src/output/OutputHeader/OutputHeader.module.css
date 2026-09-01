@@ -2,9 +2,22 @@
  * The 40px tab bar shared by the standalone `Output viewer` card and the `2A` output dock —
  * `06-output-viewer.md` §1.1 and `10-output-dock.md` §2.2 draw the same element twice.
  *
- * No rule here declares a transition, and that is deliberate: `01-foundations.md` §6.4 found zero
- * `transition` declarations in the whole design file, and §6.7 names the tab underline as
- * something that explicitly does not slide.
+ * ## The marker slides; it used to be destroyed and rebuilt
+ *
+ * `01-foundations.md` §6.4/§6.7 used to be cited here for the opposite rule — zero transitions,
+ * and a tab underline that explicitly does not slide. Artboard `4A` (design 110-127) supersedes
+ * both. It draws **one** absolutely-positioned marker moved with `transform` on
+ * `140ms cubic-bezier(.2,.8,.25,1)`, labels changing on `color 140ms linear`, and the body
+ * cross-fading over 90ms underneath — "the marker owns the 140 ms so the panel underneath can
+ * change without a second, slower animation".
+ *
+ * So `.tabActive` no longer carries a `border-bottom`, and it no longer changes the tab's padding
+ * either: `4A` rule 02 gives one property the move, and a strip that re-lays-out on every switch
+ * moves all three labels instead. The semibold the `2A` header draws stays, and `.tab::after`
+ * reserves its metric so gaining it cannot change the box.
+ *
+ * Every duration and curve below is read from a `--jbk-motion-*` token, which is also what makes
+ * `globalStyles.css`'s `prefers-reduced-motion` block reach them.
  */
 
 .header {
@@ -28,34 +41,94 @@
   padding: 0 var(--jbk-output-dock-header-padding-right) 0 var(--jbk-output-header-padding-x);
 }
 
+/* the marker is absolute against this, so the strip is the positioning context */
 .tablist {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--jbk-output-tab-gap);
 }
 
+/*
+ * The design's `padding:0 2px 2px` now belongs to every tab, not only the active one: it is what
+ * puts the marker 2px under the text, and a padding only the active tab carried was the second
+ * half of the relayout.
+ */
 .tab {
   border: none;
   background: none;
-  padding: 0;
+  padding: 0 2px 2px;
   font-family: var(--jbk-font-ui);
   font-size: var(--jbk-size-12);
   font-weight: var(--jbk-weight-regular);
   color: var(--jbk-text-muted);
   cursor: pointer;
+  transition: color var(--jbk-motion-duration-state) var(--jbk-motion-ease-linear);
 }
 
-/* `10-output-dock.md` §2.2 — the only hover the header declares, and it is instant. */
-.tab:hover {
+/*
+ * The semibold metric, reserved. A zero-height copy of the label in the active weight makes the
+ * button as wide as it will ever be, so `.tabActive` gaining the weight moves nothing — including
+ * the marker, which is measured from this box.
+ */
+.tab::after {
+  content: attr(data-label);
+  display: block;
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  font-weight: var(--jbk-weight-semibold);
+}
+
+/*
+ * `4A` rule 01 — anything that answers the pointer is instant, and the 140ms above is not the
+ * pointer's. The hover colour therefore lives on the label rather than on the button: the label
+ * declares no transition of its own, so hovering and un-hovering are both immediate, while it
+ * still inherits the button's colour as that eases between the muted and active tones.
+ */
+.tabLabel {
+  color: inherit;
+}
+
+/* `10-output-dock.md` §2.2 — the only hover the header declares. */
+.tab:hover .tabLabel {
   color: var(--jbk-text-active-field-label);
 }
 
-.tabActive,
-.tabActive:hover {
-  padding: 0 2px 2px;
+/* an active tab is already at the brightest tone; hovering it must not dim it */
+.tabActive:hover .tabLabel {
+  color: inherit;
+}
+
+.tabActive {
   font-weight: var(--jbk-weight-semibold);
   color: var(--jbk-text-primary);
-  border-bottom: var(--jbk-output-tab-underline-width) solid var(--jbk-accent);
+}
+
+/*
+ * `4A` design 116 — one 1.5px accent bar, `bottom:-1px` of the strip, moved with `transform`.
+ * It is drawn 1px wide and scaled to the active tab's measured width, so the whole move is a
+ * single `transform` and rule 02 holds: nothing else about it changes.
+ */
+.marker {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 1px;
+  height: var(--jbk-output-tab-underline-width);
+  background: var(--jbk-accent);
+  transform-origin: 0 0;
+  transform: translateX(var(--jbk-output-tab-marker-x, 0px))
+    scaleX(var(--jbk-output-tab-marker-scale, 0));
+  pointer-events: none;
+}
+
+/*
+ * The transition arrives with the first measurement. Without this the marker would ease out from
+ * zero width on mount, which is an entrance the design does not draw.
+ */
+.markerReady {
+  transition: transform var(--jbk-motion-duration-state) var(--jbk-motion-ease-settle);
 }
 
 .divider {

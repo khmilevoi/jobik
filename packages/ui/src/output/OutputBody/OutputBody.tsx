@@ -1,10 +1,12 @@
 import type { AssetDescriptor } from '@jobik/core'
 import { reatomComponent } from '@reatom/react'
+import { cx } from '#cx.js'
 import type { FlowUiDescriptor, OutputSurface, OutputValues } from '#output/flowUi.js'
 import { resolveOutputComponent } from '#output/GenericOutput/GenericOutput.js'
 import { LogLines, type OutputLogLine } from '#output/LogLines/LogLines.js'
 import { RawJson } from '#output/RawJson/RawJson.js'
 import type { OutputViewerTab } from '#output/tabs.js'
+import s from './OutputBody.module.css'
 
 export interface OutputBodyProps {
   /** The node whose output fills `Preview`. */
@@ -34,13 +36,26 @@ function noUrl(): undefined {
  * The tab panel under the header: the flow-local `Preview`, the `Raw` JSON block, or the log lines.
  *
  * The card and the dock render the same three bodies from the same data, so this is one component
- * rather than the same switch written twice. It paints nothing of its own — the caller's
- * `className` is the only styling it carries, because only the dock needs the panel to fill.
+ * rather than the same switch written twice. It paints nothing of its own beyond the swap — the
+ * caller's `className` carries the rest, because only the dock needs the panel to fill.
+ *
+ * ## The `key` is load-bearing
+ *
+ * `4A` (design 119-126) cross-fades the panel on `jfade 90ms linear` while the tab marker travels
+ * over 140ms above it. `jfade` is a one-shot entrance, so it plays only on a mount: without
+ * `key={props.tab}` React reuses this element across a tab change, the animation has already run,
+ * and nothing fades — silently, with the stylesheet still looking correct. The key is what makes
+ * each tab's body its own element.
  */
 export const OutputBody = reatomComponent(function OutputBody(props: OutputBodyProps) {
   const Output = resolveOutputComponent(props.descriptor, props.nodeId)
   return (
-    <div role="tabpanel" data-testid="output-viewer-panel" className={props.className}>
+    <div
+      key={props.tab}
+      role="tabpanel"
+      data-testid="output-viewer-panel"
+      className={cx(s.panel, props.className)}
+    >
       {props.tab === 'preview' ? (
         <Output
           nodeId={props.nodeId}

@@ -50,6 +50,20 @@ describe('OutputBody', () => {
     expect(screen.getByTestId('output-logs')).toHaveTextContent('start1 → emit title, markdown')
   })
 
+  /**
+   * D5 / `4A` (design 119-126): the 90ms `jfade` is a one-shot entrance, so it replays only if the
+   * panel is a new element on every tab. React would happily reuse this `<div>` — the key is what
+   * stops it, and this is the assertion that fails the day somebody removes it. The animation
+   * itself is the stylesheet's; what is testable is the remount it depends on.
+   */
+  it('replaces the panel element on a tab change, so the cross-fade can replay', () => {
+    const view = render(body('preview'))
+    const first = screen.getByTestId('output-viewer-panel')
+
+    view.rerender(body('raw'))
+    expect(screen.getByTestId('output-viewer-panel')).not.toBe(first)
+  })
+
   it('falls back to the generic JSON view when no component is registered', () => {
     render(
       <OutputBody

@@ -1,6 +1,6 @@
 import { reatomComponent, useAction } from '@reatom/react'
-import type { ReactNode } from 'react'
-import { cx } from '#cx.js'
+import { type ReactNode, useLayoutEffect, useRef, useState } from 'react'
+import { cx, type StyleWithVars } from '#cx.js'
 import { useStudioModel } from '#model/context.js'
 import { OUTPUT_TABS, type OutputViewerTab } from '#output/tabs.js'
 import {
@@ -10,7 +10,32 @@ import {
   DownloadIcon,
   type DownloadState,
 } from '#primitives/index.js'
+import { px } from '#tokens.js'
 import s from './OutputHeader.module.css'
+
+/** Where the accent marker sits, in the tab strip's own coordinates. */
+interface TabMarker {
+  readonly x: number
+  readonly width: number
+}
+
+/**
+ * Measure the active tab.
+ *
+ * `4A`'s own tile can compute the offset from an index because its three tabs are a fixed 76px
+ * wide. The `2A` header (design 1091-1094) and the `Output viewer` card (design 2117-2120) both
+ * draw `Preview` · `Raw` · `Logs` at their natural widths with a 14px gap, and those are the
+ * artboards that fix *this* strip's layout — so the geometry has to be read rather than derived.
+ * `.tab::after` reserves the semibold metric, which is what keeps the answer stable across a
+ * switch; the `ResizeObserver` is for the web font landing after first paint.
+ */
+function measureActiveTab(list: HTMLElement, tab: OutputViewerTab): TabMarker | undefined {
+  const active = list.querySelector<HTMLElement>(`[data-tab-id="${tab}"]`)
+  if (active === null) return undefined
+  // jsdom lays nothing out, so every offset is 0. A zero-width marker is not a measurement.
+  if (active.offsetWidth === 0) return undefined
+  return { x: active.offsetLeft, width: active.offsetWidth }
+}
 
 /**
  * Which surface the header belongs to.
@@ -81,10 +106,17 @@ const DOWNLOAD_LABELS = {
 /**
  * The 40px tab bar both output surfaces wear — `06-output-viewer.md` §1.1, `10-output-dock.md` §2.2.
  *
- * The design fixes **no** transition on any part of it: `01-foundations.md` §6.4 records zero
- * `transition` declarations in the whole file, and §6.7 names the tab underline explicitly. So the
- * 1.5px accent `border-bottom` simply moves to whichever tab is active, and the inactive-to-active
- * colour change is instant.
+ * ## The tab strip moves, and `4A` is why
+ *
+ * This used to cite `01-foundations.md` §6.4/§6.7 for the opposite: no transition anywhere, and a
+ * `border-bottom` that simply appeared on whichever tab was active. Artboard `4A` (design 110-127)
+ * replaces that rule. There is now one marker element for the whole strip, translated on
+ * `140ms cubic-bezier(.2,.8,.25,1)`; the labels change on `color 140ms linear`; and `OutputBody`
+ * cross-fades underneath on 90ms. The marker's offset and width are measured rather than derived,
+ * because this strip's tabs are natural width — see {@link measureActiveTab}.
+ *
+ * Hover is untouched by any of it. `4A` rule 01 keeps the pointer instant, which is why the hover
+ * colour sits on the inner label span and the eased colour on the button.
  *
  * ## The two buttons read the model, and that is the whole of this wave's change here
  *
@@ -113,9 +145,39 @@ export const OutputHeader = reatomComponent(function OutputHeader(props: OutputH
   const downloadCell = props.download === true ? output.downloadState() : undefined
   const hasActions = copyCell !== undefined || downloadCell !== undefined
 
+  const tablistRef = useRef<HTMLDivElement>(null)
+  const [marker, setMarker] = useState<TabMarker | undefined>(undefined)
+
+  // The marker's geometry is a value no stylesheet can know, so it rides in as the two custom
+  // properties the `.marker` rule reads — the one inline style the package permits. Re-measuring
+  // after the tab changes costs one extra commit: the first draws the marker where it already was,
+  // the second gives it the new offset, and the `transform` transition plays between them.
+  useLayoutEffect(() => {
+    const list = tablistRef.current
+    if (list === null) return
+    const apply = () => {
+      const next = measureActiveTab(list, props.tab)
+      if (next === undefined) return
+      setMarker((current) =>
+        current !== undefined && current.x === next.x && current.width === next.width
+          ? current
+          : next,
+      )
+    }
+    apply()
+    const observer = new ResizeObserver(apply)
+    observer.observe(list)
+    return () => observer.disconnect()
+  }, [props.tab])
+
+  const markerStyle: StyleWithVars = {
+    '--jbk-output-tab-marker-x': px(marker?.x ?? 0),
+    '--jbk-output-tab-marker-scale': String(marker?.width ?? 0),
+  }
+
   return (
     <div data-testid="output-viewer-header" className={cx(s.header, variantClass[props.variant])}>
-      <div role="tablist" className={s.tablist}>
+      <div role="tablist" ref={tablistRef} className={s.tablist}>
         {OUTPUT_TABS.map((entry) => {
           const active = entry.id === props.tab
           return (
@@ -124,13 +186,23 @@ export const OutputHeader = reatomComponent(function OutputHeader(props: OutputH
               type="button"
               role="tab"
               aria-selected={active}
+              // What `measureActiveTab` looks the active tab up by, and what `.tab::after` prints
+              // to reserve the semibold metric — `content: attr()` can only read an attribute.
+              data-tab-id={entry.id}
+              data-label={entry.label}
               onClick={() => props.onTabChange(entry.id)}
               className={cx(s.tab, active && s.tabActive)}
             >
-              {entry.label}
+              <span className={s.tabLabel}>{entry.label}</span>
             </button>
           )
         })}
+        <span
+          aria-hidden="true"
+          data-testid="output-tab-marker"
+          className={cx(s.marker, marker !== undefined && s.markerReady)}
+          style={markerStyle}
+        />
       </div>
 
       {props.context === undefined ? null : (

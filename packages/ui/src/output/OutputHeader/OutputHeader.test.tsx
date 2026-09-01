@@ -156,6 +156,32 @@ describe('OutputHeader', () => {
     expect(screen.getByRole('tab', { name: 'Logs' })).toHaveAttribute('aria-selected', 'false')
   })
 
+  /**
+   * `4A` (design 116) draws **one** marker for the whole strip and moves it. The shape this pins is
+   * what makes that possible at all: a single element that outlives a tab change, rather than an
+   * underline destroyed on one button and created on another. Where it ends up is a measurement the
+   * stylesheet reads from a custom property, and jsdom lays nothing out, so this asserts the
+   * structure and leaves the geometry to the browser.
+   */
+  it('draws one marker for the strip rather than an underline per tab', () => {
+    const { view, ui } = mount({ variant: 'card', tab: 'preview' })
+    const marker = screen.getByTestId('output-tab-marker')
+    expect(screen.getAllByTestId('output-tab-marker')).toHaveLength(1)
+
+    view.rerender(ui({ variant: 'card', tab: 'logs', onTabChange: () => {} }))
+    expect(screen.getByTestId('output-tab-marker')).toBe(marker)
+  })
+
+  /** `content: attr(data-label)` reserves the semibold metric, so the label has to be an attribute. */
+  it('carries each label as an attribute the reserved-width rule can print', () => {
+    mount({ variant: 'card' })
+    expect(screen.getAllByRole('tab').map((tab) => tab.getAttribute('data-label'))).toEqual([
+      'Preview',
+      'Raw',
+      'Logs',
+    ])
+  })
+
   it('reports the tab a click selects', async () => {
     const onTabChange = vi.fn()
     mount({ variant: 'card', onTabChange })

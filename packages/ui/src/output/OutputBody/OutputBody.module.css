@@ -1,0 +1,15 @@
+/*
+ * The tab panel's own and only rule.
+ *
+ * `4A` (design 119-126) gives each of the three bodies `animation:jfade 90ms linear` and states
+ * the division of labour behind it: "The marker slides, the body cross-fades. The marker owns the
+ * 140 ms so the panel underneath can change without a second, slower animation." Opacity is the
+ * only thing that moves, which is what lets a panel whose height changes with its content swap
+ * without the change reading as a jump.
+ *
+ * Everything else this panel looks like is still the caller's `className` — the dock is the only
+ * surface that needs it to fill and scroll.
+ */
+.panel {
+  animation: var(--jbk-motion-swap-fade);
+}
