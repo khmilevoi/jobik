@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import { type KeyboardEvent, type MouseEvent, type ReactNode, useEffect, useRef } from 'react'
 import { cx } from '#cx.js'
 import { CloseIcon } from '#primitives/icons/CloseIcon.js'
@@ -105,8 +106,17 @@ const bodyGaps = {
  * fade for a modal — "the card is simply present" — so none is invented. The only thing that moves
  * in `3C` is the spinner inside the Cancel-run dialog, which turns because the run is still
  * running.
+ *
+ * **The `useRef`/`useEffect` pair below stays, and that is a decision rather than an oversight.**
+ * Everything else in this wave moved state out of a component and into the model; what this one
+ * holds is not application state. `dialogRef` is the element itself and `restoreTo` is
+ * `document.activeElement` as it stood when the dialog opened — two DOM facts, scoped to one
+ * mount, that no other surface can read, write or benefit from. An atom holding "the element that
+ * had focus" would be a model whose only question is about the DOM, and it would answer it for the
+ * wrong tree the moment two dialogs existed. So the shell is a `reatomComponent` for uniformity,
+ * and its focus capture and restoration are left exactly where they were.
  */
-export function ModalShell(props: ModalShellProps) {
+export const ModalShell = reatomComponent(function ModalShell(props: ModalShellProps) {
   const { header, onDismiss } = props
   const dialogRef = useRef<HTMLDialogElement>(null)
 
@@ -199,4 +209,4 @@ export function ModalShell(props: ModalShellProps) {
       </div>
     </dialog>
   )
-}
+}, 'ModalShell')

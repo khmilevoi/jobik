@@ -103,7 +103,6 @@ const StudioAppBody = reatomComponent(function StudioAppBody(props: StudioAppBod
   const startId = inputs.startId()
   const selectedNodeId = inputs.selectedNodeId()
   const running = run.running()
-  const session = run.session()
   const elapsed = formatElapsed(run.elapsedMs())
   const saveState = save.state()
   const validated = validation.active()
@@ -114,7 +113,10 @@ const StudioAppBody = reatomComponent(function StudioAppBody(props: StudioAppBod
   const viewedReport = run.viewedReport()
   const viewerNode = output.openViewerNode()
   const dockStrings = output.dockStrings()
-  const panelState = runPanel.state()
+  // `runPanel.state` is deliberately NOT read here: it carries the run's elapsed, so it changes ten
+  // times a second for the length of a run, and reading it would put the canvas and the sidebar
+  // back on that clock. `RunPanel` reads it itself. `meta` and `dockStatus` are derived from the
+  // run's kind and numbers instead, so neither ever sees the tick.
   const runMeta = runPanel.meta()
   const runStatus = runPanel.dockStatus()
   const switchBody = flowSwitch.body()
@@ -128,8 +130,6 @@ const StudioAppBody = reatomComponent(function StudioAppBody(props: StudioAppBod
   const selectRun = useAction(run.selectRun)
   const runFromDraft = useAction(run.runFromDraft)
   const askToCancel = useAction(run.askToCancel)
-  const keepRunning = useAction(run.keepRunning)
-  const confirmCancel = useAction(run.confirmCancel)
   const moveNode = useAction(draft.moveNode)
   const connectFields = useAction(draft.connect)
   const copyDraft = useAction(draft.copyDraft)
@@ -250,7 +250,7 @@ const StudioAppBody = reatomComponent(function StudioAppBody(props: StudioAppBod
         running={running}
         {...(runningChip === undefined ? {} : { runningChip })}
         canvas={canvasSlot}
-        {...(panelState === undefined ? {} : { runPanel: <RunPanel state={panelState} /> })}
+        runPanel={<RunPanel />}
         {...(runMeta === undefined ? {} : { runMeta: runMeta.text, runMetaTone: runMeta.tone })}
         {...(runStatus === undefined ? {} : { runStatus })}
         {...(runs.length === 0
@@ -290,17 +290,13 @@ const StudioAppBody = reatomComponent(function StudioAppBody(props: StudioAppBod
       {/*
         `3C`'s `Cancel run #219?`. Destructive, so a backdrop click does not dismiss it — only
         `esc`, `Keep running`, or the cancel itself.
+
+        It is rendered unconditionally because the dialog owns its own guard now: it reads
+        `cancelPrompt`, `running` and `session` itself and draws nothing until all three say so.
+        That is what took `run.session` — which the stream replaces on every line — out of this
+        component's dependencies.
       */}
-      {run.cancelPrompt() && running && session !== undefined ? (
-        <CancelRunModal
-          runNumber={session.runNumber ?? 0}
-          elapsed={elapsed}
-          nodeId={run.runningNodeId() ?? startId ?? ''}
-          onKeepRunning={keepRunning}
-          onCancelRun={confirmCancel}
-          onDismiss={keepRunning}
-        />
-      ) : null}
+      <CancelRunModal />
       {/*
         `3F`'s `Switch to <flow>?`. Destructive for the same reason `Cancel run` is: both of its
         ghosts give something up, so a stray backdrop click must not stand in for one. `esc` is the

@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import { Fragment } from 'react'
 import s from './ProseText.module.css'
 
@@ -35,8 +36,14 @@ const monoTones = {
  *
  * Keys are the segment's own text plus its occurrence number, so the Cancel-run sentence's two
  * `render` runs stay distinct without keying on an array index.
+ *
+ * **A pure style primitive, wrapped and nothing more.** There is no atom for a sentence to read —
+ * its segments are produced by whoever composes the copy — so the prop API is unchanged and this
+ * mounts anywhere, with or without a `StudioModelProvider` above it. `reatomComponent` is here to
+ * keep the tree uniform and to let a caller hand it an `Atom<T>` later; inventing a model unit to
+ * feed it would be inventing state that does not exist.
  */
-export function ProseText(props: ProseTextProps) {
+export const ProseText = reatomComponent(function ProseText(props: ProseTextProps) {
   const { tone = 'inherit' } = props
   const seen = new Map<string, number>()
   const keyed = props.segments.map((segment) => {
@@ -57,4 +64,4 @@ export function ProseText(props: ProseTextProps) {
       )}
     </span>
   )
-}
+}, 'ProseText')

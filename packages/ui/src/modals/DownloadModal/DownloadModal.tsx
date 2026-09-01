@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import { useId } from 'react'
 import { StripePlaceholder } from '#canvas/StripePlaceholder/StripePlaceholder.js'
 import { cx } from '#cx.js'
@@ -150,8 +151,16 @@ function BundleToggle(props: {
  *
  * Nothing here computes a size or a count. `summary` and `totalSize` arrive formatted, because
  * neither is derivable from the wire — see the plan report's `Not fixable from v1 data`.
+ *
+ * **It keeps its prop API, and the reason is that nothing renders it.** `StudioApp` mounts three
+ * dialogs and this is not one of them: the output dock downloads through `OutputModel.download`
+ * without ever asking, so there is no `DownloadModel` and no unit here could read. Every value the
+ * artboard draws — the file list, the chosen format, the zip name, the formatted total — would
+ * have to be invented as model state to feed a surface no product code opens. So this stays a
+ * presentational component and is wrapped, nothing more; the day something opens it, the values it
+ * needs get a home first.
  */
-export function DownloadModal(props: DownloadModalProps) {
+export const DownloadModal = reatomComponent(function DownloadModal(props: DownloadModalProps) {
   const actions = (
     <>
       <Button variant="quiet" size="modal" onClick={props.onCancel}>
@@ -194,4 +203,4 @@ export function DownloadModal(props: DownloadModalProps) {
       />
     </ModalShell>
   )
-}
+}, 'DownloadModal')

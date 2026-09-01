@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import { cx } from '#cx.js'
 import { ModalShell } from '#modals/ModalShell/ModalShell.js'
 import { type ProseSegment, ProseText } from '#modals/ProseText/ProseText.js'
@@ -83,8 +84,30 @@ function countLabel(count: number, noun: string): string {
  * errors` / `1 warning` are exactly the counts of the three findings it draws, and a badge that
  * could disagree with the list under it would be a second source of truth. A count of zero draws
  * no badge.
+ *
+ * ## Why this one still takes props, while `CancelRunModal` no longer does
+ *
+ * `StudioApp` opens both, so the difference is not the caller — it is that the model cannot say
+ * what this dialog draws. `ValidationModel.findings` runs `studio/validation.ts`'s
+ * `toValidationFindings`, and that function is honest about v1's wire: `POST
+ * /api/flows/:id/validate` answers with **one** `WireErrorPayload` carrying no severity, no source
+ * location and no second entry, so every finding the model can produce is a lone `error` with no
+ * `source` and — because nothing passes `onRevealNode` — no actions. The artboard fixes a list of
+ * three across two severities with source refs and action links, and this component's own suite
+ * asserts every one of those shapes. Converting it to model reads would not port those cases, it
+ * would delete them, and inventing a `ValidationModel` member to pad the wire out is exactly the
+ * fabrication `toValidationFindings` refuses.
+ *
+ * `onCopyReport` is the same story in miniature: `3C` §2 draws the button, no model unit backs it,
+ * and a `copyReport` action added here would be state invented to satisfy a refactor.
+ *
+ * So it is wrapped and its prop API is untouched. `StudioApp` reads `validation.findings`,
+ * `validation.reportOpen` and the descriptor and hands them over, which is where those reads
+ * belong until the wire can fill the shape the design drew.
  */
-export function ValidationModal(props: ValidationModalProps) {
+export const ValidationModal = reatomComponent(function ValidationModal(
+  props: ValidationModalProps,
+) {
   const errors = props.findings.filter((finding) => finding.severity === 'error').length
   const warnings = props.findings.length - errors
 
@@ -172,4 +195,4 @@ export function ValidationModal(props: ValidationModalProps) {
       ))}
     </ModalShell>
   )
-}
+}, 'ValidationModal')

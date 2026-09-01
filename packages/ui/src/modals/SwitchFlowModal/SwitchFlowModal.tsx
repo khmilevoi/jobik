@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import { ModalShell } from '#modals/ModalShell/ModalShell.js'
 import { type ProseSegment, ProseText } from '#modals/ProseText/ProseText.js'
 import { Button } from '#primitives/index.js'
@@ -107,8 +108,25 @@ export function switchFlowRunningMeta(runNumber: number, elapsed: string): strin
  *
  * **Motion:** rule 04 — the spinner turns in the run body only, because the run has not stopped.
  * The unsaved body carries the top bar's own `--jbk-status-unsaved` dot and nothing moves.
+ *
+ * ## Why this one still takes props
+ *
+ * Every value it draws does have a model home — `FlowSwitchModel.body` is literally a
+ * `Computed<SwitchFlowBody | undefined>`, `pendingFlowName` is the title, `flows.descriptor` names
+ * the flow being left, and `stay` is the dismissal — so on the values alone it would convert.
+ * What stops it is the published API: `packages/ui/src/index.ts` is append-only and names
+ * `SwitchFlowModalProps` on an explicit export line of its own. A model-reading component takes no
+ * props, which would leave that type with nothing to describe and that barrel line with nothing to
+ * export, and neither the line nor the type may be removed.
+ *
+ * So `StudioApp` keeps reading `flowSwitch.body` and `flowSwitch.pendingFlowName` and handing them
+ * over — which is also what keeps `3F`'s self-answering switch armed, since reading any of the
+ * three units connects `pendingFlowId` (see `model/flowSwitch.ts`). Converting this dialog is a
+ * decision about `@jobik/ui`'s surface, and it belongs to whoever may edit that barrel.
  */
-export function SwitchFlowModal(props: SwitchFlowModalProps) {
+export const SwitchFlowModal = reatomComponent(function SwitchFlowModal(
+  props: SwitchFlowModalProps,
+) {
   const { body } = props
   const title = `Switch to ${props.targetFlowName}?`
 
@@ -185,4 +203,4 @@ export function SwitchFlowModal(props: SwitchFlowModalProps) {
       />
     </ModalShell>
   )
-}
+}, 'SwitchFlowModal')

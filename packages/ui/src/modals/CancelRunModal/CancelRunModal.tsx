@@ -1,24 +1,11 @@
+import { reatomComponent, useAction } from '@reatom/react'
 import { ModalShell } from '#modals/ModalShell/ModalShell.js'
 import { type ProseSegment, ProseText } from '#modals/ProseText/ProseText.js'
+import { useStudioModel } from '#model/context.js'
 import { Button } from '#primitives/index.js'
 import { Spinner } from '#primitives/Spinner/Spinner.js'
+import { formatElapsed } from '#studio/format.js'
 import s from './CancelRunModal.module.css'
-
-export interface CancelRunModalProps {
-  /** The run being confirmed. `219` titles the dialog `Cancel run #219?`. */
-  readonly runNumber: number
-  /** Elapsed time, already formatted to one decimal place with a bare `s` — e.g. `1.3s`. */
-  readonly elapsed: string
-  /** The node still working, set in mono twice in the body sentence — e.g. `render`. */
-  readonly nodeId: string
-  readonly onKeepRunning?: () => void
-  readonly onCancelRun?: () => void
-  /**
-   * `esc` lands here, and so does the `Keep running` button's own handler if the caller wires it
-   * that way. A backdrop click does **not**: this is the destructive dialog.
-   */
-  readonly onDismiss: () => void
-}
 
 /**
  * §5's sentence, with the node identifier substituted at both mono runs.
@@ -59,16 +46,50 @@ export function cancelRunMessage(nodeId: string): readonly ProseSegment[] {
  * `esc` still dismisses, and the footer hint spells out why that is safe: **`esc keeps running`**
  * is the one place in the whole design where `esc` means something other than *cancel the thing in
  * front of you*.
+ *
+ * ## It reads the model, and it owns its own open guard
+ *
+ * The one dialog in this directory where every value the artboard draws already has a home:
+ * `RunModel.cancelPrompt` is whether it stands, `session.runNumber` titles it, `elapsedMs` is the
+ * clock in its top-right corner, `runningNodeId` — falling back to the selected start, which is
+ * what the stream has not named a node yet means — is the identifier set in mono twice, and
+ * `keepRunning` and `confirmCancel` are its two answers. Nothing had to be invented and nothing is
+ * threaded through a prop, so it takes none.
+ *
+ * **The guard is here rather than in the caller, and that is the point of moving it.** `StudioApp`
+ * used to write `run.cancelPrompt() && running && session !== undefined ? <CancelRunModal … /> :
+ * null`, which made the whole Studio body a subscriber to `run.session` — a value the stream
+ * replaces on *every* line — for the sake of one dialog that is closed almost always. Now the
+ * three guard atoms are read here, and RTM-C01 is what makes that pay: the reads below the guard
+ * never happen while the dialog is shut, so a closed `CancelRunModal` subscribes to `cancelPrompt`
+ * and nothing else, and the 10 Hz clock reaches this component only while it is on screen.
  */
-export function CancelRunModal(props: CancelRunModalProps) {
-  const title = `Cancel run #${props.runNumber}?`
+export const CancelRunModal = reatomComponent(function CancelRunModal() {
+  const { inputs, run } = useStudioModel()
+
+  // RTM-C02: both handlers are invoked from a DOM event, outside the frame this render is in.
+  // They are declared above the guards because they are hooks, and a hook after a conditional
+  // return is a React error — `useAction` binds an action to a frame and reads no atom, so
+  // hoisting it costs the lazy-read discipline below nothing.
+  const keepRunning = useAction(run.keepRunning)
+  const confirmCancel = useAction(run.confirmCancel)
+
+  // RTM-C01: the guards first, and every value the body draws only after them.
+  if (!run.cancelPrompt()) return null
+  if (!run.running()) return null
+  const session = run.session()
+  if (session === undefined) return null
+
+  const title = `Cancel run #${session.runNumber ?? 0}?`
+  const elapsed = formatElapsed(run.elapsedMs())
+  const nodeId = run.runningNodeId() ?? inputs.startId() ?? ''
 
   const actions = (
     <>
-      <Button variant="quiet" size="modal" onClick={props.onKeepRunning}>
+      <Button variant="quiet" size="modal" onClick={keepRunning}>
         Keep running
       </Button>
-      <Button variant="destructive" size="modal" onClick={props.onCancelRun}>
+      <Button variant="destructive" size="modal" onClick={confirmCancel}>
         Cancel run
       </Button>
     </>
@@ -83,22 +104,22 @@ export function CancelRunModal(props: CancelRunModalProps) {
       destructive
       hint="esc keeps running"
       actions={actions}
-      onDismiss={props.onDismiss}
+      onDismiss={keepRunning}
     >
       <div className={s.titleRow}>
         <Spinner size={11} data-testid="cancel-run-spinner" />
         <h2 className={s.title}>{title}</h2>
         <div className={s.spacer} />
         <div data-testid="cancel-run-elapsed" className={s.elapsed}>
-          {props.elapsed}
+          {elapsed}
         </div>
       </div>
       <ProseText
         data-testid="cancel-run-message"
-        segments={cancelRunMessage(props.nodeId)}
+        segments={cancelRunMessage(nodeId)}
         tone="lifted"
         className={s.message}
       />
     </ModalShell>
   )
-}
+}, 'CancelRunModal')

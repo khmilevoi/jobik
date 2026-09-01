@@ -15,7 +15,9 @@
 import '../canvas/canvasTokens.css'
 import './modalTokens.css'
 
-export type { CancelRunModalProps } from './CancelRunModal/CancelRunModal.js'
+// `CancelRunModalProps` is gone rather than deprecated: the dialog reads `RunModel` and takes no
+// props at all, so there was nothing left for the type to describe. It is the one dialog here that
+// converted; the other four say in their own doc comments why they did not.
 export { CancelRunModal, cancelRunMessage } from './CancelRunModal/CancelRunModal.js'
 export type {
   DownloadFile,
