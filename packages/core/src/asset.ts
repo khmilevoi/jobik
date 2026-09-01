@@ -19,7 +19,7 @@ export type AssetDescriptor = {
 /** Everything core records about an asset field. */
 export type AssetMeta = { readonly mime: string }
 
-/** The schema `asset()` returns: any `Uint8Array` in, the same `Buffer` out. */
+/** The schema `asset()` returns: any `Uint8Array` in, a `Buffer` out. */
 export type AssetSchema = z.ZodCustom<Buffer, Buffer>
 
 /**
@@ -31,12 +31,35 @@ export type AssetSchema = z.ZodCustom<Buffer, Buffer>
  */
 export const assetRegistry = z.registry<AssetMeta>()
 
-/** Declare a binary field: `output: z.object({ image: asset({ mime: 'image/png' }) })`. */
+/**
+ * Declare a binary field: `output: z.object({ image: asset({ mime: 'image/png' }) })`.
+ *
+ * The predicate admits any `Uint8Array` and `.overwrite()` then normalises it, so the `Buffer` the
+ * type promises is the `Buffer` a handler's caller receives — a handler returning
+ * `new Uint8Array(await res.arrayBuffer())`, `await blob.bytes()` or `crypto.getRandomValues`
+ * included. A value that is already a `Buffer` passes through by identity, so the common case
+ * costs nothing.
+ *
+ * `.overwrite()` rather than `.transform()` deliberately: it keeps the schema a `ZodCustom`
+ * instead of wrapping it in a `ZodPipe`. Every asset consumer here reads the registry off the
+ * schema it is handed — `fieldTypeOf`, `collectAssets`, and the unrepresentable handler that
+ * `z.toJSONSchema` calls with `ctx.zodSchema` — and a pipe would hand the last of those the
+ * inner transform, which carries no registration.
+ *
+ * The registration is repeated for the same reason, and the repetition is load-bearing:
+ * `.overwrite()` returns a CLONE, and `z.toJSONSchema` walks a custom field twice, once per
+ * instance. Registering only the clone leaves the original unregistered, and the handler answers
+ * `'throw'` on it — `Custom types cannot be represented in JSON Schema`, on every asset field in
+ * the repository. Zod's registry walks `_zod.parent` from child to parent, which is the wrong
+ * direction to rescue this, so both instances are registered outright.
+ */
 export function asset(meta: AssetMeta): AssetSchema {
   return z
     .custom<Buffer>((value) => value instanceof Uint8Array, {
       error: `Expected binary data (${meta.mime})`,
     })
+    .register(assetRegistry, { mime: meta.mime })
+    .overwrite((value) => (Buffer.isBuffer(value) ? value : Buffer.from(value)))
     .register(assetRegistry, { mime: meta.mime })
 }
 

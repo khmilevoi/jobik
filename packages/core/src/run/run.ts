@@ -5,7 +5,7 @@ import type { BoundFlow } from '#flow.js'
 import { resolveRunGraph } from '#graph/run-graph.js'
 import { validateFlowGraph } from '#graph/validate.js'
 import { executeRunGraph } from './execute.js'
-import { nextRunNumber } from './run-number.js'
+import { nextRunNumber, releaseRunNumber } from './run-number.js'
 import type { RunOptions, RunReport, RunStartError } from './types.js'
 
 /**
@@ -23,14 +23,25 @@ export async function runFlow(args: {
   input: unknown
   options?: RunOptions
 }): Promise<RunReport | RunStartError> {
+  // Claimed here, before the awaits, so the number records the order Run was pressed rather than
+  // the order these three steps happen to finish — fire three runs of one flow together and they
+  // used to come back #1, #3, #2. `nextRunNumber` is synchronous and so still race-free; only the
+  // moment of the claim moved. Every path that gives up before the engine hands it back — see
+  // `releaseRunNumber` for what that can and cannot undo.
+  const runNumber = nextRunNumber(args.flow.path)
+  const rejected = <E>(error: E): E => {
+    releaseRunNumber(args.flow.path, runNumber)
+    return error
+  }
+
   const file = await readFlowDocument({ path: args.flow.path })
-  if (file instanceof Error) return file
+  if (file instanceof Error) return rejected(file)
 
   const graph = validateFlowGraph({ flow: args.flow, document: file.document })
-  if (graph instanceof Error) return graph
+  if (graph instanceof Error) return rejected(graph)
 
   const runGraph = resolveRunGraph({ graph, startId: args.startId })
-  if (runGraph instanceof Error) return runGraph
+  if (runGraph instanceof Error) return rejected(runGraph)
 
   // A start has no handler: its validated input IS its output fields. That schema is flow-author
   // code, exactly as third-party as a handler's, so a throw from inside `.transform()` or
@@ -41,20 +52,22 @@ export async function runFlow(args: {
   try {
     parsed = runGraph.start.definition.input.safeParse(args.input)
   } catch (cause) {
-    return new RunInputError({ startId: args.startId, cause })
+    return rejected(new RunInputError({ startId: args.startId, cause }))
   }
   if (!parsed.success) {
-    return new RunInputError({
-      startId: args.startId,
-      issues: toSchemaIssues(parsed.error),
-      cause: parsed.error,
-    })
+    return rejected(
+      new RunInputError({
+        startId: args.startId,
+        issues: toSchemaIssues(parsed.error),
+        cause: parsed.error,
+      }),
+    )
   }
 
   return executeRunGraph({
     graph: runGraph,
     startOutput: parsed.data,
-    runNumber: nextRunNumber(args.flow.path),
+    runNumber,
     options: args.options,
   })
 }

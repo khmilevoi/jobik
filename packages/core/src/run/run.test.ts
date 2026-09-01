@@ -17,6 +17,7 @@ import {
 import * as jobik from '#index.js'
 import { start } from '#node.js'
 import { throwingSchema } from './fixtures.js'
+import { nextRunNumber } from './run-number.js'
 import type { RunEvent, RunReport } from './types.js'
 
 async function boundPublication(document = publicationDocument()) {
@@ -58,6 +59,35 @@ describe('BoundFlow.run()', () => {
 
     expect(first.runNumber).toBe(1)
     expect(second.runNumber).toBe(2)
+  })
+
+  it('claims the number as the request arrives, not once the document has been read', async () => {
+    const publication = await boundPublication()
+
+    // Not awaited: `runFlow` runs synchronously up to its first await, and the claim is before it.
+    const pending = publication.run('start1', { title: 't', markdown: 'm' })
+
+    // So the flow's counter has already moved, although this run has not read its document yet.
+    // With the claim after the awaits, three runs fired together came back #1, #3, #2 — numbered
+    // in the order their reads and validations finished rather than the order Run was pressed.
+    expect(nextRunNumber(publication.path)).toBe(2)
+    expect(reportOrThrow(await pending).runNumber).toBe(1)
+  })
+
+  it('gives the number back when the run is rejected before it starts', async () => {
+    const publication = await boundPublication()
+
+    const rejected = await publication.run('start1', {
+      title: 't',
+      markdown: 42,
+    } as unknown as { title: string; markdown: string })
+    errorOrThrow(rejected, RunInputError)
+
+    // An empty required field is ordinary Studio traffic. Claiming early without this rollback
+    // would burn #1 on it and open the run history with #2.
+    expect(
+      reportOrThrow(await publication.run('start1', { title: 't', markdown: 'm' })).runNumber,
+    ).toBe(1)
   })
 
   it('returns RunInputError with flattened issues when the input does not match the start', async () => {
