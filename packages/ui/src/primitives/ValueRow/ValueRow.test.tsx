@@ -45,3 +45,33 @@ describe('ValueRow', () => {
     expect(screen.getByText('checksum copied')).toBeInTheDocument()
   })
 })
+
+/**
+ * `4A`'s control swap. `Button.test.tsx` explains why the remount is the thing worth asserting;
+ * this shape adds one rule of its own — the trailing element is the focusable button, so its
+ * *contents* are keyed rather than the button itself. Keying the button would drop focus the
+ * moment a keyboard user pressed it.
+ */
+describe('ValueRow — the 4A control swap', () => {
+  it('remounts the value on a state change and keeps the row', () => {
+    const { rerender } = render(<ValueRow value={URL_VALUE} state="idle" data-testid="value-row" />)
+    const row = screen.getByTestId('value-row')
+    const before = row.firstElementChild
+
+    rerender(<ValueRow value={URL_VALUE} state="ok" data-testid="value-row" />)
+
+    expect(screen.getByTestId('value-row')).toBe(row)
+    expect(row.firstElementChild).not.toBe(before)
+  })
+
+  it('remounts the trailing glyph without remounting the button that holds focus', () => {
+    const { rerender } = render(<ValueRow value={URL_VALUE} state="idle" onCopy={vi.fn()} />)
+    const trailing = screen.getByRole('button')
+    const before = trailing.firstElementChild
+
+    rerender(<ValueRow value={URL_VALUE} state="busy" onCopy={vi.fn()} />)
+
+    expect(screen.getByRole('button')).toBe(trailing)
+    expect(trailing.firstElementChild).not.toBe(before)
+  })
+})

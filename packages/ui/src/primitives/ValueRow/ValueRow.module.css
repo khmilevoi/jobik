@@ -29,6 +29,20 @@
   font-family: var(--jbk-font-mono);
   font-size: var(--jbk-size-10-5);
   color: var(--jbk-accent);
+  /*
+   * `4A:80-89` — the value is half of this shape's swap, so it carries the cross-fade itself
+   * rather than through a wrapper: a wrapper would have to be a flex box and the ellipsis above
+   * would stop working. `ValueRow.tsx` keys it so the animation replays.
+   */
+  animation: var(--jbk-motion-swap-fade);
+}
+
+/* The other half: the trailing glyph, keyed inside the button so the button keeps focus. */
+.swap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: var(--jbk-motion-swap-fade);
 }
 
 .trailing {

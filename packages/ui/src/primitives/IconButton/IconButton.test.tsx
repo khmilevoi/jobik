@@ -71,3 +71,19 @@ describe('IconButton', () => {
     expect(onClick).not.toHaveBeenCalled()
   })
 })
+
+/** `4A`'s control swap. `Button.test.tsx` explains why the remount is the thing worth asserting. */
+describe('IconButton — the 4A control swap', () => {
+  it('remounts the glyph on a state change and keeps the square', () => {
+    const { rerender } = render(
+      <IconButton label="Copy url" icon={<CopyIcon size={10} />} state="idle" />,
+    )
+    const frame = screen.getByRole('button', { name: 'Copy url' })
+    const before = frame.firstElementChild
+
+    rerender(<IconButton label="Copy url" icon={<CopyIcon size={10} />} state="busy" />)
+
+    expect(screen.getByRole('button', { name: 'Copy url' })).toBe(frame)
+    expect(frame.firstElementChild).not.toBe(before)
+  })
+})

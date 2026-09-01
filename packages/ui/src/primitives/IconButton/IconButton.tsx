@@ -89,17 +89,25 @@ export const IconButton = reatomComponent(function IconButton(props: IconButtonP
         {state === 'progress' && progress !== undefined ? (
           <span aria-hidden="true" className={s.progressBar} />
         ) : null}
-        {state === 'idle' ? icon : null}
-        {state === 'busy' ? <Spinner size={indicatorSize} /> : null}
-        {state === 'ok' ? <CheckIcon size={indicatorSize} /> : null}
-        {state === 'failed' ? (
-          <span aria-hidden="true" className={s.glyph}>
-            !
-          </span>
-        ) : null}
-        {state === 'progress' && progress !== undefined ? (
-          <span className={s.percent}>{Math.round(progress)}</span>
-        ) : null}
+        {/*
+         * `4A`'s control swap. The square never changes size, so only the glyph inside it
+         * cross-fades. The `key` is what makes it fade at all — React reuses an element across a
+         * state change, and a CSS animation replays only on mount. The progress bar stays
+         * outside: its width is data, not motion (`4A:199`).
+         */}
+        <span key={state} className={s.swap}>
+          {state === 'idle' ? icon : null}
+          {state === 'busy' ? <Spinner size={indicatorSize} /> : null}
+          {state === 'ok' ? <CheckIcon size={indicatorSize} /> : null}
+          {state === 'failed' ? (
+            <span aria-hidden="true" className={s.glyph}>
+              !
+            </span>
+          ) : null}
+          {state === 'progress' && progress !== undefined ? (
+            <span className={s.percent}>{Math.round(progress)}</span>
+          ) : null}
+        </span>
       </button>
       {chip === undefined ? null : <span className={s.chip}>{chip}</span>}
     </span>

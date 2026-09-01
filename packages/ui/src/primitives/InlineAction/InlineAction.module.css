@@ -39,3 +39,15 @@
 .inline.failed {
   color: var(--jbk-status-error-tag);
 }
+
+/*
+ * `4A:80-89` — the swapping subtree, keyed in `InlineAction.tsx`. `gap: inherit` takes the link's
+ * own 6px, so wrapping the indicator and the text changes no metric. The link reserves no width,
+ * so `4A:82`'s `min-width` transition does not apply to it.
+ */
+.swap {
+  display: inline-flex;
+  align-items: center;
+  gap: inherit;
+  animation: var(--jbk-motion-swap-fade);
+}

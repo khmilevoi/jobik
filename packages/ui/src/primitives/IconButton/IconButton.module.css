@@ -5,8 +5,10 @@
  * The box never changes size between states: the border is always there, only its colour and fill
  * move, which is rule 02 applied to a control that has no label to reserve width for.
  *
- * No transition anywhere, for the same reason as `Button.module.css`: foundations §6.4 finds zero
- * in the design.
+ * `4A` adds exactly one piece of motion here and no transition: the glyph inside the square
+ * cross-fades over the swap duration (`.swap`). The square itself is fixed, so there is no
+ * `min-width` to ease — `4A:82`'s width transition belongs to the shapes that carry a label.
+ * Hover stays instant; `4A`'s pointer duration is 0.
  */
 
 /*
@@ -85,6 +87,17 @@
 .glyph {
   font-size: var(--jbk-size-12);
   line-height: 1;
+}
+
+/*
+ * `4A:80-89` — the swapping subtree, keyed in `IconButton.tsx` so it remounts and the animation
+ * actually replays. Exactly one child is ever rendered, so it needs no gap of its own.
+ */
+.swap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: var(--jbk-motion-swap-fade);
 }
 
 /*

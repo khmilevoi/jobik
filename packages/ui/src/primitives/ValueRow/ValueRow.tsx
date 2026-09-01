@@ -56,12 +56,23 @@ export const ValueRow = reatomComponent(function ValueRow(props: ValueRowProps) 
 
   return (
     <div data-testid={props['data-testid']} className={cx(s.row, states[state], props.className)}>
-      <span className={s.value}>{text}</span>
+      {/*
+       * `4A`'s control swap, keyed twice rather than once: the value's *text* changes with the
+       * state on this shape, and the trailing glyph changes with it, but the two are not
+       * siblings and the trailing element is the focusable button. Keying the button itself
+       * would drop focus the moment a keyboard user pressed it, so its contents are keyed
+       * instead. Without a key React reuses these nodes and the animation never replays.
+       */}
+      <span key={state} className={s.value}>
+        {text}
+      </span>
       {state === 'failed' ? null : (
         <button type="button" aria-label={copyLabel} onClick={props.onCopy} className={s.trailing}>
-          {state === 'busy' ? <Spinner size={10} /> : null}
-          {state === 'ok' ? <CheckIcon size={10} /> : null}
-          {state === 'idle' ? <CopyIcon size={10} /> : null}
+          <span key={state} className={s.swap}>
+            {state === 'busy' ? <Spinner size={10} /> : null}
+            {state === 'ok' ? <CheckIcon size={10} /> : null}
+            {state === 'idle' ? <CopyIcon size={10} /> : null}
+          </span>
         </button>
       )}
     </div>

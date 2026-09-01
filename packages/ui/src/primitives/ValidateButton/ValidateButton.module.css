@@ -6,10 +6,13 @@
  * the design's own `128px` rather than `Button`'s caller-chosen reserve — it is the width of the
  * longest label this control can ever show, so the top bar never shifts as the state changes.
  *
- * There is no transition here, and that is the design: foundations §6.4 records zero `transition`
- * declarations in the whole file. The only motion is `jspin` inside the spinner, `jsweep` under a
- * running check, and the one-shot `jpop` a resolved chip arrives with — all three read from a
- * `motion` token, never restated.
+ * Motion, as `4A` fixes it. `4A:198` writes this control's cycle as "90 ms swap in, result holds
+ * 4 s, 90 ms swap out", so the `idle` and `checking` contents cross-fade through `.swap` while
+ * `valid` and `invalid` keep the one-shot `jpop` that `3D:665-666` gives the resolved cells. The
+ * frame's `min-width` eases on the settle curve per `4A:82`, inert at the fixed 128px but part of
+ * the control's definition. Duration and curve are separate tokens, never a shorthand — that is
+ * what lets the reduced-motion block zero the duration. `jspin` and `jsweep` are unchanged, and
+ * every value here reads a `motion` token rather than restating one.
  */
 
 .validate {
@@ -17,6 +20,7 @@
   overflow: hidden;
   height: 30px;
   min-width: 128px;
+  transition: min-width var(--jbk-motion-duration-swap) var(--jbk-motion-ease-settle);
   padding: 0 12px;
   display: inline-flex;
   align-items: center;
@@ -34,6 +38,17 @@
 
 .validate:disabled {
   cursor: default;
+}
+
+/*
+ * `4A:80-89` — the swapping subtree for the two unresolved cells, keyed in `ValidateButton.tsx`
+ * so the animation replays on the swap. `gap: inherit` takes the shell's own 8px.
+ */
+.swap {
+  display: inline-flex;
+  align-items: center;
+  gap: inherit;
+  animation: var(--jbk-motion-swap-fade);
 }
 
 /*

@@ -29,3 +29,17 @@ describe('InlineAction', () => {
     expect(screen.getByRole('button', { name: 'copy failed' })).toBeInTheDocument()
   })
 })
+
+/** `4A`'s control swap. `Button.test.tsx` explains why the remount is the thing worth asserting. */
+describe('InlineAction — the 4A control swap', () => {
+  it('remounts the indicator and the text together and keeps the link', () => {
+    const { rerender } = render(<InlineAction state="idle">copy url</InlineAction>)
+    const frame = screen.getByRole('button')
+    const before = frame.firstElementChild
+
+    rerender(<InlineAction state="ok">copied</InlineAction>)
+
+    expect(screen.getByRole('button')).toBe(frame)
+    expect(frame.firstElementChild).not.toBe(before)
+  })
+})

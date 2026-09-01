@@ -83,3 +83,27 @@ describe('ValidateButton', () => {
     expect(onValidate).not.toHaveBeenCalled()
   })
 })
+
+/**
+ * `4A:198` — "90 ms swap in, result holds 4 s, 90 ms swap out". The two ends of that sentence are
+ * the `idle → checking` entry and the `valid|invalid → idle` exit, and both are keyed remounts;
+ * `Button.test.tsx` explains why the remount is what a jsdom render can check. The resolved cells
+ * are deliberately not part of this — `3D:665-666` gives them `jpop` on the shell instead, which
+ * replays on its own because the shell's `animation-name` changes with the state class.
+ */
+describe('ValidateButton — the 4A control swap', () => {
+  it('remounts the contents on the swap in and the swap out, and keeps the shell', () => {
+    const { rerender } = render(<ValidateButton state="idle" />)
+    const frame = screen.getByRole('button')
+    const idle = frame.firstElementChild
+
+    rerender(<ValidateButton state="checking" />)
+    const checking = frame.firstElementChild
+    expect(screen.getByRole('button')).toBe(frame)
+    expect(checking).not.toBe(idle)
+
+    rerender(<ValidateButton state="idle" />)
+    expect(screen.getByRole('button')).toBe(frame)
+    expect(frame.firstElementChild).not.toBe(checking)
+  })
+})

@@ -84,8 +84,14 @@ export const ValidateButton = reatomComponent(function ValidateButton(props: Val
     >
       {state === 'checking' ? (
         <>
-          <Spinner size={11} data-testid="validate-spinner" />
-          <span className={s.label}>Validating</span>
+          {/*
+           * `4A:198`'s "90 ms swap in". The sweep stays outside the swap: it is pinned to the
+           * shell's bottom edge and is a loop of its own, not part of the contents that fade.
+           */}
+          <span key={state} className={s.swap}>
+            <Spinner size={11} data-testid="validate-spinner" />
+            <span className={s.label}>Validating</span>
+          </span>
           {/* The 2 px indeterminate sweep, pinned to the bottom of the overflow-hidden shell. */}
           <span aria-hidden="true" data-testid="validate-sweep" className={s.sweep} />
         </>
@@ -104,7 +110,16 @@ export const ValidateButton = reatomComponent(function ValidateButton(props: Val
           </span>
         </>
       ) : null}
-      {state === 'idle' ? <span className={s.label}>Validate</span> : null}
+      {/*
+       * `4A:198`'s "90 ms swap out" — the return to `Validate` after the 4 s hold. `valid` and
+       * `invalid` are not wrapped: `3D:665-666` gives the resolved cells `jpop` instead, and the
+       * button's own `animation-name` changing is enough to replay that one.
+       */}
+      {state === 'idle' ? (
+        <span key={state} className={s.swap}>
+          <span className={s.label}>Validate</span>
+        </span>
+      ) : null}
     </button>
   )
 }, 'ValidateButton')

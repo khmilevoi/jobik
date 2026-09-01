@@ -45,9 +45,16 @@ export const InlineAction = reatomComponent(function InlineAction(props: InlineA
       data-testid={props['data-testid']}
       className={cx(s.inline, states[state], props.className)}
     >
-      {state === 'busy' ? <Spinner size={8} /> : null}
-      {state === 'ok' ? <CheckIcon size={9} strokeWidth={1.5} /> : null}
-      {children}
+      {/*
+       * `4A`'s control swap. The indicator and the text travel together — the caller's label
+       * changes with the state on this shape — and the `key` is what remounts them so the
+       * animation replays instead of silently doing nothing.
+       */}
+      <span key={state} className={s.swap}>
+        {state === 'busy' ? <Spinner size={8} /> : null}
+        {state === 'ok' ? <CheckIcon size={9} strokeWidth={1.5} /> : null}
+        {children}
+      </span>
     </button>
   )
 }, 'InlineAction')
