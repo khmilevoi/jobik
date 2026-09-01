@@ -44,11 +44,15 @@ describe('Studio', () => {
   it('docks the left panel into the top bar and brings it back', async () => {
     render(<Studio flowFile="index.ts" />)
     await userEvent.click(screen.getByRole('button', { name: 'Collapse flows and nodes' }))
-    expect(screen.queryByTestId('studio-sidebar')).not.toBeInTheDocument()
+    // `4A` keeps the panel mounted so its container's width can ease; collapsed, the slot is
+    // `aria-hidden` and `inert`, so nothing inside it is reachable or announced.
+    expect(screen.getByTestId('studio-left-panel')).toHaveAttribute('aria-hidden', 'true')
+    expect(screen.queryByRole('button', { name: 'Collapse flows and nodes' })).toBeNull()
     expect(screen.queryByTestId('studio-flow-file')).toBeNull()
     expect(screen.getByText('Unsaved')).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Expand flows and nodes' }))
+    expect(screen.getByTestId('studio-left-panel')).not.toHaveAttribute('aria-hidden')
     expect(screen.getByTestId('studio-sidebar')).toBeInTheDocument()
     expect(screen.getByTestId('studio-flow-file')).toHaveTextContent('index.ts')
   })
@@ -64,10 +68,12 @@ describe('Studio', () => {
     expect(screen.queryByRole('button', { name: 'Expand run panel' })).toBeNull()
 
     await userEvent.click(screen.getByRole('button', { name: 'Collapse run panel' }))
-    expect(screen.queryByTestId('studio-dock')).not.toBeInTheDocument()
+    expect(screen.getByTestId('studio-right-panel')).toHaveAttribute('aria-hidden', 'true')
+    expect(screen.queryByRole('button', { name: 'Collapse run panel' })).toBeNull()
     expect(screen.getByTestId('studio-docked-run')).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Expand run panel' }))
+    expect(screen.getByTestId('studio-right-panel')).not.toHaveAttribute('aria-hidden')
     expect(screen.getByTestId('studio-dock')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Expand run panel' })).toBeNull()
   })
@@ -102,7 +108,10 @@ describe('Studio', () => {
     render(<Studio />)
     await userEvent.click(screen.getByRole('button', { name: 'Collapse flows and nodes' }))
     await userEvent.click(screen.getByRole('button', { name: 'Collapse run panel' }))
-    expect(screen.getByTestId('studio-body').childElementCount).toBe(1)
+    // Both slots are clipped to nothing and neither answers, so the canvas is the only thing in
+    // the body a user can see or reach.
+    expect(screen.getByTestId('studio-left-panel')).toHaveAttribute('aria-hidden', 'true')
+    expect(screen.getByTestId('studio-right-panel')).toHaveAttribute('aria-hidden', 'true')
     expect(screen.getByTestId('studio-canvas-slot')).toBeInTheDocument()
   })
 
@@ -112,7 +121,7 @@ describe('Studio', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Collapse run panel' }))
     await userEvent.click(screen.getByRole('button', { name: 'Run' }))
     expect(onRun).toHaveBeenCalledTimes(1)
-    expect(screen.queryByTestId('studio-dock')).not.toBeInTheDocument()
+    expect(screen.getByTestId('studio-right-panel')).toHaveAttribute('aria-hidden', 'true')
   })
 
   it('lets a later plan fill the canvas and the run panel', () => {

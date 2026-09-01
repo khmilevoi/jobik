@@ -1,5 +1,6 @@
 import { reatomComponent } from '@reatom/react'
 import { type ReactNode, useState } from 'react'
+import { cx } from '#cx.js'
 import type {
   FlowNodeSummary,
   FlowSummary,
@@ -189,7 +190,12 @@ export const Studio = reatomComponent(function Studio(props: StudioProps) {
         />
       }
       left={
-        leftCollapsed ? undefined : (
+        <div
+          data-testid="studio-left-panel"
+          className={cx(s.panelSlot, s.panelSlotLeft, leftCollapsed && s.panelSlotCollapsed)}
+          aria-hidden={leftCollapsed || undefined}
+          inert={leftCollapsed}
+        >
           <FlowsSidebar
             flows={flows}
             activeFlowId={activeFlowId}
@@ -204,11 +210,16 @@ export const Studio = reatomComponent(function Studio(props: StudioProps) {
             {...(props.onSelectRun === undefined ? {} : { onSelectRun: props.onSelectRun })}
             onCollapse={() => setLeftCollapsed(true)}
           />
-        )
+        </div>
       }
       canvas={props.canvas ?? <div data-testid="studio-canvas-slot" className={s.canvasSlot} />}
       right={
-        rightCollapsed ? undefined : (
+        <div
+          data-testid="studio-right-panel"
+          className={cx(s.panelSlot, s.panelSlotRight, rightCollapsed && s.panelSlotCollapsed)}
+          aria-hidden={rightCollapsed || undefined}
+          inert={rightCollapsed}
+        >
           <RunDock
             entryNodeId={entryNodeId}
             onCollapse={() => setRightCollapsed(true)}
@@ -218,7 +229,7 @@ export const Studio = reatomComponent(function Studio(props: StudioProps) {
           >
             {props.runPanel}
           </RunDock>
-        )
+        </div>
       }
       {...(props.status === undefined ? {} : { status: props.status })}
     />

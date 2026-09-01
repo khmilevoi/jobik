@@ -6,3 +6,38 @@
   flex: 1;
   min-width: 0;
 }
+
+/*
+ * `4A` Panels (design 143-153), 180 ms: the panel's *container* animates `width` on the settling
+ * curve paired with `opacity` on the exit duration, linear, and "the sidebar keeps its own layout
+ * at a fixed 92 px and the container clips it, so the rows never squash on the way out."
+ *
+ * So the slot owns the width and the clip; `FlowsSidebar` and `RunDock` keep their own 248/320 px
+ * and never learn they are being collapsed. That is also why the panel stays mounted: a width
+ * cannot ease from an element that left the tree in the same frame. Collapsed, the slot is
+ * `aria-hidden` and `inert`, so nothing inside it is reachable, focusable or announced while it is
+ * clipped to nothing.
+ */
+.panelSlot {
+  flex: none;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+  transition:
+    width var(--jbk-motion-duration-layout) var(--jbk-motion-ease-settle),
+    opacity var(--jbk-motion-duration-exit) var(--jbk-motion-ease-linear);
+}
+
+.panelSlotLeft {
+  width: var(--jbk-layout-left-sidebar-width);
+}
+
+.panelSlotRight {
+  width: var(--jbk-layout-right-dock-width);
+}
+
+/* Written after the two widths, so a single class is enough to override them. */
+.panelSlotCollapsed {
+  width: 0;
+  opacity: 0;
+}

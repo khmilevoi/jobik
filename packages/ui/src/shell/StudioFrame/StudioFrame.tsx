@@ -9,11 +9,15 @@ export interface StudioFrameProps {
   /** `#1fd6bd` by default. The design also ships `accentAlternates`. */
   readonly accent?: string
   readonly topBar: ReactNode
-  /** Omitted entirely when the left panel is collapsed. */
+  /**
+   * The left column. `Studio` fills it with a clipping slot that keeps the panel mounted and eases
+   * its width — `4A` Panels, 180 ms — so the frame no longer sees the panel come and go; the slot
+   * stays optional for a caller that has no left column at all.
+   */
   readonly left?: ReactNode
   /** Filled by P7. This plan passes a placeholder. */
   readonly canvas: ReactNode
-  /** Omitted entirely when the right dock is collapsed. */
+  /** The right column, filled the same way as `left`. */
   readonly right?: ReactNode
   /**
    * `3D` — the status or problems strip, under the three columns and across the full width.

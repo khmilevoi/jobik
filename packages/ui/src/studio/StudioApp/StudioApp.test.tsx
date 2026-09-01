@@ -709,8 +709,10 @@ describe('the collapsed layout', () => {
     await userEvent.click(screen.getByLabelText('Collapse flows and nodes'))
     await userEvent.click(screen.getByLabelText('Collapse run panel'))
 
-    expect(screen.queryByTestId('studio-sidebar')).toBeNull()
-    expect(screen.queryByTestId('studio-dock')).toBeNull()
+    // `4A` keeps a collapsed panel mounted so its container's width can ease; the slot goes
+    // `aria-hidden` and `inert` instead, so nothing inside it is reachable or announced.
+    expect(screen.getByTestId('studio-left-panel')).toHaveAttribute('aria-hidden', 'true')
+    expect(screen.getByTestId('studio-right-panel')).toHaveAttribute('aria-hidden', 'true')
     const dockedRun = screen.getByTestId('studio-docked-run')
     expect(dockedRun.textContent).toContain('start1')
     expect(screen.getByTestId('node-card-start1')).toBeInTheDocument()
