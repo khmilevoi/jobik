@@ -105,6 +105,25 @@ describe('ModalShell', () => {
     expect(screen.queryByTestId('modal-close')).toBeNull()
   })
 
+  /**
+   * `4A`'s two phases, as the attribute the stylesheet selects on. What each phase *looks* like is
+   * the gates' business; that the shell reports which one it is in is this file's.
+   */
+  it('reports its phase, and reports back when the departure is over', () => {
+    const onExited = vi.fn()
+    const { dialog } = renderShell({ onExited })
+    expect(dialog).toHaveAttribute('data-phase', 'open')
+    expect(onExited).not.toHaveBeenCalled()
+
+    cleanup()
+    const leaving = renderShell({ leaving: true, onExited })
+    expect(leaving.dialog).toHaveAttribute('data-phase', 'leaving')
+    // jsdom applies no stylesheet, so the card's exit animation is zero-length and the hold is
+    // over in the same tick. A browser waits `--jbk-motion-duration-exit` instead, and reduced
+    // motion puts it back to zero.
+    expect(onExited).toHaveBeenCalledTimes(1)
+  })
+
   it('restores focus to whatever was focused when it opened', () => {
     const opener = document.createElement('button')
     document.body.append(opener)

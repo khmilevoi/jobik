@@ -6,6 +6,38 @@
  * override, so a dialog that has not been opened yet paints nothing.
  */
 
+/*
+ * `4A` — the overlay row of the motion scale, and the only place in the app that spends it.
+ * `200 ms` in, `120 ms` out; the backdrop's own opacity is linear in both directions and the card
+ * rises `6 px` on the way in and does not fall on the way out. Every value is a token, so
+ * `prefers-reduced-motion` zeroes the durations and this file is none the wiser — which is also
+ * what shortens the hold `ModalShell` measures before it drops the element.
+ */
+@keyframes scrimIn {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes scrimOut {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes cardIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes cardOut {
+  to {
+    opacity: 0;
+  }
+}
+
 .scrim {
   position: fixed;
   inset: 0;
@@ -21,6 +53,7 @@
   border: none;
   background: var(--jbk-modal-backdrop);
   font-family: var(--jbk-font-ui);
+  animation: scrimIn var(--jbk-motion-duration-exit) var(--jbk-motion-ease-linear);
 }
 
 .scrim:not([open]) {
@@ -48,6 +81,22 @@
   border-radius: var(--jbk-radius-panel);
   background: var(--jbk-surface-top-bar);
   box-shadow: var(--jbk-modal-card-shadow);
+  animation: cardIn var(--jbk-motion-duration-overlay-in) var(--jbk-motion-ease-settle);
+}
+
+/*
+ * The departure, declared after the two rules it overrides so specificity only ever ascends.
+ * `forwards` holds the last frame for the tick between the animation ending and React dropping the
+ * element, and `pointer-events:none` is why a dialog the model has already closed cannot be
+ * pressed again on its way out.
+ */
+.scrim[data-phase="leaving"] {
+  pointer-events: none;
+  animation: scrimOut var(--jbk-motion-duration-exit) var(--jbk-motion-ease-linear) forwards;
+}
+
+.scrim[data-phase="leaving"] .card {
+  animation: cardOut var(--jbk-motion-duration-exit) var(--jbk-motion-ease-exit) forwards;
 }
 
 .width400 {

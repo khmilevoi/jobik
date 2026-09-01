@@ -45,8 +45,30 @@ export interface ModalShellProps {
   readonly destructive?: boolean
   /** `esc`, the `×` and (when not destructive) a backdrop click all land here. */
   readonly onDismiss: () => void
+  /**
+   * `4A` — the model has closed and only the `120 ms` departure is left to play. The card stops
+   * answering the pointer, and {@link ModalShellProps.onExited} fires when the animation ends.
+   * `useModalExit` is what supplies both.
+   */
+  readonly leaving?: boolean
+  readonly onExited?: () => void
   readonly children: ReactNode
   readonly 'data-testid'?: string
+}
+
+/**
+ * The card's own exit animation, in milliseconds, straight off its computed style.
+ *
+ * `animation-duration` is a list; the leaving rule declares one animation, so the first entry is
+ * it. Anything unparseable — an empty string where no stylesheet was applied, `auto`, a runtime
+ * without `getComputedStyle` — is zero, which means "do not wait".
+ */
+function exitDurationMs(element: Element): number {
+  const declared = globalThis.getComputedStyle?.(element).animationDuration ?? ''
+  const first = declared.split(',')[0]?.trim() ?? ''
+  const value = Number.parseFloat(first)
+  if (!Number.isFinite(value) || value <= 0) return 0
+  return first.endsWith('ms') ? value : value * 1000
 }
 
 /** Written out in full so a missing width is a type error and every read is one the gate can see. */
@@ -102,10 +124,23 @@ const bodyGaps = {
  * The one thing that scope cannot inherit is the frame's inline `--accent` override, so a modal
  * outside the frame draws `--jbk-accent` at its default rather than at a caller's alternate.
  *
- * **Motion:** `01-foundations.md` §6.7 records that the design fixes *no* enter, exit or backdrop
- * fade for a modal — "the card is simply present" — so none is invented. The only thing that moves
- * in `3C` is the spinner inside the Cancel-run dialog, which turns because the run is still
- * running.
+ * **Motion:** artboard `4A` (`.design/raw/studio.dc.html:181-193`) supersedes `01-foundations.md`
+ * §6.7, which this docblock used to cite for the claim that the design fixes no enter, exit or
+ * backdrop fade. It fixes all three, and they are the only overlay in the app that spends that row
+ * of the scale: **`200 ms` in** — backdrop and card together, the card rising `6 px` on the
+ * settling curve — and **`120 ms` out** on the sharp curve with **no rise**, the backdrop's own
+ * opacity `120 ms` linear in both directions. Every duration and curve is read from a
+ * `--jbk-motion-*` token, so `prefers-reduced-motion` zeroes them without this file knowing.
+ *
+ * The exit needs the element to outlive the state write that dismisses it, which `useModalExit`
+ * arranges on the caller's side; this component measures the card's own computed
+ * `animation-duration` and reports `onExited` when it has elapsed. Measuring rather than assuming
+ * is what keeps a zeroed duration — reduced motion, or a runtime that applies no stylesheet —
+ * synchronous. `4A` rule 04 stands either way: the action has already fired and every other surface
+ * has moved on before the first frame of the departure.
+ *
+ * The other thing that moves in `3C` is the spinner inside the Cancel-run dialog, which turns
+ * because the run is still running.
  *
  * **The `useRef`/`useEffect` pair below stays, and that is a decision rather than an oversight.**
  * Everything else in this wave moved state out of a component and into the model; what this one
@@ -117,8 +152,9 @@ const bodyGaps = {
  * and its focus capture and restoration are left exactly where they were.
  */
 export const ModalShell = reatomComponent(function ModalShell(props: ModalShellProps) {
-  const { header, onDismiss } = props
+  const { header, onDismiss, leaving, onExited } = props
   const dialogRef = useRef<HTMLDialogElement>(null)
+  const cardRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const dialog = dialogRef.current
@@ -137,6 +173,32 @@ export const ModalShell = reatomComponent(function ModalShell(props: ModalShellP
       if (restoreTo instanceof HTMLElement) restoreTo.focus()
     }
   }, [])
+
+  /**
+   * The departure, timed by the stylesheet rather than by a number written here. A card whose
+   * computed `animation-duration` is zero — reduced motion, or a runtime that never applied the
+   * module — reports back in the same tick, so nothing waits for an animation that is not running.
+   */
+  useEffect(() => {
+    if (leaving !== true || onExited === undefined) return
+    const card = cardRef.current
+    const ms = card === null ? 0 : exitDurationMs(card)
+    if (ms <= 0) {
+      onExited()
+      return
+    }
+    const timer = globalThis.setTimeout(onExited, ms)
+    // The animation is the authority; the timer is only there for a runtime that never fires it.
+    const finish = (): void => {
+      globalThis.clearTimeout(timer)
+      onExited()
+    }
+    card?.addEventListener('animationend', finish, { once: true })
+    return () => {
+      globalThis.clearTimeout(timer)
+      card?.removeEventListener('animationend', finish)
+    }
+  }, [leaving, onExited])
 
   // `esc` is answered here rather than through the native close request so one path serves both
   // branches above, and so the dialog never closes itself behind the caller's back: dismissal is
@@ -161,12 +223,13 @@ export const ModalShell = reatomComponent(function ModalShell(props: ModalShellP
       aria-modal="true"
       aria-label={props.title}
       data-testid={props['data-testid'] ?? 'modal'}
+      data-phase={leaving === true ? 'leaving' : 'open'}
       className={s.scrim}
       onCancel={(event) => event.preventDefault()}
       onKeyDown={onKeyDown}
       onClick={onBackdropClick}
     >
-      <div className={cx(s.card, widths[props.width])}>
+      <div ref={cardRef} className={cx(s.card, widths[props.width])}>
         {header === undefined ? null : (
           <header className={s.header}>
             {header.lead === undefined ? null : <div className={s.lead}>{header.lead}</div>}

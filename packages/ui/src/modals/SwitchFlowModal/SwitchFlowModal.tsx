@@ -1,5 +1,6 @@
 import { reatomComponent, useWrap } from '@reatom/react'
 import { ModalShell } from '#modals/ModalShell/ModalShell.js'
+import { useModalExit } from '#modals/modalExit.js'
 import { type ProseSegment, ProseText } from '#modals/ProseText/ProseText.js'
 import { useStudioModel } from '#model/context.js'
 import { Button } from '#primitives/index.js'
@@ -85,6 +86,13 @@ export function switchFlowRunningMeta(runNumber: number, elapsed: string): strin
   return `run #${runNumber} · ${elapsed}`
 }
 
+/** Everything the dialog draws, read in one place so `4A`'s departure has a last frame to hold. */
+interface SwitchFlowView {
+  readonly body: SwitchFlowBody
+  readonly targetFlowName: string
+  readonly currentFlowName: string
+}
+
 /**
  * Artboard `3F` — **Switch flow**, `520px`. One modal with two bodies.
  *
@@ -153,13 +161,26 @@ export const SwitchFlowModal = reatomComponent(function SwitchFlowModal() {
     flowSwitch.stay()
   }, 'SwitchFlowModal.stay')
 
-  // RTM-C01: the guards first, and every value the body draws only after them.
-  const body = flowSwitch.body()
-  if (body === undefined) return null
-  const targetFlowName = flowSwitch.pendingFlowName()
-  if (targetFlowName === undefined) return null
+  // RTM-C01: the guards first, and every value the body draws only after them. They read into a
+  // view rather than returning early, so `4A`'s 120 ms departure has something to draw — see
+  // `useModalExit`. `4A`'s coverage note for this dialog is the reason it matters here in
+  // particular: *"200 / 120 ms, and the 240 ms screen change starts only after it closes."*
+  const view = ((): SwitchFlowView | undefined => {
+    const current = flowSwitch.body()
+    if (current === undefined) return undefined
+    const target = flowSwitch.pendingFlowName()
+    if (target === undefined) return undefined
+    return {
+      body: current,
+      targetFlowName: target,
+      currentFlowName: flows.descriptor()?.name ?? flows.flowId() ?? '',
+    }
+  })()
 
-  const currentFlowName = flows.descriptor()?.name ?? flows.flowId() ?? ''
+  const exit = useModalExit(view)
+  if (exit === undefined) return null
+
+  const { body, targetFlowName, currentFlowName } = exit.view
   const title = `Switch to ${targetFlowName}?`
 
   const mark =
@@ -218,6 +239,8 @@ export const SwitchFlowModal = reatomComponent(function SwitchFlowModal() {
       hint={`esc stays in ${currentFlowName}`}
       actions={actions}
       onDismiss={stay}
+      leaving={exit.leaving}
+      onExited={exit.onExited}
     >
       <div className={s.titleRow}>
         {mark}

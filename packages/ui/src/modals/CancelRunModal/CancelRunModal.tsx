@@ -1,5 +1,6 @@
 import { reatomComponent, useAction } from '@reatom/react'
 import { ModalShell } from '#modals/ModalShell/ModalShell.js'
+import { useModalExit } from '#modals/modalExit.js'
 import { type ProseSegment, ProseText } from '#modals/ProseText/ProseText.js'
 import { useStudioModel } from '#model/context.js'
 import { Button } from '#primitives/index.js'
@@ -32,6 +33,13 @@ export function cancelRunMessage(nodeId: string): readonly ProseSegment[] {
     { text: nodeId, mono: true },
     { text: ' again.' },
   ]
+}
+
+/** Everything the dialog draws, read in one place so `4A`'s departure has a last frame to hold. */
+interface CancelRunView {
+  readonly title: string
+  readonly elapsed: string
+  readonly nodeId: string
 }
 
 /**
@@ -74,15 +82,26 @@ export const CancelRunModal = reatomComponent(function CancelRunModal() {
   const keepRunning = useAction(run.keepRunning)
   const confirmCancel = useAction(run.confirmCancel)
 
-  // RTM-C01: the guards first, and every value the body draws only after them.
-  if (!run.cancelPrompt()) return null
-  if (!run.running()) return null
-  const session = run.session()
-  if (session === undefined) return null
+  // RTM-C01: the guards first, and every value the body draws only after them. They read into a
+  // view rather than returning early, so `4A`'s 120 ms departure has something to draw — see
+  // `useModalExit`. A shut dialog still reads `cancelPrompt` and nothing else, and the 10 Hz clock
+  // still reaches this component only while it is on screen.
+  const view = ((): CancelRunView | undefined => {
+    if (!run.cancelPrompt()) return undefined
+    if (!run.running()) return undefined
+    const session = run.session()
+    if (session === undefined) return undefined
+    return {
+      title: `Cancel run #${session.runNumber ?? 0}?`,
+      elapsed: formatElapsed(run.elapsedMs()),
+      nodeId: run.runningNodeId() ?? inputs.startId() ?? '',
+    }
+  })()
 
-  const title = `Cancel run #${session.runNumber ?? 0}?`
-  const elapsed = formatElapsed(run.elapsedMs())
-  const nodeId = run.runningNodeId() ?? inputs.startId() ?? ''
+  const exit = useModalExit(view)
+  if (exit === undefined) return null
+
+  const { title, elapsed, nodeId } = exit.view
 
   const actions = (
     <>
@@ -105,6 +124,8 @@ export const CancelRunModal = reatomComponent(function CancelRunModal() {
       hint="esc keeps running"
       actions={actions}
       onDismiss={keepRunning}
+      leaving={exit.leaving}
+      onExited={exit.onExited}
     >
       <div className={s.titleRow}>
         <Spinner size={11} data-testid="cancel-run-spinner" />

@@ -1,6 +1,7 @@
 import { reatomComponent, useAction } from '@reatom/react'
 import { cx } from '#cx.js'
 import { ModalShell } from '#modals/ModalShell/ModalShell.js'
+import { useModalExit } from '#modals/modalExit.js'
 import { type ProseSegment, ProseText } from '#modals/ProseText/ProseText.js'
 import { useStudioModel } from '#model/context.js'
 import { CopyIcon } from '#primitives/icons/CopyIcon.js'
@@ -57,6 +58,14 @@ const actionTones = {
   accent: s.actionAccent,
   muted: s.actionMuted,
 } satisfies Record<ValidationActionTone, string>
+
+/** Everything the dialog draws, read in one place so `4A`'s departure has a last frame to hold. */
+interface ValidationView {
+  readonly findings: readonly ValidationFinding[]
+  readonly checking: boolean
+  readonly copyCell: CopyState
+  readonly context?: string
+}
 
 /**
  * `3A` §2.1's four cells, with `3C` §2's own noun. The idle label is the artboard's `Copy report`;
@@ -127,20 +136,32 @@ export const ValidationModal = reatomComponent(function ValidationModal() {
   const copyReport = useAction(validation.copyReport)
   const dismiss = useAction(validation.closeReport)
 
-  // RTM-C01: the guards first, and every value the body draws only after them.
-  if (!validation.reportOpen()) return null
-  const findings = validation.reportFindings()
-  if (findings === undefined) return null
+  // RTM-C01: the guards first, and every value the body draws only after them. They read into a
+  // view rather than returning early, so `4A`'s 120 ms departure has something to draw — see
+  // `useModalExit`. A shut dialog still reads `reportOpen` and nothing else.
+  const view = ((): ValidationView | undefined => {
+    if (!validation.reportOpen()) return undefined
+    const rows = validation.reportFindings()
+    if (rows === undefined) return undefined
 
-  const checking = validation.active()?.kind === 'checking'
-  const copyCell = validation.copyState()
+    // §1.3 draws the context as `name · file`, and draws no state in which it is missing. A
+    // descriptor that has not resolved yet has neither half, so the slot is omitted rather than
+    // degraded to the separator between two empty strings.
+    const descriptor = flows.descriptor()
+    return {
+      findings: rows,
+      checking: validation.active()?.kind === 'checking',
+      copyCell: validation.copyState(),
+      ...(descriptor === undefined
+        ? {}
+        : { context: `${descriptor.name} · ${descriptor.sourceFile}` }),
+    }
+  })()
 
-  // §1.3 draws the context as `name · file`, and draws no state in which it is missing. A
-  // descriptor that has not resolved yet has neither half, so the slot is omitted rather than
-  // degraded to the separator between two empty strings.
-  const descriptor = flows.descriptor()
-  const context =
-    descriptor === undefined ? undefined : `${descriptor.name} · ${descriptor.sourceFile}`
+  const exit = useModalExit(view)
+  if (exit === undefined) return null
+
+  const { findings, checking, copyCell, context } = exit.view
   const errors = findings.filter((finding) => finding.severity === 'error').length
   const warnings = findings.length - errors
 
@@ -199,6 +220,8 @@ export const ValidationModal = reatomComponent(function ValidationModal() {
       hint="esc to close"
       actions={actions}
       onDismiss={dismiss}
+      leaving={exit.leaving}
+      onExited={exit.onExited}
     >
       {findings.map((finding) => (
         <div
