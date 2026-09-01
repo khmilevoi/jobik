@@ -129,15 +129,27 @@ export function reatomDockState(
    * `10-output-dock.md` §4 — "a `window` `keydown` listener … closes the dock globally, from
    * anywhere in the app". It is the dock's own behaviour, so it is bound here and not in the shell.
    *
-   * `model/shortcuts.ts` binds `esc` too, and deliberately: inside the Studio that binding is the
-   * one that matters, because it alone knows the priority order — a modal that already answered the
-   * press, then the viewer, then a run in flight. This one is what a dock rendered outside the
-   * Studio still has, and closing an already-closed viewer is a no-op, so the two cannot disagree.
+   * **It is kept rather than deleted in favour of `model/shortcuts.ts`, and it now checks
+   * `defaultPrevented`.** Both halves are deliberate.
+   *
+   * `OutputDock` is exported from `@jobik/ui`, and a dock mounted outside a Studio has no shortcut
+   * layer at all — deleting this listener would take §4 away from the surface the design fixes it
+   * for, to serve a priority order only the Studio has. So the dock keeps its own `esc`.
+   *
+   * What it must not do is *outrank* that order. `model/shortcuts.ts` resolves `esc` as: a modal
+   * that already answered the press → the viewer → a run in flight; and a modal answers by calling
+   * `preventDefault()` on the way up (`ModalShell`). This listener used to ignore that, so inside
+   * the Studio an `esc` that dismissed `3C`'s `Cancel run #221?` also closed the dock underneath it
+   * — one press, two dismissals, the second of which nobody asked for. The guard below is the whole
+   * fix: an already-answered press stops here, and every other `esc` closes the dock exactly as it
+   * did. Closing an already-closed viewer stays a no-op, so the two bindings still cannot disagree
+   * about the presses that do reach both.
    */
   const escBound = atom(false, `${name}.escBound`).extend(
     withConnectHook(() => {
       const off = onEvent(globalThis, 'keydown', (event) => {
-        if (event.key === 'Escape') input.onClose()
+        if (event.key !== 'Escape' || event.defaultPrevented) return
+        input.onClose()
       })
       escBound.set(true)
       return () => {

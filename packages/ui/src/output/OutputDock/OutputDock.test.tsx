@@ -179,6 +179,34 @@ describe('OutputDock — dismissal', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
+  /**
+   * `10-output-dock.md` §4 stays the dock's own behaviour — this component is exported, and a dock
+   * mounted outside a Studio has no `model/shortcuts.ts` to close it — but it must not outrank the
+   * priority order the Studio has. `shortcuts` resolves `esc` as: a modal that already answered the
+   * press, then the viewer, then a run in flight; a modal answers by calling `preventDefault()` on
+   * the way up (`ModalShell`). Until now this listener ignored that, so dismissing `3C`'s
+   * `Cancel run #221?` inside the Studio also closed the dock underneath it off the same press.
+   *
+   * The capture-phase listener below is what a modal above the dock does: the press is dispatched
+   * at an element so it travels window → target → window, and the dock's own bubble-phase listener
+   * sees a press that has already been answered.
+   */
+  it('leaves an Escape a modal above it already answered alone', async () => {
+    const onClose = vi.fn()
+    mountDock(<OutputDock nodeId="render" output={output} onClose={onClose} />)
+    await listening()
+
+    const answer = (event: Event) => event.preventDefault()
+    window.addEventListener('keydown', answer, true)
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    window.removeEventListener('keydown', answer, true)
+    expect(onClose).not.toHaveBeenCalled()
+
+    // ...and an unanswered press still closes it, so the guard narrowed nothing else.
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
   it('ignores every other key', async () => {
     const onClose = vi.fn()
     mountDock(<OutputDock nodeId="render" output={output} onClose={onClose} />)

@@ -12,7 +12,6 @@ import { OutputDock } from '#output/index.js'
 import { RunPanel } from '#run/index.js'
 import { ProblemsStrip, StatusStrip } from '#shell/index.js'
 import type { ExternalModules } from '#studio/extensionLoader.js'
-import { formatElapsed } from '#studio/format.js'
 import { toFlowNodeSummaries, toFlowSummaries, toInventory } from '#studio/graphModel.js'
 import { RunningChip, SaveConflictChip, SaveErrorChip } from '#studio/RunningChip/RunningChip.js'
 import { Studio } from '#studio/Studio/Studio.js'
@@ -101,7 +100,6 @@ const StudioAppBody = reatomComponent(function StudioAppBody(props: StudioAppBod
   const startId = inputs.startId()
   const selectedNodeId = inputs.selectedNodeId()
   const running = run.running()
-  const elapsed = formatElapsed(run.elapsedMs())
   const saveState = save.state()
   const validated = validation.active()
   const problems = validation.problems()
@@ -146,8 +144,11 @@ const StudioAppBody = reatomComponent(function StudioAppBody(props: StudioAppBod
    * Discovery and load are two units (R5), so the listing and the id settle ahead of `descriptor`,
    * and naming the flow before its own document has resolved would flash a half-loaded shell.
    *
-   * They are memoised because this component re-renders on the run's 100ms clock — it prints the
-   * elapsed in two places — and none of the three has anything to do with a run.
+   * They are memoised because this component re-renders on every stream frame that moves anything
+   * it reads, and none of the three has anything to do with a run. It no longer re-renders on the
+   * run's 100ms clock: `run.elapsedMs` is read by `RunningChip` alone, so the only thing a tick
+   * moves is the chip. `runMeta` prints an elapsed too, but a settled one — the report's own number,
+   * which lands once.
    */
   const flowList = flows.flows()
   const sidebar = useMemo(
@@ -208,7 +209,7 @@ const StudioAppBody = reatomComponent(function StudioAppBody(props: StudioAppBod
     ) : saveState.kind === 'error' ? (
       <SaveErrorChip message={saveState.error.message} />
     ) : running && startId !== undefined ? (
-      <RunningChip startId={startId} elapsed={elapsed} onCancel={askToCancel} />
+      <RunningChip startId={startId} onCancel={askToCancel} />
     ) : undefined
 
   /**
