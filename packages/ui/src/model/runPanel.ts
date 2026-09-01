@@ -259,10 +259,15 @@ export function reatomRunPanel(
     return session === undefined ? NO_TIMINGS : toRunNodeTimings(session, _order())
   }, `${name}._completedNodes`)
 
-  /** `2A`'s `Log` / `tail` block, which is the running `Live log` with the other follow label. */
+  /**
+   * `2A`'s `Log` / `tail` block, which is the running `Live log` with the other follow label.
+   *
+   * The label is no longer re-stated here: `toRunLog` reads it off the session, and a completed
+   * session is settled by definition. `NO_TAIL` stays, because there is no session to ask.
+   */
   const _completedLog = computed<RunLog>(() => {
     const session = _completedSession()
-    return session === undefined ? NO_TAIL : { ...toRunLog(session), followLabel: 'tail' }
+    return session === undefined ? NO_TAIL : toRunLog(session)
   }, `${name}._completedLog`)
 
   /** `Studio — default`'s `Last run` block — whatever run is on screen, current start or not. */

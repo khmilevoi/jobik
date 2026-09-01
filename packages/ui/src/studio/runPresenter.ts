@@ -60,14 +60,21 @@ export function toRunNodeTimings(
  * `### Run panel` running state: a `Live log` with mono timestamped lines. The core `RunLogLine`
  * carries `{ nodeId, message, at }`; the panel wants `{ time, text }`, and the artboard's lines
  * read `render layout pass complete` — the node id, then the message.
+ *
+ * F-S3: the header's right-hand label is a statement about the log, so it belongs to the session
+ * rather than to whichever panel state happens to draw it. `follow` means the lines are still
+ * arriving; `2A`'s settled `Log` block reads `tail`, and a session is settled the moment it has a
+ * report or a failure of its own. Nothing streams into a settled session, so `follow` there would
+ * promise motion that has already stopped.
  */
 export function toRunLog(session: RunSession): RunLog {
+  const settled = session.report !== undefined || session.failure !== undefined
   return {
     lines: session.logs.map((line) => ({
       time: formatLogTime(line.at - session.startedAt),
       text: `${line.nodeId} ${line.message}`,
     })),
-    followLabel: 'follow',
+    followLabel: settled ? 'tail' : 'follow',
   }
 }
 

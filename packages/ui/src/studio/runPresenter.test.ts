@@ -51,8 +51,41 @@ describe('toRunLog', () => {
     expect(toRunLog(session).lines).toEqual([{ time: '0.31', text: 'render layout pass' }])
   })
 
-  it('carries the follow label the artboard reads', () => {
+  it('carries the follow label the artboard reads while the lines are still arriving', () => {
     expect(toRunLog(reduce([])).followLabel).toBe('follow')
+  })
+
+  /**
+   * F-S3: `2A`'s settled `Log` block reads `tail`, and the label is a statement about the session
+   * rather than about whichever panel state draws it. A settled run streams nothing, so `follow`
+   * there would promise motion that has already stopped.
+   */
+  it('reads tail once the run has settled with a report', () => {
+    const session = reduce([
+      {
+        type: 'run-settled',
+        report: {
+          flowName: 'publication',
+          startId: 'start1',
+          runNumber: 219,
+          status: 'ok',
+          elapsedMs: 2400,
+          nodes: [],
+          logs: [],
+          error: null,
+        },
+      },
+    ])
+
+    expect(toRunLog(session).followLabel).toBe('tail')
+  })
+
+  it('reads tail once the run has failed outright, which also ends the stream', () => {
+    const session = reduce([
+      { type: 'run-failed', error: { _tag: null, message: 'Internal server error' } },
+    ])
+
+    expect(toRunLog(session).followLabel).toBe('tail')
   })
 })
 
