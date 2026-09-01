@@ -118,11 +118,7 @@ describe('RunFailedView, with the failing inputs shown', () => {
   }
 
   it('shows the value that produced the failure', () => {
-    render(
-      <RunFailedView
-        state={state({ inputs: { descriptor, draft: { title: '1234' } } })}
-      />,
-    )
+    render(<RunFailedView state={state({ inputs: { descriptor, draft: { title: '1234' } } })} />)
     expect(screen.getByTestId('run-input-title')).toHaveValue('1234')
     expect(screen.getByTestId('run-input-annotation-title').textContent).toBe('string')
   })
