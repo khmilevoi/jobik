@@ -11,6 +11,38 @@
   background: var(--jbk-surface-shell);
 }
 
+/*
+ * `4A` Flow switch — *"The only 240 ms in the app. The outgoing graph fades and drifts 8 px up, the
+ * incoming one arrives from 8 px down, and the chrome — top bar, panels, dock — never moves."*
+ *
+ * `.graph` is the layer that moves, and it holds only React Flow. The chrome is not inside the
+ * canvas at all, so it cannot move; `.canvas` keeps the shell surface, so nothing behind the graph
+ * fades with it.
+ *
+ * Only the arrival is drawn. The outgoing half needs both graphs on screen at once, and the canvas
+ * is handed one document at a time — so this is the visible half of the artboard's two, and the one
+ * the prototype spends the 240 ms on.
+ *
+ * `.graphEntering` carries `transition: none` deliberately: it is the prototype's own one frame of
+ * suppressed transition on entry, and without it the layer would ease INTO the offset it is
+ * supposed to arrive FROM.
+ */
+.graph {
+  width: 100%;
+  height: 100%;
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity var(--jbk-motion-duration-screen) var(--jbk-motion-ease-linear),
+    transform var(--jbk-motion-duration-screen) var(--jbk-motion-ease-settle);
+}
+
+.graphEntering {
+  opacity: 0;
+  transform: translateY(8px);
+  transition: none;
+}
+
 .flow {
   width: 100%;
   height: 100%;

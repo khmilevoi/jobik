@@ -16,6 +16,7 @@ import { fieldHandleId, liveFieldsByNode, resolveEdgeTone } from '#canvas/fields
 import { type JobikFlowNode, JobikNode } from '#canvas/NodeCard/NodeCard.js'
 import type { EdgeShape, FlowCanvasEdge, FlowCanvasNode, FlowCanvasProps } from '#canvas/types.js'
 import { ZoomControls } from '#canvas/ZoomControls/ZoomControls.js'
+import { cx } from '#cx.js'
 import { accent } from '#tokens.js'
 import s from './FlowCanvas.module.css'
 
@@ -159,6 +160,29 @@ export const FlowCanvas = reatomComponent(function FlowCanvas(props: FlowCanvasP
     onSelectStart,
   } = props
   const shape = props.edgeShape ?? 'curved'
+  const flowId = props.flowId
+
+  /**
+   * `4A` Flow switch, the canvas's half of it. The graph layer is put at the artboard's 8px offset
+   * with its transition suppressed, and released on the next frame so it eases in over 240ms — see
+   * `FlowCanvas.module.css`. Two frames, not one: the browser has to paint the offset before the
+   * class comes off, or there is nothing to ease from.
+   *
+   * The chrome is not in here at all, so "the chrome never moves" holds by construction.
+   * `prefers-reduced-motion` zeroes the duration token, and the layer then arrives in one frame.
+   */
+  const [entering, setEntering] = useState(false)
+
+  useEffect(() => {
+    if (flowId === undefined) return
+    setEntering(true)
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => setEntering(false))
+    })
+    return () => {
+      cancelAnimationFrame(frame)
+    }
+  }, [flowId])
 
   const [rfNodes, setRfNodes] = useState<JobikFlowNode[]>(() =>
     toReactFlowNodes(nodes, edges, startNodeId, selectedNodeId),
@@ -214,26 +238,32 @@ export const FlowCanvas = reatomComponent(function FlowCanvas(props: FlowCanvasP
 
   return (
     <div data-testid="flow-canvas" className={s.canvas} style={props.style}>
-      <ReactFlow
-        nodes={rfNodes}
-        edges={rfEdges}
-        nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
-        onNodesChange={onNodesChange}
-        onNodeDragStop={onNodeDragStop}
-        onNodeClick={onNodeClick}
-        onConnect={onConnect}
-        connectionLineStyle={{
-          stroke: accent.cssVar,
-          strokeWidth: canvasMetrics.edgeStrokeWidth,
-        }}
-        deleteKeyCode={null}
-        proOptions={{ hideAttribution: true }}
-        className={s.flow}
+      <div
+        data-testid="flow-graph"
+        data-entering={entering ? 'true' : undefined}
+        className={cx(s.graph, entering && s.graphEntering)}
       >
-        {props.showDotGrid === false ? null : <Background {...dotGrid} />}
-        <ZoomControls />
-      </ReactFlow>
+        <ReactFlow
+          nodes={rfNodes}
+          edges={rfEdges}
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          onNodesChange={onNodesChange}
+          onNodeDragStop={onNodeDragStop}
+          onNodeClick={onNodeClick}
+          onConnect={onConnect}
+          connectionLineStyle={{
+            stroke: accent.cssVar,
+            strokeWidth: canvasMetrics.edgeStrokeWidth,
+          }}
+          deleteKeyCode={null}
+          proOptions={{ hideAttribution: true }}
+          className={s.flow}
+        >
+          {props.showDotGrid === false ? null : <Background {...dotGrid} />}
+          <ZoomControls />
+        </ReactFlow>
+      </div>
     </div>
   )
 }, 'FlowCanvas')

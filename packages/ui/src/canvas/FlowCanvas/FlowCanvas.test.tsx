@@ -328,3 +328,51 @@ describe('FlowCanvas — a drag the props do not know about yet', () => {
     })
   })
 })
+
+/**
+ * `4A` Flow switch — *"The only 240 ms in the app. The outgoing graph fades and drifts 8 px up, the
+ * incoming one arrives from 8 px down, and the chrome — top bar, panels, dock — never moves."*
+ *
+ * What the canvas owes is the arrival, and only on a genuine screen change. The offset and the
+ * duration are the stylesheet's (`.graph` / `.graphEntering`, off `--jbk-motion-duration-screen`);
+ * what is asserted here is *when* the canvas asks for them, because a rebuilt-but-equal `nodes`
+ * array is the thing every other case in this file exists to keep from counting as an event.
+ */
+describe('FlowCanvas — the 240ms flow switch', () => {
+  const graph = () => screen.getByTestId('flow-graph')
+
+  it('plays the arrival on a new flow and settles, and never on a rebuilt array', async () => {
+    const canvas = (flowId: string) => (
+      <FlowCanvas nodes={nodes} edges={edges} startNodeId="start1" flowId={flowId} />
+    )
+    const { rerender } = mountCanvas(canvas('publication'))
+
+    // The graph arrives once, then settles — the class comes off and the layer is at rest.
+    await waitFor(() => {
+      expect(graph()).not.toHaveAttribute('data-entering')
+    })
+
+    rerender(
+      <FlowCanvas
+        nodes={[...nodes]}
+        edges={[...edges]}
+        startNodeId="start1"
+        flowId="publication"
+      />,
+    )
+    // A new array identity is a document edit, not a screen change. Nothing plays.
+    expect(graph()).not.toHaveAttribute('data-entering')
+
+    rerender(canvas('pokedex'))
+    expect(graph()).toHaveAttribute('data-entering', 'true')
+    await waitFor(() => {
+      expect(graph()).not.toHaveAttribute('data-entering')
+    })
+  })
+
+  it('never plays at all for a caller that states no flow', async () => {
+    mountCanvas(<FlowCanvas nodes={nodes} edges={edges} startNodeId="start1" />)
+    await screen.findByTestId('flow-graph')
+    expect(graph()).not.toHaveAttribute('data-entering')
+  })
+})

@@ -247,6 +247,16 @@ export interface FlowCanvasProps {
   /** The selected entry point. Edges leaving it default to the accent tone. */
   readonly startNodeId?: string
   readonly selectedNodeId?: string
+  /**
+   * Which flow this graph belongs to — the only thing that makes the canvas play `4A`'s screen
+   * change: *"The only 240 ms in the app. The outgoing graph fades and drifts 8 px up, the incoming
+   * one arrives from 8 px down, and the chrome — top bar, panels, dock — never moves."*
+   *
+   * It is a separate prop and not derived from `nodes`, because those arrays also change identity
+   * when a node is dragged or a validation lands, and neither of those is a screen change. Leave it
+   * out and the canvas simply never animates — every other prop behaves exactly as before.
+   */
+  readonly flowId?: string
   /** The design's canvas props. Default `'curved'` and `true`. */
   readonly edgeShape?: EdgeShape
   readonly showDotGrid?: boolean
