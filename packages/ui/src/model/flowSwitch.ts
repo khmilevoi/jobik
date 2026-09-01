@@ -205,7 +205,7 @@ export function reatomFlowSwitch(
    * what their ghost gives up, and a surface that had to re-pair them could pair them wrong. They
    * are Reatom actions, so the identities are stable and this stays a plain derivation.
    */
-  const body = computed<SwitchFlowBody | undefined>(() => {
+  const body = computed((): SwitchFlowBody | undefined => {
     const target = pendingFlowId()
     if (target === undefined) return undefined
 

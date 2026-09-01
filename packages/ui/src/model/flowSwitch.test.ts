@@ -689,7 +689,7 @@ describe('3F — switching away from an unsaved draft', () => {
   })
 
   it('`Save and switch` writes the draft first, then switches', async () => {
-    const save = vi.fn(async () => ({ revision: 'rev-2' }))
+    const save = vi.fn<JobikClient['save']>(async () => ({ revision: 'rev-2' }))
     await inFrame(twoFlowClient({ save }), async (h) => {
       dirty(h)
       h.model.requestFlow('pokedex')

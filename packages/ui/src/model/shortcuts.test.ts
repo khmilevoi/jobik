@@ -393,7 +393,7 @@ describe('the four global keys', () => {
    * all. `save()` answers its own refusals, so this layer adds no guard and asserts none.
    */
   it('writes the draft from ⌘S', async () => {
-    const save = vi.fn(async () => ({ revision: 'rev-2' }))
+    const save = vi.fn<JobikClient['save']>(async () => ({ revision: 'rev-2' }))
     await inFrame(stubClient({ save }), async (h) => {
       h.draft.moveNode({ nodeId: 'start1', position: { x: 5, y: 5 } })
       expect(h.draft.dirty()).toBe(true)

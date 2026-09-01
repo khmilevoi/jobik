@@ -302,7 +302,7 @@ describe('the draft lock a run holds', () => {
   it('locks the draft, the save, the start selection and the validation while a run streams', async () => {
     const streamGate = gate()
     const save = vi.fn(async () => ({ revision: 'rev-2' }))
-    const validate = vi.fn(async () => ({ valid: true }))
+    const validate = vi.fn<JobikClient['validate']>(async () => ({ valid: true }))
 
     await inFrame(
       async (model) => {

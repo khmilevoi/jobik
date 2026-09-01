@@ -262,7 +262,7 @@ export function reatomCanvas(
     const status = computed(() => record()?.status, `${unit}.status`)
     const settled = computed(() => isSettledStatus(status()), `${unit}.settled`)
 
-    const overlay = computed<NodeOverlay | undefined>(() => {
+    const overlay = computed((): NodeOverlay | undefined => {
       const current = record()
       if (current === undefined) return undefined
 
