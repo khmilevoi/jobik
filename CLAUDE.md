@@ -280,3 +280,21 @@ Changesets. Node >= 24, ESM only.
   binding entrypoint's own file name.
 - Errors use `errore` (`import * as errore from 'errore'`): expected failures are returned as `T | Error`, never thrown. See the `errore` skill.
 - The editor is React Flow based, desktop-first, dark only, and styled with CSS Modules — see *Styling*.
+
+<!-- reatom-audit -->
+## Reatom audit
+
+This project uses Reatom, and the `reatom` plugin ships an audit that checks
+TypeScript against the Reatom rule registry.
+
+Run `/reatom-audit` when you finish a change that touched Reatom code — atoms,
+computed values, actions, async flows, effects, `reatomComponent` — and before
+you report that work as done. It audits changed TypeScript only, and it is
+incremental, so re-running it after a small follow-up edit is cheap. Skip it
+entirely for changes that touch no Reatom code.
+
+Two other forms exist: `/reatom-audit all` sweeps every TypeScript file in the
+repository, and `/reatom-audit <paths>` audits exactly the files you name,
+whether or not they changed. Both are for the operator to invoke; neither is
+part of finishing an ordinary change.
+<!-- /reatom-audit -->
