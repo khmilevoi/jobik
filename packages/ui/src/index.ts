@@ -46,3 +46,11 @@ export type {
   SwitchFlowModalProps,
 } from './modals/SwitchFlowModal/SwitchFlowModal.js'
 export { SwitchFlowModal } from './modals/SwitchFlowModal/SwitchFlowModal.js'
+
+// --- reatom-model foundation ---
+// The browser layer's Reatom model. `model/types.ts` is the contract every sub-model is written
+// against — one interface per module, each factory's signature stated in its own doc comment — and
+// `reatomStudio` composes them. `StudioModelProvider`/`useStudioModel` carry one composed model
+// through a React tree; that is a plain React context, NOT `reatomContext`, which carries the
+// Reatom frame and stays at its default.
+export * from './model/index.js'

@@ -100,6 +100,12 @@ importers:
       '@jobik/core':
         specifier: workspace:*
         version: link:../core
+      '@reatom/core':
+        specifier: ^1001.3.0
+        version: 1001.3.0
+      '@reatom/react':
+        specifier: ^1001.0.1
+        version: 1001.0.1(@reatom/core@1001.3.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@xyflow/react':
         specifier: 12.11.5
         version: 12.11.5(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -455,6 +461,16 @@ packages:
 
   '@quansync/fs@1.0.0':
     resolution: {integrity: sha512-4TJ3DFtlf1L5LDMaM6CanJ/0lckGNtJcMjQ1NAV6zDmA0tEHKZtxNKin8EgPaVX1YzljbxckyT2tJrpQKAtngQ==}
+
+  '@reatom/core@1001.3.0':
+    resolution: {integrity: sha512-M8pZM6sWIQLIJZVaMI//tqadppk5GHV1MMjDZ0q5g3yxF1sXQs5ftgAxnitxAlP/ViwYWKxyrQI/8q1A3DeaNA==}
+
+  '@reatom/react@1001.0.1':
+    resolution: {integrity: sha512-xU5diWeNIrVmJs5a5G6RTPOAz3OhPTtT7iqswPKJs5tGEahf2tCWo25JKEALv79pG0eqTGGJ5W/k7llweOhe3g==}
+    peerDependencies:
+      '@reatom/core': ^1001.3.0
+      react: '>=18.2.0'
+      react-dom: '>=18.2.0'
 
   '@rolldown/binding-android-arm-eabi@1.2.6':
     resolution: {integrity: sha512-b+jTcARdTiFLI6jB4a5XjTm0RWd6KcRfQj/I2356fxUZemiho9zQLxo0RtCuMDAyKcLo6cEltkgbQp6d1+sjjQ==}
@@ -1083,6 +1099,9 @@ packages:
   human-id@4.2.1:
     resolution: {integrity: sha512-zPGsiS+dWoTZtZ4AtpA9Y+BdSFSNWvnouNlWNoUFyAM6xHOHmdCvqO3k8AIbdamCOv4gUFUVNPf6rJFfc4UiJw==}
     hasBin: true
+
+  idb-keyval@6.3.0:
+    resolution: {integrity: sha512-um+2dgAWmYsu615EXpWVwSmapJhON0G43t3Ka/EVaohzPQXSMqKEqeDK/oIW3Ow+BXaF2PvSc+oBTFp793A5Ow==}
 
   ieee754@1.2.1:
     resolution: {integrity: sha512-dcyqhDvX1C46lXZcVqCpK+FtMRQVdIMN6/Df5js2zouUsqG7I6sFxitIC+7KYK29KdXOLHdu9zL4sFnoVQnqaA==}
@@ -2147,6 +2166,18 @@ snapshots:
     dependencies:
       quansync: 1.0.0
 
+  '@reatom/core@1001.3.0':
+    dependencies:
+      '@standard-schema/spec': 1.1.0
+    optionalDependencies:
+      idb-keyval: 6.3.0
+
+  '@reatom/react@1001.0.1(@reatom/core@1001.3.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
+    dependencies:
+      '@reatom/core': 1001.3.0
+      react: 19.2.8
+      react-dom: 19.2.8(react@19.2.8)
+
   '@rolldown/binding-android-arm-eabi@1.2.6':
     optional: true
 
@@ -2626,6 +2657,9 @@ snapshots:
       - '@noble/hashes'
 
   human-id@4.2.1: {}
+
+  idb-keyval@6.3.0:
+    optional: true
 
   ieee754@1.2.1: {}
 

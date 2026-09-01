@@ -21,6 +21,8 @@
   },
   "dependencies": {
     "@jobik/core": "workspace:*",
+    "@reatom/core": "^1001.3.0",
+    "@reatom/react": "^1001.0.1",
     "@xyflow/react": "12.11.5",
     "errore": "0.14.1",
     "vite": "8.2.2"
