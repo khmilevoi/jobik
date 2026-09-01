@@ -77,10 +77,19 @@
   overflow: auto;
 }
 
-/* §3 — the collapsed strip, on the header colour rather than the body colour. */
+/*
+ * §3 — the collapsed strip, on the header colour rather than the body colour.
+ *
+ * It carries `.dock`'s transition because it is the same DOM element: the component swaps this
+ * class in for `.dock`, and a `transition` declared on only one of the two classes plays in only
+ * one direction. `4A` gives opening and closing the same 180ms height.
+ */
 .strip {
   flex: none;
   height: var(--jbk-output-dock-collapsed-height);
+  transition:
+    height var(--jbk-motion-duration-layout) var(--jbk-motion-ease-settle),
+    opacity var(--jbk-motion-duration-exit) var(--jbk-motion-ease-linear);
   border-top: 1px solid var(--jbk-border-shell-divider);
   background: var(--jbk-surface-top-bar);
   display: flex;

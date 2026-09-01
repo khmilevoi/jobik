@@ -554,7 +554,19 @@ export interface OutputModel {
   /** `2A`'s two mono strings, both read off the report and the descriptor, never fabricated. */
   readonly dockStrings: Computed<{ readonly context: string; readonly summary: string } | undefined>
   readonly logs: Computed<readonly { readonly time: string; readonly message: string }[]>
+  /**
+   * `10-output-dock.md` §4's `outputOpen: false` — the 34px collapsed strip rather than the 378px
+   * dock. It is the dock's *own* dismiss, and it is separate from {@link OutputModel.viewerNodeId}
+   * on purpose: the strip still names the node and the run it summarises, so a dock the user put
+   * away has not stopped being about anything. Only a new run, a flow switch or another start
+   * clears the node itself.
+   */
+  readonly collapsed: Atom<boolean>
   readonly open: Action<[nodeId: string], void>
+  /** `Show output` on the collapsed strip — the dock at full height again, same node. */
+  readonly expand: Action<[], void>
+  /** The dock's `×` and `esc`: put it away as `2A`'s strip, keeping what it is about. */
+  readonly collapse: Action<[], void>
   readonly close: Action<[], void>
   /** R33: acts on the payload the `Raw` tab renders, not on `close`. */
   readonly copyAll: Action<[], void>

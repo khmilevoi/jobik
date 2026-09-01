@@ -163,6 +163,7 @@ function stubClient(overrides: Partial<JobikClient> = {}): JobikClient {
 /** As much of `OutputModel` as the shortcut layer can see: the open viewer, and `close`. */
 function stubOutput(name: string): OutputModel {
   const viewerNodeId = atom<string | undefined>(undefined, `${name}.viewerNodeId`)
+  const collapsed = atom(false, `${name}.collapsed`)
   return {
     viewerNodeId,
     openViewerNode: computed<WireNodeReportPayload | undefined>(
@@ -177,11 +178,20 @@ function stubOutput(name: string): OutputModel {
       () => [],
       `${name}.logs`,
     ),
+    collapsed,
     open: action((nodeId: string) => {
       viewerNodeId.set(nodeId)
+      collapsed.set(false)
     }, `${name}.open`),
+    expand: action(() => {
+      collapsed.set(false)
+    }, `${name}.expand`),
+    collapse: action(() => {
+      collapsed.set(true)
+    }, `${name}.collapse`),
     close: action(() => {
       viewerNodeId.set(undefined)
+      collapsed.set(false)
     }, `${name}.close`),
     copyAll: action(() => {}, `${name}.copyAll`),
     download: action(() => {}, `${name}.download`),
@@ -413,14 +423,33 @@ describe('the four global keys', () => {
     })
   })
 
-  it('closes on Escape, the artboard drawing no close control of its own', async () => {
+  /**
+   * F-S2: `esc` puts the dock away as `2A`'s 34px strip, which is what the dock's own `×` does and
+   * what the dock's own `esc` listener does. It does not drop the node the strip still names — a
+   * new run, a flow switch or another start is what clears that.
+   */
+  it('collapses the dock on Escape, keeping the node its strip still names', async () => {
     await inFrame(stubClient(), async (h) => {
       h.output.open('start1')
 
       h.model.onKeyDown(press('Escape'))
 
-      expect(h.output.viewerNodeId()).toBeUndefined()
+      expect(h.output.collapsed()).toBe(true)
+      expect(h.output.viewerNodeId()).toBe('start1')
       // The viewer takes priority over cancelling: it only ever opens once a run has settled.
+      expect(h.run.cancelPrompt()).toBe(false)
+    })
+  })
+
+  /** A dock already put away has nothing left to dismiss, so `esc` reaches the run instead. */
+  it('lets Escape reach the run once the dock is already collapsed', async () => {
+    await inFrame(stubClient(), async (h) => {
+      h.output.open('start1')
+      h.output.collapse()
+
+      h.model.onKeyDown(press('Escape'))
+
+      expect(h.output.viewerNodeId()).toBe('start1')
       expect(h.run.cancelPrompt()).toBe(false)
     })
   })

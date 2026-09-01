@@ -181,12 +181,33 @@ export function reatomOutput(
    * the same one instead of each reaching for `viewerNodeId.set` and inventing its own idea of what
    * opening the viewer costs.
    */
+  /**
+   * `10-output-dock.md` §4's `outputOpen`, inverted — the 34px strip instead of the 378px dock.
+   *
+   * It is not `viewerNodeId === undefined`. `2A`'s strip prints `render.image · 3 files · run #221`,
+   * so a dock the user put away still knows what it is about, and `Show output` brings back the
+   * same node rather than making the user find the card again. That is also what lets `4A`'s
+   * 180ms height settle play at all: the dock is a surface that changes height, not one that comes
+   * and goes.
+   */
+  const collapsed = atom(false, `${name}.collapsed`)
+
   const open = action((nodeId: string) => {
     viewerNodeId.set(nodeId)
+    collapsed.set(false)
   }, `${name}.open`)
+
+  const expand = action(() => {
+    collapsed.set(false)
+  }, `${name}.expand`)
+
+  const collapse = action(() => {
+    collapsed.set(true)
+  }, `${name}.collapse`)
 
   const close = action(() => {
     viewerNodeId.set(undefined)
+    collapsed.set(false)
   }, `${name}.close`)
 
   const copyState = atom<CopyState>('idle', `${name}.copyState`)
@@ -291,6 +312,7 @@ export function reatomOutput(
     _armCopySpinner.abort()
     _download.abort()
     viewerNodeId.set(undefined)
+    collapsed.set(false)
     copyState.set('idle')
     downloadState.set('idle')
   }, `${name}.reset`)
@@ -300,7 +322,10 @@ export function reatomOutput(
     openViewerNode,
     dockStrings,
     logs,
+    collapsed,
     open,
+    expand,
+    collapse,
     close,
     copyAll,
     download,

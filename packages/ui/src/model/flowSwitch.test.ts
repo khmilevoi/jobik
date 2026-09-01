@@ -161,6 +161,7 @@ function twoFlowClient(overrides: Partial<JobikClient> = {}): JobikClient {
  */
 function stubOutput(name: string) {
   const viewerNodeId = atom<string | undefined>(undefined, `${name}.viewerNodeId`)
+  const collapsed = atom(false, `${name}.collapsed`)
   let resets = 0
 
   const model: OutputModel = {
@@ -177,11 +178,20 @@ function stubOutput(name: string) {
       () => [],
       `${name}.logs`,
     ),
+    collapsed,
     open: action((nodeId: string) => {
       viewerNodeId.set(nodeId)
+      collapsed.set(false)
     }, `${name}.open`),
+    expand: action(() => {
+      collapsed.set(false)
+    }, `${name}.expand`),
+    collapse: action(() => {
+      collapsed.set(true)
+    }, `${name}.collapse`),
     close: action(() => {
       viewerNodeId.set(undefined)
+      collapsed.set(false)
     }, `${name}.close`),
     copyAll: action(() => {}, `${name}.copyAll`),
     download: action(() => {}, `${name}.download`),

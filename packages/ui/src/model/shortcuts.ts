@@ -87,8 +87,11 @@ export function reatomShortcuts(
 
     if (event.key === 'Escape') {
       if (event.defaultPrevented) return
-      if (output.viewerNodeId() !== undefined) {
-        output.close()
+      // `esc` puts the dock away as `2A`'s 34px strip, which is the same thing its own `×` does
+      // and the same thing the dock's own `esc` listener does — one gesture, one outcome. A dock
+      // already collapsed has nothing left to dismiss, so `esc` falls through to the run.
+      if (output.viewerNodeId() !== undefined && !output.collapsed()) {
+        output.collapse()
         return
       }
       if (run.running()) run.askToCancel()

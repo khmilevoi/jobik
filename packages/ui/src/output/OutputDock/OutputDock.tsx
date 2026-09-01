@@ -69,10 +69,13 @@ export interface OutputDockProps {
  * simply gives up the space. The rule is in the stylesheet; a drag suppresses it, because a
  * dragged height belongs to the pointer.
  *
- * **One half of that is not here.** `StudioApp` still mounts and unmounts this component on
- * `output.openViewerNode()` rather than keeping it mounted and driving `open`, so the transition
- * has no from-height to play from on the real open and close, and the 34px collapsed strip below
- * is unreachable in the Studio. That file belongs to the shell, not to this directory.
+ * **Both halves are here now.** `StudioApp` keeps this mounted for as long as the viewer names a
+ * node and drives `open` off `output.collapsed`, so the height has a from-value on a real collapse
+ * and the 34px strip is reachable. The strip is a `<section>` rather than a `<div>` for exactly
+ * that reason and no other: React reconciles a host element by TYPE, so a `<div>` here would
+ * replace the `<section>` above and the browser would have a new box to lay out rather than a
+ * height to ease — the transition would be declared, mounted, and dead. Same tag, same position,
+ * one element, one 180ms.
  *
  * ## What moved, and what did not
  *
@@ -134,7 +137,11 @@ export const OutputDock = reatomFactoryComponent(function OutputDock(
     // may read it either. A dock drawn as a 34px strip installs no listener and holds no height.
     if (!open) {
       return (
-        <div data-testid="output-dock-strip" className={cx(s.strip, props.className)}>
+        <section
+          aria-label="Output"
+          data-testid="output-dock-strip"
+          className={cx(s.strip, props.className)}
+        >
           <SectionLabel>Output</SectionLabel>
           {props.summary === undefined ? null : (
             <div data-testid="output-dock-summary" className={s.summary}>
@@ -159,7 +166,7 @@ export const OutputDock = reatomFactoryComponent(function OutputDock(
               Show output
             </Button>
           )}
-        </div>
+        </section>
       )
     }
 

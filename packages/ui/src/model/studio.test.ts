@@ -606,7 +606,12 @@ describe('the global keys', () => {
     )
   })
 
-  it('closes the output viewer on esc before it offers to cancel anything', async () => {
+  /**
+   * F-S2: `esc` puts the dock away as `2A`'s 34px collapsed strip rather than taking it out of the
+   * shell — the same outcome as its own `×`, and the reason `4A`'s 180ms height settle has a
+   * from-value to play from. The node it summarises survives, because the strip still names it.
+   */
+  it('collapses the output dock on esc before it offers to cancel anything', async () => {
     await inFrame(async (model) => {
       await mounted(model)
       await wrap(model.run.start({ title: 'A post' }))
@@ -614,7 +619,8 @@ describe('the global keys', () => {
 
       model.shortcuts.onKeyDown(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true }))
 
-      expect(model.output.viewerNodeId()).toBeUndefined()
+      expect(model.output.collapsed()).toBe(true)
+      expect(model.output.viewerNodeId()).toBe('render')
       expect(model.run.cancelPrompt()).toBe(false)
     })
   })
