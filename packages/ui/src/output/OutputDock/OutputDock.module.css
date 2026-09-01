@@ -1,10 +1,11 @@
 /*
  * Artboard `2A` — the output dock, `10-output-dock.md`.
  *
- * No rule here declares a transition or an animation, and that is the design's own decision:
- * `01-foundations.md` §6.7 lists "Output dock open / close — **Nothing**", and §6.4 found zero
- * `transition` declarations in the whole file. The open dock and the collapsed strip are two
- * branches, not two ends of a slide.
+ * This used to cite `01-foundations.md` §6.7 ("Output dock open / close — **Nothing**") for
+ * declaring no transition at all. Artboard `4A` (design 128-141) reverses it: the dock is
+ * `transition:height 180ms cubic-bezier(.2,.8,.25,1),opacity 120ms linear`, and the prose says
+ * why — "Height carries the change and the canvas above simply gives up the space. Opening fades
+ * the contents in over the last 120 ms; closing drops them first, then collapses."
  */
 
 /* §1 — `flex:none`, so opening the dock shrinks the canvas instead of covering it. */
@@ -16,6 +17,18 @@
   display: flex;
   flex-direction: column;
   font-family: var(--jbk-font-ui);
+  transition:
+    height var(--jbk-motion-duration-layout) var(--jbk-motion-ease-settle),
+    opacity var(--jbk-motion-duration-exit) var(--jbk-motion-ease-linear);
+}
+
+/*
+ * A dragged height is the pointer's, and `4A` rule 01 gives the pointer 0ms. Easing it would make
+ * the handle feel 180ms behind the cursor, which is the one place this transition would read as
+ * lag rather than as the dock giving up its space.
+ */
+.dockDragging {
+  transition: none;
 }
 
 /* §2.1 — the design's only resize affordance, and its only `ns-resize` cursor. */

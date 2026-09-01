@@ -63,9 +63,16 @@ export interface OutputDockProps {
  * its own height and covers nothing. There is no backdrop and no shadow. Mounting it is the
  * shell's job; this component is the surface.
  *
- * **Nothing here animates.** `01-foundations.md` §6.4 records zero `transition` declarations in the
- * whole design file and §6.7 names this dock's open/close among the things it deliberately fixes
- * no motion for — the 378px dock and the 34px strip are two branches, not two ends of a slide.
+ * **The dock's height eases; artboard `4A` (design 128-141) is why.** It supersedes
+ * `01-foundations.md` §6.7's "Output dock open / close — Nothing": height carries the change over
+ * 180ms on the settle curve while the contents cross the last 120ms of it, and the canvas above
+ * simply gives up the space. The rule is in the stylesheet; a drag suppresses it, because a
+ * dragged height belongs to the pointer.
+ *
+ * **One half of that is not here.** `StudioApp` still mounts and unmounts this component on
+ * `output.openViewerNode()` rather than keeping it mounted and driving `open`, so the transition
+ * has no from-height to play from on the real open and close, and the 34px collapsed strip below
+ * is unreachable in the Studio. That file belongs to the shell, not to this directory.
  *
  * ## What moved, and what did not
  *
@@ -158,7 +165,8 @@ export const OutputDock = reatomFactoryComponent(function OutputDock(
 
     // Reading these is what installs their listeners: the trio exists while a pointer is down, and
     // the `keydown` listener while there is something for `esc` to close.
-    if (dock.dragging()) dock.tracking()
+    const dragging = dock.dragging()
+    if (dragging) dock.tracking()
     if (onClose !== undefined) dock.escBound()
 
     const tab = props.tab ?? dock.tab()
@@ -199,7 +207,7 @@ export const OutputDock = reatomFactoryComponent(function OutputDock(
       <section
         aria-label="Output"
         data-testid="output-dock"
-        className={cx(s.dock, props.className)}
+        className={cx(s.dock, dragging && s.dockDragging, props.className)}
         style={style}
       >
         {/* The design's only resize affordance: a bare 7px strip. It fixes no keyboard equivalent
