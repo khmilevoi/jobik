@@ -24,7 +24,7 @@ export const LogLines = reatomComponent(function LogLines(props: LogLinesProps) 
     <div data-testid="output-logs" className={s.logs}>
       {props.lines.map((line, index) => (
         // biome-ignore lint/suspicious/noArrayIndexKey: log lines have no stable identity of their own
-        <div key={`${index}-${line.time}`} data-testid="output-log-line">
+        <div key={`${index}-${line.time}`} className={s.line} data-testid="output-log-line">
           <span data-testid="output-log-time" className={s.time}>
             {line.time}{' '}
           </span>

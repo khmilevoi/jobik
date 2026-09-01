@@ -15,6 +15,15 @@
   color: var(--jbk-text-muted);
 }
 
+/*
+ * `4A` (design 205) — a line that arrives in place enters over 140ms with no slide beyond the 3px
+ * lift `jline` carries. The key at the call site is append-only, so only the newly mounted line
+ * plays it.
+ */
+.line {
+  animation: var(--jbk-motion-line-in);
+}
+
 .time {
   color: var(--jbk-text-faintest);
 }

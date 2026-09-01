@@ -36,6 +36,16 @@
   overflow-wrap: anywhere;
 }
 
+/*
+ * `4A` (design 205) gives anything that arrives in place a 140ms entrance and no slide beyond the
+ * 3px lift `jline` already carries; the prototype grows the log one line at a time and this is the
+ * motion it grows with. The key at the call site is the append-only index, so React mounts only
+ * the line that just arrived and the one-shot entrance never replays on a line already on screen.
+ */
+.line {
+  animation: var(--jbk-motion-line-in);
+}
+
 .time {
   color: var(--jbk-text-faintest);
 }

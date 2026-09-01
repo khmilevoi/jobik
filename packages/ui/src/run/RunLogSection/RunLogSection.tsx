@@ -49,7 +49,7 @@ export const RunLogSection = memo(
         <div className={s.lines}>
           {log.lines.map((line, index) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: the log is append-only, so the index is a stable key.
-            <div key={index} data-testid={`run-log-line-${index}`}>
+            <div key={index} className={s.line} data-testid={`run-log-line-${index}`}>
               <span
                 data-testid={`run-log-time-${index}`}
                 className={s.time}
