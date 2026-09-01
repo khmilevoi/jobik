@@ -4,12 +4,10 @@ import {
   atom,
   type Computed,
   computed,
-  type Ext,
   getCalls,
   isInit,
   sleep,
   withAbort,
-  withComputed,
   wrap,
 } from '@reatom/core'
 import type {
@@ -20,7 +18,8 @@ import type {
 import { ACTION_TIMINGS, type CopyState, type DownloadState } from '#primitives/index.js'
 import { formatOutputContext, formatOutputSummary } from '#studio/format.js'
 import { toRunLog } from '#studio/runPresenter.js'
-import type { OutputModel, RunModel, StudioDeps } from './types.js'
+import { detached, withOptionalComputed } from './reatom.js'
+import type { InputsModel, OutputModel, RunModel, StudioDeps } from './types.js'
 
 /**
  * The output viewer, the `2A` bottom output dock, and `3A`'s copy and download sequences.
@@ -64,30 +63,6 @@ export interface OutputActionsModel {
   readonly downloadState: Atom<DownloadState>
 }
 
-/**
- * Both sequences are started and never awaited, so their rejections need an owner.
- *
- * The only rejection either can produce is the `AbortError` `withAbort()` raises when `reset` or a
- * newer press supersedes it — a cancelled hold is the machine working, not a failure. The clipboard
- * write's own rejection is caught where it happens, because that one is a domain outcome: `3A`'s
- * `failed` cell.
- */
-function detached(promise: Promise<unknown>): void {
-  void promise.catch(() => {})
-}
-
-/**
- * `withComputed` cannot type an `Atom<T | undefined>`: `AtomState<Target>` infers off `AtomLike`'s
- * **optional** `__state?`, so TypeScript strips the `undefined` and the compute callback is typed
- * `(state: T) => T`. Copied from `model/inputs.ts`, which carries the original — it wants hoisting
- * into one shared place once a wave owns both files.
- */
-function withOptionalComputed<T>(
-  compute: (state: T | undefined) => T | undefined,
-): Ext<Atom<T | undefined>> {
-  return withComputed<Atom<T | undefined>>(compute as unknown as (state: T) => T)
-}
-
 /** A stable identity for the common case, so an empty log does not invalidate its readers. */
 const NO_LOGS: readonly { readonly time: string; readonly message: string }[] = []
 
@@ -125,6 +100,7 @@ export function reatomOutput(
   _deps: StudioDeps,
   input: {
     descriptor: Computed<SafeFlowDescriptorPayload | undefined>
+    startId: InputsModel['startId']
     viewedSession: RunModel['viewedSession']
     viewedReport: RunModel['viewedReport']
     start: RunModel['start']
@@ -136,8 +112,8 @@ export function reatomOutput(
   /**
    * Which node the viewer is open on — stored, never derived from the report.
    *
-   * **It closes on two things, and both are derivations rather than effects** (RTM-S02), so no frame
-   * ever paints one run's output under another run's report:
+   * **It closes on three things, and all three are derivations rather than effects** (RTM-S02), so
+   * no frame ever paints one run's output under another run's report:
    *
    *  - **A run beginning.** That is why `start` is an input at all: without it the viewer only
    *    *appears* to close, because `viewedReport` goes briefly `undefined` — and it silently reopens
@@ -146,12 +122,23 @@ export function reatomOutput(
    *    not touch the viewer, because the open output belongs to the run that produced it and that
    *    side is this module's; a session identity change is exactly that event, and it needs no
    *    second input to observe.
+   *  - **The panel being pointed at another start.** `StudioApp.selectStart` closed the viewer by
+   *    hand, and nothing else in the model layer could: `InputsModel` knows nothing about a viewer,
+   *    and an open output is a statement about a run of the start that was selected when it was
+   *    opened. So `startId` is the third input, read here for the same reason `start` is — a
+   *    surface calling `inputs.selectStart` must not have to remember a second call, and a
+   *    derivation cannot be forgotten.
+   *
+   * `startId` moves on a flow switch and on a mount seed too, and closing there is right for the
+   * same reason; a *reload* that keeps the selection (F10) does not move it, so the reload the
+   * conflict offer asks for leaves an open viewer alone.
    */
   const viewerNodeId = atom<string | undefined>(undefined, `${name}.viewerNodeId`).extend(
     withOptionalComputed<string>((state) => {
       // Read as dependencies, not called: `getCalls` is how a computed observes an action.
       getCalls(input.start)
       viewedSession()
+      input.startId()
       return isInit() ? state : undefined
     }),
   )

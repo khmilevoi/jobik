@@ -18,6 +18,7 @@ import type { TopBarValidateState } from '#shell/index.js'
 import { sameFlowShape } from '#studio/draft.js'
 import { type FlowProblemModel, NO_PROBLEMS, toFlowProblems } from '#studio/problems.js'
 import { toValidationFindings } from '#studio/validation.js'
+import { detached } from './reatom.js'
 import type { StudioDeps, ValidationModel, ValidationState } from './types.js'
 
 /**
@@ -46,19 +47,6 @@ import type { StudioDeps, ValidationModel, ValidationState } from './types.js'
  * `_check` still carries `withAsync()` — for `.ready()`, and because RTM-A02 asks a request to be an
  * action rather than hand-rolled scaffolding — but nothing reads its `.error()`.
  */
-
-/**
- * Both async actions below are started and never awaited, so their rejections need an owner.
- *
- * The only rejection either can produce is the `AbortError` `withAbort()` raises when `reset` or a
- * newer call supersedes it — a cancelled hold is the machine working, not a failure — because the
- * hold's one `await` is a `sleep` and `client.validate` returns its failures as values rather than
- * throwing them. `_check` also carries `withAsync()`, so anything that did throw is already recorded
- * on its own `.error()`; re-raising it from here would only make it an unhandled rejection.
- */
-function detached(promise: Promise<unknown>): void {
-  void promise.catch(() => {})
-}
 
 /**
  * `descriptor` is on the input for the surfaces this model feeds and is read by nothing here: every

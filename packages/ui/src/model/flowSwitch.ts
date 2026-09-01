@@ -1,6 +1,7 @@
 import { action, atom, computed, effect, withAsync, withConnectHook, wrap } from '@reatom/core'
 import type { SwitchFlowBody } from '#modals/index.js'
 import { formatElapsed } from '#studio/format.js'
+import { detached } from './reatom.js'
 import type {
   DraftModel,
   ExtensionModel,
@@ -43,18 +44,6 @@ import type {
  * Nothing here imports a sibling model module. Every input arrives as one of the interfaces
  * `model/types.ts` declares, and `model/studio.ts` is the one place that hands over the instances.
  */
-
-/**
- * A promise nobody awaits, whose rejection is this call site's to swallow rather than the process's.
- *
- * Copied from `model/validation.ts`, which needs the same thing for the same reason: an action
- * called from a synchronous transition returns a promise, and a floating one turns an ordinary
- * abort into an unhandled rejection. It wants hoisting into a shared module once a second wave
- * touches both files.
- */
-function detached(promise: Promise<unknown>): void {
-  void promise.catch(() => {})
-}
 
 export function reatomFlowSwitch(
   _deps: StudioDeps,
@@ -243,17 +232,31 @@ export function reatomFlowSwitch(
     }
 
     return undefined
-  }, `${name}.body`).extend(
-    /**
-     * The dialog asks about a state that can end on its own — a run settles, a save lands. Once
-     * nothing is at risk the question has answered itself, so the switch the user asked for
-     * happens, rather than the dialog vanishing and leaving them where they were.
-     *
-     * RTM-L01/RTM-L02: the reaction is an `effect` created **inside** a connect hook, which is what
-     * owns its lifetime and unsubscribes it — never a bare module-level `effect` with nothing above
-     * it able to stop it. `body` is the right owner because `body` is what draws the dialog: the
-     * question can only answer itself while something is there to ask it.
-     */
+  }, `${name}.body`)
+
+  /**
+   * The dialog asks about a state that can end on its own — a run settles, a save lands. Once
+   * nothing is at risk the question has answered itself, so the switch the user asked for happens,
+   * rather than the dialog vanishing and leaving them where they were.
+   *
+   * RTM-L01/RTM-L02: the reaction is an `effect` created **inside** a connect hook, which is what
+   * owns its lifetime and unsubscribes it — never a bare module-level `effect` with nothing above it
+   * able to stop it.
+   *
+   * **The owner is `pendingFlowId`, not `body`.** `body` draws the dialog, so it looks like the
+   * right lifetime, but it is only *one* of the three units a dialog surface may read: a surface
+   * that took `pendingFlowId` for its `open` flag, or `pendingFlowName` for its title, and drew the
+   * body from something else would arm nothing at all — and the failure is silent, because every
+   * other affordance still works and only the self-answering switch goes missing.
+   * `pendingFlowId` is the one unit all three read (`body` and `pendingFlowName` both call it), so
+   * connecting any of them connects it, and there is no way to hold the question open without also
+   * arming the answer. Nothing about the reaction itself changes.
+   *
+   * It is extended here rather than at the declaration because the effect names `switchTo` and
+   * `saveAndSwitchTo`, both declared below it. `extend` keeps the atom's own identity, so this is
+   * the same unit the model returns.
+   */
+  pendingFlowId.extend(
     withConnectHook(() => {
       const answered = effect(() => {
         const target = pendingFlowId()

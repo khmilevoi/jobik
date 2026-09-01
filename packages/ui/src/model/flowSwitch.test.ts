@@ -261,7 +261,9 @@ type Harness = ReturnType<typeof makeHarness>
 
 /**
  * What a mounted Studio subscribes to. `body` is on the list because `3F`'s dialog reads it, and
- * because the reaction that lets the question answer itself is owned by that connection.
+ * reading it connects `pendingFlowId` — which is what owns the reaction that lets the question
+ * answer itself, and therefore what arms it here. `model/studio.test.ts` pins the other direction:
+ * a surface that reads `pendingFlowId` alone arms it too.
  *
  * `extension.bundle` is deliberately absent: it fetches, and nothing in this file is about the
  * flow-local renderer.

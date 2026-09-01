@@ -126,8 +126,18 @@ export interface RunNodesModel {
  * It takes the session atom rather than a whole `RunModel` so that a surface projecting a run other
  * than the live one — `viewedSession`, or an archived run — can build its own set over its own
  * source without this module knowing about it.
+ *
+ * The parameter is `Computed<…>` rather than `Atom<…>` for exactly that reason, and it is a
+ * widening rather than a restriction: `Computed<State>` is `AtomLike<State, []>`, which every
+ * `Atom<State>` already satisfies, so {@link reatomRun}'s own `session` still passes. Declared as an
+ * `Atom` it did not, because `AtomLike.set` is `unknown` and a `Computed` has no `set` to offer —
+ * which put {@link RunModel.viewedSession}, the one source a read-only surface actually has, out of
+ * reach of the factory written for it.
  */
-export function reatomRunNodes(session: Atom<RunSession | undefined>, name: string): RunNodesModel {
+export function reatomRunNodes(
+  session: Computed<RunSession | undefined>,
+  name: string,
+): RunNodesModel {
   const models = new Map<string, RunNodeModel>()
 
   const get = (nodeId: string): RunNodeModel => {

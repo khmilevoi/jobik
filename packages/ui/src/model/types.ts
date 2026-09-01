@@ -541,9 +541,23 @@ export interface OutputModel {
  * `NodeOverlay.outputSlot.content` is a `ReactNode`, so this module is a `.tsx` file.
  */
 export interface CanvasModel {
+  /**
+   * Every seeded node's overlay in one value — for a surface that wants one read rather than a
+   * subscription per card. Reading it is a subscription to every node's overlay by construction, so
+   * a card reads {@link CanvasModel.nodeOverlay} instead.
+   */
   readonly overlays: Computed<ReadonlyMap<string, NodeOverlay> | undefined>
   readonly nodes: Computed<readonly FlowCanvasNode[]>
   readonly edges: Computed<readonly FlowCanvasEdge[]>
+  /**
+   * One node's overlay, created on first ask and never rebuilt.
+   *
+   * On the interface rather than only on the factory's return type, because a `NodeCard` reading
+   * its own id here — and `nodes` carrying no run state at all — *is* the refactor's headline fix:
+   * a `node-status` line reaches the one card it is about, and an in-flight drag survives a run.
+   * A surface that can only reach `StudioModel.canvas` must be able to ask.
+   */
+  readonly nodeOverlay: (nodeId: string) => Computed<NodeOverlay | undefined>
 }
 
 /**

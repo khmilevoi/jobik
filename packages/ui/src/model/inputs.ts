@@ -1,13 +1,4 @@
-import {
-  type Atom,
-  action,
-  atom,
-  type Computed,
-  computed,
-  type Ext,
-  peek,
-  withComputed,
-} from '@reatom/core'
+import { action, atom, type Computed, computed, peek, withComputed } from '@reatom/core'
 import type * as z from 'zod'
 import type { SafeFlowDescriptorPayload, SafeNodeDescriptorPayload } from '#client/index.js'
 import type { RunInputDraft, RunInputDraftValue, RunInputIssue } from '#run/index.js'
@@ -17,6 +8,7 @@ import {
   runInputPresentation,
   toRunInputSchema,
 } from '#studio/inputSchema.js'
+import { withOptionalComputed } from './reatom.js'
 import type { FlowsModel, InputsModel, StudioDeps } from './types.js'
 
 /**
@@ -75,22 +67,6 @@ type RunSelection = {
  * one serialiser from one shape, so equal descriptors serialise identically. It is deliberately
  * conservative in the safe direction: the only failure mode is a false *negative*, which re-seeds.
  */
-/**
- * `withComputed`, for an atom whose state includes `undefined`.
- *
- * Its callback is typed `(state: AtomState<Target>) => AtomState<Target>`, and `AtomState` reads the
- * target's `__state?` — an **optional** property, out of which TypeScript strips `undefined` when it
- * infers. So `Atom<string | undefined>` reports its own state as `string`, and every derived atom in
- * this package would meet that, because absence is written `undefined` throughout it. The cast is
- * confined to this one function and changes nothing at run time: `withComputed` passes the value
- * straight back to the atom, which was declared to hold `undefined` in the first place.
- */
-function withOptionalComputed<T>(
-  compute: (state: T | undefined) => T | undefined,
-): Ext<Atom<T | undefined>> {
-  return withComputed<Atom<T | undefined>>(compute as unknown as (state: T) => T)
-}
-
 function keepsRunSelection(previous: RunSelection, next: SafeFlowDescriptorPayload): boolean {
   const { descriptor, startId } = previous
   if (descriptor === undefined || startId === undefined) return false
@@ -176,7 +152,10 @@ export function reatomInputs(
    */
   const _draftSeed = computed<string | undefined>(() => {
     const node = startNode()
-    return node === undefined ? undefined : `${node.id} ${JSON.stringify(node.input)}`
+    // The separator is `\0`, written as an escape: no node id can contain one, so the two halves
+    // cannot be confused for each other. It was a raw NUL byte in the source until the wiring wave,
+    // which made git treat this whole file as binary — same string at run time, readable diff.
+    return node === undefined ? undefined : `${node.id}\0${JSON.stringify(node.input)}`
   }, `${name}._draftSeed`)
 
   const inputDraft = atom<RunInputDraft>({}, `${name}.inputDraft`).extend(

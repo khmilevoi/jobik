@@ -6,8 +6,10 @@ import { reatomStudio } from './studio.js'
 import type { StudioDeps, StudioModel } from './types.js'
 
 /**
- * Nothing here calls the client — `reatomStudio` composes nothing yet — so the stub only has to
- * satisfy the type. It is the same shape every `useStudioSession` test builds.
+ * Nothing here calls the client: `reatomStudio` builds units and every request is behind a
+ * `computed` nothing in this file reads, so the stub only has to satisfy the type. It is the same
+ * shape every `useStudioSession` test builds. What the composition itself does is
+ * `studio.test.ts`'s subject; this file is about the React context that carries one.
  */
 const CLIENT = {
   listFlows: vi.fn(),
@@ -72,23 +74,5 @@ describe('useStudioModel', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
 
     expect(() => render(<Probe />)).toThrow(/StudioModelProvider/)
-  })
-})
-
-describe('reatomStudio', () => {
-  it('returns a model whose unwired slots name the factory that owes them', () => {
-    const model = reatomStudio(DEPS, 'studio')
-
-    expect(() => model.run.session).toThrow(/`reatomRun` is not wired/)
-    expect(() => model.flows.flowId).toThrow(/`studio\.flows\.flowId`/)
-  })
-
-  it('names each instance from the name it was given, so two Studios never collide', () => {
-    expect(() => reatomStudio(DEPS, 'first').run.session).toThrow(/`first\.run\.session`/)
-    expect(() => reatomStudio(DEPS, 'second').run.session).toThrow(/`second\.run\.session`/)
-  })
-
-  it('keeps the deps it was handed, untouched', () => {
-    expect(reatomStudio(DEPS).deps).toBe(DEPS)
   })
 })

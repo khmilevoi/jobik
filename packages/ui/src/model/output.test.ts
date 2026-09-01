@@ -100,6 +100,8 @@ function sessionOf(report: WireRunReportPayload): RunSession {
 interface World {
   readonly output: OutputModel & OutputActionsModel
   readonly viewedSession: Atom<RunSession | undefined>
+  /** `InputsModel.startId`'s stand-in — the start the run panel is pointed at. */
+  readonly startId: Atom<string | undefined>
   /** `RunModel.start`'s stand-in: this module observes the press, never the run behind it. */
   readonly start: RunModel['start']
   /** Every state this run of the test saw the copy button in, in order. */
@@ -119,6 +121,7 @@ function createWorld(): World {
   const deps = { client: {} as unknown as JobikClient } satisfies StudioDeps
 
   const descriptor = atom<SafeFlowDescriptorPayload | undefined>(DESCRIPTOR, 'test.descriptor')
+  const startId = atom<string | undefined>('start1', 'test.startId')
   const viewedSession = atom<RunSession | undefined>(sessionOf(REPORT), 'test.viewedSession')
   const viewedReport = computed(() => viewedSession()?.report, 'test.viewedReport')
   const start = action(async (_values: Record<string, unknown>) => {}, 'test.start').extend(
@@ -127,7 +130,7 @@ function createWorld(): World {
 
   const output = reatomOutput(
     deps,
-    { descriptor, viewedSession, viewedReport, start },
+    { descriptor, startId, viewedSession, viewedReport, start },
     'studio.output',
   )
 
@@ -147,6 +150,7 @@ function createWorld(): World {
   return {
     output,
     viewedSession,
+    startId,
     start,
     copyCells,
     settle: () =>
@@ -291,8 +295,9 @@ describe('the output viewer', () => {
 })
 
 /**
- * The open output belongs to the run that produced it. `RunModel.selectRun` makes one write and
- * deliberately leaves this side alone, and `RunModel.start` is an input for exactly this reason.
+ * The open output belongs to the run that produced it, and to the start that run was of.
+ * `RunModel.selectRun` makes one write and deliberately leaves this side alone; `RunModel.start` and
+ * `InputsModel.startId` are inputs for exactly this reason.
  */
 describe('the run the open output belongs to', () => {
   it('closes the viewer when a run begins', async () => {
@@ -322,6 +327,35 @@ describe('the run the open output belongs to', () => {
       // Still openable: the close is a transition, not a lock.
       output.open('render')
       expect(output.openViewerNode()?.nodeId).toBe('render')
+    })
+  })
+
+  /**
+   * `StudioApp.selectStart` closed the viewer by hand and nothing in the model layer could:
+   * `InputsModel` knows nothing about a viewer and this module knew nothing about a start. So
+   * `startId` is an input, for the same reason `start` is — an open output is a statement about a
+   * run of the start that was selected when it was opened.
+   */
+  it('closes the viewer when the panel is pointed at another start', async () => {
+    await withOutput(async ({ output, startId }) => {
+      output.open('render')
+
+      startId.set('start2')
+
+      expect(output.viewerNodeId()).toBeUndefined()
+      expect(output.openViewerNode()).toBeUndefined()
+    })
+  })
+
+  it('leaves the viewer alone when the start it is pointed at does not move', async () => {
+    await withOutput(async ({ output, startId }) => {
+      output.open('render')
+
+      // F10: the reload that answers a revision conflict keeps the selection, so this write is
+      // what a kept selection looks like — the same id, written again.
+      startId.set('start1')
+
+      expect(output.viewerNodeId()).toBe('render')
     })
   })
 

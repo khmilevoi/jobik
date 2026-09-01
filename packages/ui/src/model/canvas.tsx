@@ -43,7 +43,7 @@ import type {
  * document, the marked node and `3D`'s problem marks. None of those move while a run is in flight
  * — the draft lock stops a drag being persisted and `validate` refuses while `locked` — so the
  * array is invalidated **zero times** across a whole run. The run's own decoration is not in it:
- * a card reads {@link CanvasOverlaysModel.nodeOverlay} for its own id and nothing else's.
+ * a card reads {@link CanvasModel.nodeOverlay} for its own id and nothing else's.
  *
  * ## One overlay per node, not one map per frame
  *
@@ -121,11 +121,22 @@ function isSettledStatus(status: NodeStatus | undefined): boolean {
 /**
  * One node's run-time appearance, derived from that node's own record and cached by node id.
  *
- * `record` and `status` are the same two derivations `reatomRunNodes` makes in `model/run.ts`, and
- * exist here separately for one reason: that factory takes an `Atom<RunSession | undefined>` while
- * `viewedSession` is a `Computed<…>`, and `Computed` declares `set: unknown` so it is not
- * assignable to `Atom`. Widening that parameter to `Computed<RunSession | undefined>` — which every
- * `Atom` satisfies — would let this module reuse it outright.
+ * `record` and `status` look like the two derivations `reatomRunNodes` makes in `model/run.ts`, and
+ * they are still made here rather than reused. The type barrier that used to force that is gone —
+ * that factory now takes a `Computed<RunSession | undefined>`, so `viewedSession` passes — but the
+ * derivation is genuinely a different one, and swapping it in would undo this file's whole reason
+ * for existing:
+ *
+ *  * its `record` reads `session()?.nodes.get(id)`, so a `node-log` or `run-accepted` line —
+ *    which replaces the session and leaves the node map alone — recomputes **every** node's record
+ *    before Reatom notices each answer is unchanged. Here the chain runs through
+ *    {@link _sessionNodes}, so that same line recomputes exactly one unit and stops;
+ *  * `settled` and `overlay` have no counterpart there, so the per-node cache this module keeps is
+ *    needed either way, and reusing `RunNodeModel` would mean two caches and two `node#id.record`
+ *    units per node rather than one.
+ *
+ * `reatomRunNodes` is the right thing for a surface that wants a run's nodes as data. This is the
+ * canvas's own decoration chain, and it is cut one step higher on purpose.
  */
 interface CanvasNodeModel {
   readonly nodeId: string
@@ -143,18 +154,14 @@ interface CanvasNodeModel {
 }
 
 /**
- * {@link CanvasModel}, plus the per-node accessor a card reads instead of taking its overlay out of
- * the node array.
+ * What this factory returns — {@link CanvasModel}, whole.
  *
- * The contract in `model/types.ts` declares the three collections and is not this task's to widen,
- * so the accessor rides on the factory's own return type: `StudioModel.canvas` narrows it back to
- * {@link CanvasModel}, and the wave that rewrites `NodeCard` is the one that needs it on the
- * interface.
+ * It used to be `CanvasModel` *plus* `nodeOverlay`, because the contract declared only the three
+ * collections and widening it was not that task's to do. The wiring wave promoted the accessor onto
+ * {@link CanvasModel} itself, so the two are now the same type and this name survives only as the
+ * one the tests and the barrel already spell.
  */
-export interface CanvasOverlaysModel extends CanvasModel {
-  /** One node's overlay, created on first ask and never rebuilt. */
-  readonly nodeOverlay: (nodeId: string) => Computed<NodeOverlay | undefined>
-}
+export type CanvasOverlaysModel = CanvasModel
 
 export function reatomCanvas(
   deps: StudioDeps,
@@ -388,7 +395,7 @@ export function reatomCanvas(
    * The whole collection, for a surface that wants one value rather than a subscription per card.
    *
    * Reading this is a subscription to every node's overlay by construction — a map of values cannot
-   * be anything else — which is exactly why a card reads {@link CanvasOverlaysModel.nodeOverlay}
+   * be anything else — which is exactly why a card reads {@link CanvasModel.nodeOverlay}
    * instead.
    */
   const overlays = computed<ReadonlyMap<string, NodeOverlay> | undefined>(() => {
