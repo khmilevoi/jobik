@@ -131,7 +131,12 @@ const StudioAppBody = reatomComponent(function StudioAppBody(props: StudioAppBod
   // `Copy all` and `Download` are not bound here any more: `OutputHeader` reads `3A`'s two cells
   // off the model and presses `output.copyAll` / `output.download` itself, because a button's
   // state belongs to the sequence rather than to the surface that draws it.
-  const closeViewer = useAction(output.close)
+  // `2A`'s dock puts itself away as the 34px strip rather than leaving the shell: `4A` gives the
+  // height 180ms to settle, and a component that unmounts cannot animate its own collapse. What
+  // clears the node underneath is a new run, a flow switch or another start — all three already
+  // derivations on `model/output.ts`.
+  const collapseViewer = useAction(output.collapse)
+  const expandViewer = useAction(output.expand)
   const requestSave = useAction(save.save)
 
   /**
@@ -149,11 +154,36 @@ const StudioAppBody = reatomComponent(function StudioAppBody(props: StudioAppBod
   const sidebar = useMemo(
     () => ({
       flows: descriptor === undefined ? [] : toFlowSummaries(flowList),
-      nodes: descriptor === undefined ? [] : toFlowNodeSummaries(descriptor),
       inventory: descriptor === undefined ? [] : toInventory(descriptor),
     }),
     [descriptor, flowList],
   )
+
+  /**
+   * F-S1: `2A`'s post-run node list, where every settled row is `#6f9c82`. The tone is a run state,
+   * so it cannot come from the descriptor — it comes from the same overlay map a node card reads.
+   *
+   * It is a memo of its own rather than a fourth key on `sidebar` above: `overlays` changes on
+   * every `node-status` line, and the flow listing and the inventory have nothing to do with a run.
+   * It does not put this component on the run's 100ms clock — an overlay is rebuilt by a node event,
+   * never by the tick, which is `model/canvas.tsx`'s own invariant.
+   */
+  const overlays = canvas.overlays()
+  const sidebarNodes = useMemo(
+    () => (descriptor === undefined ? [] : toFlowNodeSummaries(descriptor, overlays)),
+    [descriptor, overlays],
+  )
+
+  /**
+   * F-S10: `3E` note 04's blocked `Flows` list — the 248px container at 45%, answering nothing —
+   * for as long as the flow the user picked is still loading. `4A` calls the drop instant, so there
+   * is no transition to wait for and nothing to arm: the list is blocked exactly while the request
+   * is out.
+   *
+   * `flowId === undefined` is the pre-discovery moment, before anything has been asked for; there
+   * is no switch in flight then, so the list is not blocked.
+   */
+  const flowsBlocked = flowId !== undefined && !flows.loaded.ready()
 
   const assetUrl = useMemo(
     () => (asset: AssetDescriptor) => model.deps.client.assetUrl(asset),
@@ -163,12 +193,18 @@ const StudioAppBody = reatomComponent(function StudioAppBody(props: StudioAppBod
   // `FlowCanvas`'s `startNodeId` stays singular on purpose, and stays correct now that a flow may
   // declare several starts: it means "the selected entry point" — the node whose outgoing edges
   // take the accent tone — not "the flow's only start". `selectStart` is what moves it.
+  //
+  // `flowId` is the trigger for `4A`'s one 240ms screen change, and it is passed here because this
+  // is the only place that knows which flow the graph belongs to. `FlowCanvas` moves its own
+  // `.graph` layer and nothing else, so the chrome around it — top bar, panels, dock — is not in
+  // the animated subtree at all and cannot move.
   const canvasSlot = (
     <div className={s.canvas}>
       <div className={s.canvasSurface}>
         <FlowCanvas
           nodes={canvas.nodes()}
           edges={canvas.edges()}
+          {...(flowId === undefined ? {} : { flowId })}
           {...(startId === undefined ? {} : { startNodeId: startId })}
           {...(selectedNodeId === undefined ? {} : { selectedNodeId })}
           {...(props.edgeShape === undefined ? {} : { edgeShape: props.edgeShape })}
@@ -180,6 +216,7 @@ const StudioAppBody = reatomComponent(function StudioAppBody(props: StudioAppBod
       </div>
       {viewerNode === undefined ? null : (
         <OutputDock
+          open={!output.collapsed()}
           nodeId={viewerNode.nodeId}
           output={{ ...(viewerNode.output ?? {}), ...viewerNode.assets }}
           {...(uiDescriptor === undefined ? {} : { descriptor: uiDescriptor })}
@@ -187,7 +224,8 @@ const StudioAppBody = reatomComponent(function StudioAppBody(props: StudioAppBod
           {...(dockStrings === undefined ? {} : dockStrings)}
           raw={viewedReport}
           logs={output.logs()}
-          onClose={closeViewer}
+          onClose={collapseViewer}
+          onOpen={expandViewer}
         />
       )}
     </div>
@@ -233,9 +271,10 @@ const StudioAppBody = reatomComponent(function StudioAppBody(props: StudioAppBod
         flows={sidebar.flows}
         {...(descriptor !== undefined && flowId !== undefined ? { activeFlowId: flowId } : {})}
         onSelectFlow={requestFlow}
+        flowsBlocked={flowsBlocked}
         {...(descriptor === undefined ? {} : { flowFile: descriptor.sourceFile })}
         dirty={draft.dirty()}
-        nodes={sidebar.nodes}
+        nodes={sidebarNodes}
         {...(selectedNodeId === undefined ? {} : { selectedNodeId })}
         onSelectStart={selectStart}
         inventory={sidebar.inventory}
