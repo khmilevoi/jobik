@@ -22,7 +22,9 @@ export { reatomFlows } from './flows.js'
 // --- T1.4: the selected start, the typed run inputs, and `3D`'s validation chip ---
 export { reatomInputs } from './inputs.js'
 // --- T2.3: the output viewer, the dock strings, and `3A`'s copy and download ---
-export type { OutputActionsModel } from './output.js'
+// `OutputActionsModel` was here until the closing wave folded `copyState`/`downloadState` onto
+// `OutputModel`, which is the one place the contract is stated. This barrel is an ordinary
+// directory barrel, so the line went with the interface.
 export { reatomOutput } from './output.js'
 // --- T1.1: the run session ---
 export type { RunNodeModel, RunNodesModel } from './run.js'

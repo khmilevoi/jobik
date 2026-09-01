@@ -21,7 +21,7 @@ import type {
 import { JobikServerError } from '#client/index.js'
 import type { SwitchFlowBody, ValidationFinding } from '#modals/index.js'
 import type { FlowUiDescriptor } from '#output/index.js'
-import type { ValidateState } from '#primitives/index.js'
+import type { CopyState, DownloadState, ValidateState } from '#primitives/index.js'
 import type {
   RunInputDraft,
   RunInputDraftValue,
@@ -390,8 +390,9 @@ export interface ValidationModel {
   readonly findings: Computed<readonly ValidationFinding[] | undefined>
   /**
    * `idle → checking → valid|invalid → idle`, with `3D`'s 4 s hold on the resolved chip. Ports
-   * `useValidateAction` from `primitives/actionState.ts`. The hold is a timer, so it needs a
-   * lifetime owner (RTM-L01) rather than a bare module-level `effect`.
+   * `createValidateAction` from `primitives/actionState.ts` — which is still there, and is now
+   * called by nothing but its own suite, for the two cases the model has no way to reach. The hold
+   * is a timer, so it needs a lifetime owner (RTM-L01) rather than a bare module-level `effect`.
    */
   readonly chip: Atom<ValidateState>
   /** The top bar's cell. `invalid` needs a count, so a state that lost its findings falls to `idle`. */
@@ -542,6 +543,23 @@ export interface OutputModel {
   /** R33: acts on the payload the `Raw` tab renders, not on `close`. */
   readonly copyAll: Action<[], void>
   readonly download: Action<[], void>
+  /**
+   * `3A` §2 — `idle | busy | ok | failed`, the copy toolbar button's four cells. `failed` is
+   * terminal until the next press.
+   *
+   * It is on the contract rather than beside it because the sequence runs on the model: what a copy
+   * *does* is serialise the run report and write the clipboard, and only the model has a report. A
+   * surface draws the cell and sends the press. This is not an RTM-A03 violation for the same reason
+   * {@link SaveState} and {@link ValidationState} are not — `3A` fixes four cells the design draws
+   * differently, and a boolean `.ready()` cannot represent them.
+   */
+  readonly copyState: Atom<CopyState>
+  /**
+   * `3A` §3 — `idle | busy | ok`, the indeterminate branch. `progress` is in the union and is
+   * unreachable here: nothing on the wire carries a byte count, so the download is a spinner and
+   * then `Saved`.
+   */
+  readonly downloadState: Atom<DownloadState>
   readonly reset: Action<[], void>
 }
 

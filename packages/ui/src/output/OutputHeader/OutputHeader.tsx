@@ -2,7 +2,6 @@ import { reatomComponent, useAction } from '@reatom/react'
 import type { ReactNode } from 'react'
 import { cx } from '#cx.js'
 import { useStudioModel } from '#model/context.js'
-import type { OutputActionsModel } from '#model/output.js'
 import { OUTPUT_TABS, type OutputViewerTab } from '#output/tabs.js'
 import {
   Button,
@@ -39,7 +38,7 @@ export interface OutputHeaderProps {
   /**
    * Whether this surface draws `3A`'s `Copy all` at all — which is the only part of it a caller
    * still decides. `2A` draws it and the design's `Raw` card instance draws neither button, so the
-   * presence stays a prop while the sequence behind it does not: `OutputActionsModel.copyState` is
+   * presence stays a prop while the sequence behind it does not: `OutputModel.copyState` is
    * the cell and `OutputModel.copyAll` is the press, both on the model, because what a copy does
    * is serialise the run report and that belongs where the report is.
    */
@@ -104,24 +103,14 @@ const DOWNLOAD_LABELS = {
 export const OutputHeader = reatomComponent(function OutputHeader(props: OutputHeaderProps) {
   const { output } = useStudioModel()
 
-  /**
-   * `StudioModel.output` is declared `OutputModel`, and `3A`'s two cells are on
-   * `OutputActionsModel`. `reatomOutput` returns both — its own note says the cells were left off
-   * the contract until the wave that decided where the sequences run, and this is that wave: they
-   * run on the model. Moving the two lines onto `OutputModel` is a one-line change to
-   * `model/types.ts` that this task does not own, so the intersection stands in for it, and it is
-   * true of every model `reatomStudio` builds.
-   */
-  const actions = output as typeof output & OutputActionsModel
-
   // RTM-C02: both presses come from a DOM event, outside the frame this render is in.
   const copyAll = useAction(output.copyAll)
   const download = useAction(output.download)
 
   // RTM-C01: each cell is read only on the branch that draws its button, so a surface that wires
   // neither action subscribes to neither sequence.
-  const copyCell = props.copyAll === true ? actions.copyState() : undefined
-  const downloadCell = props.download === true ? actions.downloadState() : undefined
+  const copyCell = props.copyAll === true ? output.copyState() : undefined
+  const downloadCell = props.download === true ? output.downloadState() : undefined
   const hasActions = copyCell !== undefined || downloadCell !== undefined
 
   return (

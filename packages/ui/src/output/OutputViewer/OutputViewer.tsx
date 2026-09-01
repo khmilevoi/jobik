@@ -47,7 +47,8 @@ export interface OutputViewerProps {
  * changes is that it is a unit rather than `useState` — `reatomFactoryComponent` builds one per
  * mounted card and aborts it on unmount, so two cards are two tabs and neither outlives its element.
  *
- * Its header reads `OutputActionsModel`, so this card only mounts under a `StudioModelProvider`.
+ * Its header reads `OutputModel`'s two `3A` cells, so this card only mounts under a
+ * `StudioModelProvider`.
  */
 export const OutputViewer = reatomFactoryComponent(function OutputViewer(
   initProps: OutputViewerProps,

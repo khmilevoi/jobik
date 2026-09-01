@@ -4,13 +4,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { JobikClient, WireRunReportPayload } from '#client/index.js'
 import type { StudioDeps, StudioModel } from '#model/index.js'
 import { reatomStudio, StudioModelProvider } from '#model/index.js'
-import type { OutputActionsModel } from '#model/output.js'
 import type { DownloadState } from '#primitives/index.js'
 import type { RunSession } from '#studio/runSession.js'
 import { OutputHeader, type OutputHeaderProps } from './OutputHeader.js'
 
 /**
- * The header draws `3A`'s two cells off `OutputActionsModel`, so every case here mounts it over a
+ * The header draws `3A`'s two cells off `OutputModel`, so every case here mounts it over a
  * real `reatomStudio` in a `StudioModelProvider`, with a settled run written into `run.session` and
  * the viewer opened on the node the artboard shows.
  *
@@ -137,11 +136,7 @@ function mount(props: Partial<OutputHeaderProps> = {}) {
     </StudioModelProvider>
   )
 
-  // The same intersection `OutputHeader` states: `reatomOutput` returns the two `3A` cells, and
-  // `model/types.ts` has not named them on `OutputModel` yet.
-  const actions = model.output as typeof model.output & OutputActionsModel
-
-  return { model, actions, ui, view: render(ui()) }
+  return { model, actions: model.output, ui, view: render(ui()) }
 }
 
 describe('OutputHeader', () => {

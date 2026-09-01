@@ -1,5 +1,4 @@
 import {
-  type Atom,
   action,
   atom,
   type Computed,
@@ -34,9 +33,10 @@ import type { InputsModel, OutputModel, RunModel, StudioDeps } from './types.js'
  * `3A` fixes copy and download as state matrices, and until now those matrices lived inside
  * `OutputHeader` through `useCopyAction` / `useDownloadAction`. The work they wrap — serialising a
  * report, writing the clipboard, holding `Copied` for 1.6 s — is not chrome, so it belongs where the
- * report already is. {@link OutputActionsModel} is what a surface reads to draw the cell; the arms
- * and the timings are imported from `primitives/actionState.ts` rather than restated, because the
- * artboard fixes both and there must be exactly one statement of them.
+ * report already is. {@link OutputModel.copyState} and {@link OutputModel.downloadState} are what a
+ * surface reads to draw the cell; the arms and the timings are imported from
+ * `primitives/actionState.ts` rather than restated, because the artboard fixes both and there must
+ * be exactly one statement of them.
  *
  * **RTM-A05: every hold is `await wrap(sleep(ms))` inside an action extended with `withAbort()`,
  * never a `setTimeout`/`clearTimeout` pair.** That is what lets `reset` cancel a hold without a
@@ -47,21 +47,6 @@ import type { InputsModel, OutputModel, RunModel, StudioDeps } from './types.js'
  * `OutputHeader`'s own `DOWNLOAD_LABELS` already records. The arm stays in the imported union; this
  * surface simply never enters it.
  */
-
-/**
- * What a surface reads to draw the two buttons — `3A`'s cells, as state rather than as a hook.
- *
- * Declared here rather than on {@link OutputModel}: the contract states the two **actions**, which
- * are what every caller invokes, and the wave that converts `primitives/actionState.ts` into
- * `reatomCopyAction` / `reatomDownloadAction` is what will decide where the cell itself finally
- * lives. Until then it is additive, the way `RunNodeModel` is additive to `RunModel`.
- */
-export interface OutputActionsModel {
-  /** `3A` §2 — `idle | busy | ok | failed`. `failed` is terminal until the next press. */
-  readonly copyState: Atom<CopyState>
-  /** `3A` §3 — `idle | busy | ok`, the indeterminate branch. See the note on `progress` above. */
-  readonly downloadState: Atom<DownloadState>
-}
 
 /** A stable identity for the common case, so an empty log does not invalidate its readers. */
 const NO_LOGS: readonly { readonly time: string; readonly message: string }[] = []
@@ -106,7 +91,7 @@ export function reatomOutput(
     start: RunModel['start']
   },
   name: string,
-): OutputModel & OutputActionsModel {
+): OutputModel {
   const { descriptor, viewedSession, viewedReport } = input
 
   /**

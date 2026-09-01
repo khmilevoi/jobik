@@ -23,7 +23,7 @@
  * failed run's log, the conflict chip's draft — is a bare `onClick` with no state matrix at all.
  *
  * The imperative half is **gone**. `output/OutputHeader` was its last caller, and now that the
- * header reads `OutputActionsModel.copyState`/`downloadState` and presses `OutputModel.copyAll`/
+ * header reads `OutputModel.copyState`/`downloadState` and presses `OutputModel.copyAll`/
  * `download`, `CopyAction`, `DownloadAction`, `createCopyAction`, `createDownloadAction`,
  * `useCopyAction` and `useDownloadAction` have gone with it, and `react` is no longer an import of
  * this module. What every one of them stated is stated by `model/output.ts` and asserted by

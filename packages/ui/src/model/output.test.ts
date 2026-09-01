@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { JobikClient, SafeFlowDescriptorPayload, WireRunReportPayload } from '#client/index.js'
 import { ACTION_TIMINGS, type CopyState } from '#primitives/index.js'
 import type { RunSession } from '#studio/runSession.js'
-import { type OutputActionsModel, reatomOutput } from './output.js'
+import { reatomOutput } from './output.js'
 import type { OutputModel, RunModel, StudioDeps } from './types.js'
 
 /**
@@ -98,7 +98,7 @@ function sessionOf(report: WireRunReportPayload): RunSession {
 }
 
 interface World {
-  readonly output: OutputModel & OutputActionsModel
+  readonly output: OutputModel
   readonly viewedSession: Atom<RunSession | undefined>
   /** `InputsModel.startId`'s stand-in — the start the run panel is pointed at. */
   readonly startId: Atom<string | undefined>

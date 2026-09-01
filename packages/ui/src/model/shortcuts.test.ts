@@ -3,6 +3,7 @@ import { action, atom, computed, context, wrap } from '@reatom/core'
 import { describe, expect, it, vi } from 'vitest'
 import type { JobikClient, RunStreamEvent, WireNodeReportPayload } from '#client/index.js'
 import { JobikTransportError } from '#client/index.js'
+import type { CopyState, DownloadState } from '#primitives/index.js'
 import { reatomDraft } from './draft.js'
 import { reatomFlows } from './flows.js'
 import { reatomInputs } from './inputs.js'
@@ -184,6 +185,10 @@ function stubOutput(name: string): OutputModel {
     }, `${name}.close`),
     copyAll: action(() => {}, `${name}.copyAll`),
     download: action(() => {}, `${name}.download`),
+    // `3A`'s two cells, on the contract since the closing wave folded them onto `OutputModel`.
+    // Neither sequence runs here — this stub is the viewer id and `reset`, and nothing else.
+    copyState: atom<CopyState>('idle', `${name}.copyState`),
+    downloadState: atom<DownloadState>('idle', `${name}.downloadState`),
     reset: action(() => {
       viewerNodeId.set(undefined)
     }, `${name}.reset`),
