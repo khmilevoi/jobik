@@ -16,10 +16,10 @@ import { reatomValidation } from './validation.js'
 /**
  * `3F` — the flow switch, driven directly inside a `context.start()` frame.
  *
- * Every case whose name also appears in `studio/useStudioSession.test.ts` or in
- * `studio/StudioApp/StudioApp.test.tsx` is a port of that case and keeps its name, so the three
- * files can be read side by side until the two React ones are deleted. The cases named for
- * something else are new to the model and say so in their own comment.
+ * Every case whose name also appears in `studio/StudioApp/StudioApp.test.tsx`, or appeared in the
+ * now-deleted `studio/useStudioSession.test.ts`, is a port of that case and keeps its name, so the
+ * port stays auditable. The cases named for something else are new to the model and say so in
+ * their own comment.
  *
  * **The sub-models here are the real ones.** `reatomFlowSwitch` takes whole sub-models because
  * `switchTo` is the one place that calls every `reset`, and the assertion this task exists to carry

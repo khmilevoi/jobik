@@ -269,7 +269,7 @@ describe('a flow-local stylesheet', () => {
   it('does not stack a second style element when the same bundle is evaluated again', {
     timeout: BUILD_TIMEOUT,
   }, async () => {
-    // `useStudioSession` reloads the extension whenever `flowId` changes, and `loadFlowUi` mints a
+    // `model/extension.ts` reloads the extension whenever `flowId` changes, and `loadFlowUi` mints a
     // fresh module URL for every load — so switching flow away and back, or React's StrictMode
     // double-invoking that effect, evaluates the same bundle more than once in one page.
     const styled = await styledFlow({

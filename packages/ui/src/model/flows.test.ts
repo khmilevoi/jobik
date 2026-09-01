@@ -10,8 +10,8 @@ import type { FlowsModel, StudioDeps } from './types.js'
  * `model/flows.ts`, driven directly inside a `context.start()` frame rather than through
  * `renderHook`.
  *
- * Every case here is ported from `studio/useStudioSession.test.ts` and keeps its name, so the two
- * can be read side by side until that file is deleted. Where a case asserted on state this module
+ * Every case here was ported from `studio/useStudioSession.test.ts`, now deleted, and keeps the
+ * name it had there so the port stays auditable. Where a case asserted on state this module
  * does not own — the draft, the save state, the run input draft — that assertion moves to the model
  * that owns it; each such split is named in the case's own comment rather than dropped silently.
  *

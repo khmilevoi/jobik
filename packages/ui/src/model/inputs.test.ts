@@ -384,7 +384,7 @@ describe('choosing a start', () => {
 })
 
 /**
- * F02 and R35, which lived in `StudioApp` rather than in the hook and so have no case of their own
+ * F02 and R35, which lived in `StudioApp` rather than in the hook and so had no case of their own
  * in `useStudioSession.test.ts`. They are the rest of this model's surface, and the reason `issues`
  * is on the model at all: four of the five run affordances are not the run panel's.
  */

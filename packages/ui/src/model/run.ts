@@ -29,8 +29,8 @@ import { toFailurePayload } from './types.js'
 /**
  * The run: starting it, streaming it, cancelling it, and every run this tab has already made.
  *
- * This is `useStudioSession`'s run half and `StudioApp`'s run half, in one place and with no React
- * in either. `studio/runSession.ts` is still the reducer — `createRunSession`, `applyRunEvent`,
+ * This is what `useStudioSession`'s run half and `StudioApp`'s run half became: one place, with no
+ * React in either. `studio/runSession.ts` is still the reducer — `createRunSession`, `applyRunEvent`,
  * `markCancelling`, `markCancelFailed` are consumed here exactly as they are, from inside actions
  * and `computed` bodies — so every rule those functions state is still stated once.
  *
@@ -82,8 +82,8 @@ const TICK_MS = 100
  * against a stream that violates it — a pure reducer cannot repair that. A dropped connection is
  * real, though, and this module is the right place to catch it.
  *
- * The copy in `studio/useStudioSession.ts` is the same string and stays there until the wave that
- * deletes that file; neither module may import the other's private constants.
+ * This is the only copy: `studio/useStudioSession.ts` carried the same string until that file was
+ * deleted, and nothing restates it now.
  */
 const DROPPED_STREAM_PAYLOAD: WireErrorPayload = {
   _tag: null,

@@ -106,7 +106,7 @@ export type RunInputIssue = { readonly path: string; readonly message: string }
 
 /**
  * The entry point is chosen from the sidebar's `Start` section or by clicking a start node on the
- * canvas — both call `useStudioSession.selectStart` directly, so the panel itself carries no
+ * canvas — both call the model's `inputs.selectStart` directly, so the panel itself carries no
  * chooser and no `startIds`/`onSelectStart` pair. Those two surfaces are always on screen
  * regardless of which panel state is showing, which is also what F07 wanted: the entry point stays
  * reachable through every state, not just while the panel happens to be idle.

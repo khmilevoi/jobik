@@ -16,8 +16,8 @@ import type { RunModel } from './types.js'
 /**
  * The run session, driven directly rather than through a component.
  *
- * Every case below carries the name it had in `studio/useStudioSession.test.ts`, so the two files
- * can be read side by side until that one is deleted; the cases that are new to the model —
+ * Every case below carries the name it had in `studio/useStudioSession.test.ts`, now deleted, so
+ * the port stays auditable against that file's history; the cases that are new to the model —
  * the archive, the retry, the cancel dialog, the clock and the per-node atomization — are grouped
  * apart at the end and named for what they are.
  *

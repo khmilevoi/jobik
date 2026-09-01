@@ -8,7 +8,7 @@ import type { StudioDeps, StudioModel } from './types.js'
 /**
  * Nothing here calls the client: `reatomStudio` builds units and every request is behind a
  * `computed` nothing in this file reads, so the stub only has to satisfy the type. It is the same
- * shape every `useStudioSession` test builds. What the composition itself does is
+ * shape every other model test builds. What the composition itself does is
  * `studio.test.ts`'s subject; this file is about the React context that carries one.
  */
 const CLIENT = {

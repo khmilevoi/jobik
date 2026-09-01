@@ -40,7 +40,7 @@ import type { InputsModel, RunModel, RunPanelModel } from './types.js'
  * weakening it: where a `StudioApp` case asserted a DOM fact as well as a derived one, the derived
  * half is asserted here and the comment on the case says what stayed behind.
  *
- * `useStudioSession.test.ts` contributed no case: everything it asserts about a run is about the
+ * `useStudioSession.test.ts` contributed no case: everything it asserted about a run was about the
  * SESSION — the stream, the archive, the cancel race — and T1.1 ported all of it into
  * `model/run.test.ts`. The panel's own projection never lived in that file.
  *

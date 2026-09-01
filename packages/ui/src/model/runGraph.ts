@@ -28,7 +28,7 @@ import type { FlowDocument } from '@jobik/core'
  *
  * It has no Reatom in it and never will: it is a pure function of a document and a start id, which
  * is why it is a module of its own rather than a unit on `RunModel`. It is not on the package
- * barrel — `model/run.ts` and `studio/useStudioSession.ts` are its only callers.
+ * barrel — `model/run.ts` is its only caller.
  */
 export function runGraphNodeIds(document: FlowDocument, startId: string): ReadonlySet<string> {
   const reachable = new Set<string>([startId])

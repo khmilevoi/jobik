@@ -40,7 +40,6 @@ import type { ExternalModules } from '#studio/extensionLoader.js'
 import type { NodeOverlay } from '#studio/graphModel.js'
 import type { FlowProblemModel } from '#studio/problems.js'
 import type { RunSession } from '#studio/runSession.js'
-import type { SaveState, ValidationState } from '#studio/useStudioSession.js'
 
 /**
  * The shared contract for `@jobik/ui`'s Reatom model layer.
@@ -48,10 +47,11 @@ import type { SaveState, ValidationState } from '#studio/useStudioSession.js'
  * This file is a **coordination artifact**, not a place where behaviour lives. It declares one
  * interface per sub-model — the units that module owns and their types — and each factory's
  * signature, so the modules can be written in parallel without any of them reading another's
- * source. Every member was derived from what `studio/useStudioSession.ts` returns today and what
- * `studio/StudioApp/StudioApp.tsx` consumes; nothing was designed anew. Where a doc comment cites a
- * rule (`F02`, `F07`, `F10`, `R25`, `R35`, `8-A`, `8-B`, `3B`, `3C`, `3D`, `3F`), the sentence it
- * summarises is in one of those two files, and that file is the authority.
+ * source. Every member was derived from what `studio/useStudioSession.ts` returned and what
+ * `studio/StudioApp/StudioApp.tsx` consumes; nothing was designed anew. That hook is gone — the
+ * model below is what replaced it — so where a doc comment cites a rule (`F02`, `F07`, `F10`,
+ * `R25`, `R35`, `8-A`, `8-B`, `3B`, `3C`, `3D`, `3F`), the sentence it summarises now lives in the
+ * sub-model that owns the behaviour, and that module is the authority.
  *
  * ## Conventions every implementer must follow
  *
@@ -102,9 +102,9 @@ export type AsyncAction<Params extends unknown[], Payload = void> = Action<
 /**
  * Everything the model layer needs from outside itself.
  *
- * Derived from `StudioAppProps` and `useStudioSession`'s own argument object, which is the
- * authority: `client` is required (`StudioApp` defaults it to `createJobikClient` before the hook
- * ever sees it), `externals` and `importModule` are the live module namespaces a flow-local
+ * Derived from `StudioAppProps` and the argument object the old `useStudioSession` hook took:
+ * `client` is required (`StudioApp` defaults it to `createJobikClient` before the model is ever
+ * built), `externals` and `importModule` are the live module namespaces a flow-local
  * `flow.ui.tsx` bundle may import, and `now` is the injected clock every test drives instead of
  * `Date.now`.
  *
@@ -124,8 +124,8 @@ export interface StudioDeps {
 /**
  * What a save is doing, or what it found — `idle | saving | conflict | error`.
  *
- * Re-exported unchanged from the module that owns it today. The wave that deletes
- * `useStudioSession.ts` moves the definition into this file verbatim.
+ * Defined here. It was `studio/useStudioSession.ts`'s until the wave that deleted that file moved
+ * it in verbatim, and this file has been its only home since.
  *
  * **Not an RTM-A03 violation.** RTM-A03 objects to a hand-rolled `loading`/`error` pair beside an
  * async unit, which `withAsync` already models. `SaveState` is a domain state with four
@@ -140,7 +140,29 @@ export interface StudioDeps {
  * `failure: WireErrorPayload` on `RunSession`, which R25 makes the single surface every failure
  * lands on and which the panel renders as `kind: 'failed'`.
  */
-export type { SaveState, ValidationState }
+export type SaveState =
+  | { readonly kind: 'idle' }
+  | { readonly kind: 'saving' }
+  | {
+      readonly kind: 'conflict'
+      readonly expectedRevision: string
+      readonly actualRevision: string
+    }
+  | { readonly kind: 'error'; readonly error: WireErrorPayload }
+
+/**
+ * What `validate()` last found.
+ *
+ * `unreachable` is kept apart from `invalid` on purpose: the first means the check never ran, the
+ * second means it ran and rejected the document, and the `Validation` dialog must not present a
+ * transport failure as a finding about the flow.
+ */
+export type ValidationState =
+  | { readonly kind: 'checking' }
+  /** `checkedAt` is when the answer landed — `3D`'s status strip counts up from it. */
+  | { readonly kind: 'valid'; readonly checkedAt: number }
+  | { readonly kind: 'invalid'; readonly error: WireErrorPayload }
+  | { readonly kind: 'unreachable'; readonly message: string }
 
 /**
  * `3B`'s retry, as `StudioApp` holds it today: which card, and the failure still shown on it.
@@ -169,8 +191,8 @@ export interface RetryState {
  * when it is a tagged error, and its own message.
  *
  * It lives here rather than in `model/run.ts` so that `model/run.ts` is a file exactly one agent
- * creates. Behaviour is unchanged from the copy inside `useStudioSession.ts`, which stays private
- * to that file until the wave that deletes it.
+ * creates. Behaviour is unchanged from the copy that was private to `useStudioSession.ts`, and
+ * this is the only copy left.
  */
 export function toFailurePayload(error: Error): WireErrorPayload {
   if (error instanceof JobikServerError) return error.payload
@@ -413,7 +435,7 @@ export interface ExtensionModel {
  * **The document to ask is `savedDocument`.** The server executes what is on disk and a dirty draft
  * does not block a run; an unsaved edit moves the canvas, not the run. The nodes one start can
  * actually execute come from `runGraphNodeIds`, which is a second implementation of core's
- * `resolveRunGraph` and is held to it by `useStudioSession.runGraph.test.ts`.
+ * `resolveRunGraph` and is held to it by `model/runGraph.test.ts`.
  *
  * **R25 — every failure lands on `session.failure`.** A rejected start, a failed cancel, a
  * mid-stream parse error and a stream that ends without a terminal line all write the one surface

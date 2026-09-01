@@ -10,7 +10,7 @@ import type { StudioDeps } from './types.js'
 /**
  * The save model, driven directly inside `context.start()`.
  *
- * Every case whose name also appears in `studio/useStudioSession.test.ts` is a port of that case and
+ * Every case whose name also appeared in `studio/useStudioSession.test.ts` is a port of that case and
  * keeps its name; the rest are marked new and exist because the model has members the hook only
  * reached through `StudioApp`.
  *

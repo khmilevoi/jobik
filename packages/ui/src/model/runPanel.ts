@@ -64,9 +64,10 @@ type RunPanelKind = 'idle' | 'running' | 'failed' | 'completed'
 /**
  * `### Run panel`'s idle note, and `Run panel — states`' running one.
  *
- * `StudioApp` no longer carries a copy — it renders the state this module builds. The remaining
- * duplicate is `studio/useStudioSession.ts`'s, which goes with that file; neither module may import
- * the other's private constants, the same way `model/run.ts` restates `DROPPED_STREAM_PAYLOAD`.
+ * `StudioApp` no longer carries a copy — it renders the state this module builds — and the last
+ * duplicate went with `studio/useStudioSession.ts` when that file was deleted. These are the only
+ * copies. The `run/` tests that assert the rendered line spell it out for themselves rather than
+ * importing it, because these are private to this module.
  */
 const IDLE_NOTE =
   'Inputs are typed from the flow declaration. Only downstream nodes of the selected entry point run.'
