@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import { groupDigits } from '#output/format.js'
 import s from './TypedValueGrid.module.css'
 
@@ -29,7 +30,7 @@ const tones = {
 } satisfies Record<TypedValueTone, string>
 
 /** design 936–947 — the two-column grid of the run's non-binary fields. */
-export function TypedValueGrid(props: TypedValueGridProps) {
+export const TypedValueGrid = reatomComponent(function TypedValueGrid(props: TypedValueGridProps) {
   return (
     <div data-testid="output-typed-values" className={s.grid}>
       {props.values.map((entry) => {
@@ -48,4 +49,4 @@ export function TypedValueGrid(props: TypedValueGridProps) {
       })}
     </div>
   )
-}
+}, 'TypedValueGrid')

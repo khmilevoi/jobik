@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import { cx } from '#cx.js'
 import type {
   FlowUiDescriptor,
@@ -12,14 +13,14 @@ import s from './GenericOutput.module.css'
  * is the design's own `Raw` treatment applied to one node's output — a binary field serialises
  * exactly as the artboard's Raw panel shows it, `{ "type": "Buffer", "bytes": …, "mime": … }`.
  */
-export function GenericOutput(props: OutputComponentProps) {
+export const GenericOutput = reatomComponent(function GenericOutput(props: OutputComponentProps) {
   const card = props.surface === 'card'
   return (
     <div data-testid="generic-output" className={cx(card && s.card)}>
       <RawJson value={props.output} />
     </div>
   )
-}
+}, 'GenericOutput')
 
 /** The component that fills the `Preview` tab and the inline slot for one node. */
 export function resolveOutputComponent(

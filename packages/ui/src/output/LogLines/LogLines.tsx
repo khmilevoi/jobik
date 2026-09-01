@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import s from './LogLines.module.css'
 
 export interface OutputLogLine {
@@ -18,7 +19,7 @@ export interface LogLinesProps {
  * `Live log` treatment from `Studio — run in progress` (design 634–639) without the pulsing caret,
  * which belongs to the run panel's live state and is P11's.
  */
-export function LogLines(props: LogLinesProps) {
+export const LogLines = reatomComponent(function LogLines(props: LogLinesProps) {
   return (
     <div data-testid="output-logs" className={s.logs}>
       {props.lines.map((line, index) => (
@@ -32,4 +33,4 @@ export function LogLines(props: LogLinesProps) {
       ))}
     </div>
   )
-}
+}, 'LogLines')

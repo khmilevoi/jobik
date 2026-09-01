@@ -1,22 +1,13 @@
 import './primitiveTokens.css'
 
 export type {
-  CopyAction,
   CopyState,
   CopyWrite,
-  DownloadAction,
   DownloadState,
   ValidateAction,
   ValidateState,
 } from './actionState.js'
-export {
-  ACTION_TIMINGS,
-  createCopyAction,
-  createDownloadAction,
-  createValidateAction,
-  useCopyAction,
-  useDownloadAction,
-} from './actionState.js'
+export { ACTION_TIMINGS, createValidateAction } from './actionState.js'
 export type { BadgeProps } from './Badge/Badge.js'
 export { Badge } from './Badge/Badge.js'
 export type { ButtonProps, ButtonSize, ButtonState, ButtonVariant } from './Button/Button.js'

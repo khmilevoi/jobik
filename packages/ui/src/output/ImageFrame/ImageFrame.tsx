@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import type { ReactNode } from 'react'
 import { StripePlaceholder } from '#canvas/index.js'
 import { cx } from '#cx.js'
@@ -60,7 +61,7 @@ const mediaClass = {
  * laid out at the frame's full height, so the 1px border eats its last row; `overflow: hidden`
  * clips it.
  */
-export function ImageFrame(props: ImageFrameProps) {
+export const ImageFrame = reatomComponent(function ImageFrame(props: ImageFrameProps) {
   const placeholder = (
     <>
       <StripePlaceholder height={placeholderHeight[props.variant]} radius={0} />
@@ -85,4 +86,4 @@ export function ImageFrame(props: ImageFrameProps) {
       {props.overlay}
     </div>
   )
-}
+}, 'ImageFrame')

@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import type { OutputSurface } from '#output/flowUi.js'
 import { ImageFrame, type ImageFrameVariant } from '#output/ImageFrame/ImageFrame.js'
 import s from './PrimaryImage.module.css'
@@ -10,7 +11,9 @@ export interface OutputMetadataRowProps {
 }
 
 /** design 903–907 — the mono metadata row under the primary image. */
-export function OutputMetadataRow(props: OutputMetadataRowProps) {
+export const OutputMetadataRow = reatomComponent(function OutputMetadataRow(
+  props: OutputMetadataRowProps,
+) {
   return (
     <div data-testid="output-metadata-row" className={s.metadataRow}>
       {props.parts.map((part, index) => (
@@ -32,7 +35,7 @@ export function OutputMetadataRow(props: OutputMetadataRowProps) {
       )}
     </div>
   )
-}
+}, 'OutputMetadataRow')
 
 /** The primary image's own data. `OutputPreview` supplies the badge counters. */
 export interface OutputPrimarySpec {
@@ -70,7 +73,7 @@ const frameVariant = {
 } satisfies Record<OutputSurface, ImageFrameVariant>
 
 /** design 897–907 — the Preview body's left column. */
-export function PrimaryImage(props: PrimaryImageProps) {
+export const PrimaryImage = reatomComponent(function PrimaryImage(props: PrimaryImageProps) {
   const surface = props.surface ?? 'viewer'
   const badge = (
     <div data-testid="output-primary-badge" className={s.badge}>
@@ -95,4 +98,4 @@ export function PrimaryImage(props: PrimaryImageProps) {
       )}
     </div>
   )
-}
+}, 'PrimaryImage')

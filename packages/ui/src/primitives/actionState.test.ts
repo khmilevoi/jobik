@@ -1,13 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  ACTION_TIMINGS,
-  type CopyState,
-  createCopyAction,
-  createDownloadAction,
-  createValidateAction,
-  type DownloadState,
-  type ValidateState,
-} from './actionState.js'
+import { ACTION_TIMINGS, createValidateAction, type ValidateState } from './actionState.js'
 
 beforeEach(() => {
   vi.useFakeTimers()
@@ -18,168 +10,15 @@ afterEach(() => {
 })
 
 /**
- * The two sequences `3A` §4.1 states in JavaScript, tested against the clock rather than against
- * the DOM. Nothing here renders: the whole point of the module is that the timing is one thing
- * four components share, so the timing is what is asserted.
- */
-describe('createCopyAction', () => {
-  it('swaps straight to copied, with no spinner, when the write is synchronous', async () => {
-    const seen: CopyState[] = []
-    const action = createCopyAction((state) => seen.push(state))
-
-    await action.copy(() => {})
-
-    // Rule 01: clipboard writes are synchronous, so `busy` is never reached — the 400 ms timer is
-    // armed and cancelled before it can fire.
-    expect(seen).toEqual(['ok'])
-    expect(action.state).toBe('ok')
-  })
-
-  it('holds copied for exactly 1.6 s, then returns to idle', async () => {
-    const action = createCopyAction(() => {})
-    await action.copy(() => {})
-
-    vi.advanceTimersByTime(ACTION_TIMINGS.copiedHoldMs - 1)
-    expect(action.state).toBe('ok')
-
-    vi.advanceTimersByTime(1)
-    expect(action.state).toBe('idle')
-  })
-
-  it('shows the spinner only once serialising has run past 400 ms', async () => {
-    let settle: (() => void) | undefined
-    const pending = new Promise<void>((resolve) => {
-      settle = resolve
-    })
-    const action = createCopyAction(() => {})
-
-    const running = action.copy(() => pending)
-
-    await vi.advanceTimersByTimeAsync(ACTION_TIMINGS.copySpinnerDelayMs - 1)
-    expect(action.state).toBe('idle')
-
-    await vi.advanceTimersByTimeAsync(1)
-    expect(action.state).toBe('busy')
-
-    settle?.()
-    await running
-    expect(action.state).toBe('ok')
-  })
-
-  it('ignores a second press while the first is still holding', async () => {
-    const action = createCopyAction(() => {})
-    const write = vi.fn(() => {})
-
-    await action.copy(write)
-    await action.copy(write)
-
-    expect(write).toHaveBeenCalledTimes(1)
-  })
-
-  /** An `Error` returned is the failure path — the repository's convention, not a thrown one. */
-  it('lands on failed when the write returns an Error, and stays there', async () => {
-    const action = createCopyAction(() => {})
-
-    await action.copy(() => new Error('clipboard blocked by the browser'))
-    expect(action.state).toBe('failed')
-
-    vi.advanceTimersByTime(ACTION_TIMINGS.copiedHoldMs * 2)
-    expect(action.state).toBe('failed')
-  })
-
-  it('treats a rejected promise as the same failure, for the APIs that only reject', async () => {
-    const action = createCopyAction(() => {})
-    await action.copy(() => Promise.reject(new Error('denied')))
-    expect(action.state).toBe('failed')
-  })
-
-  /** `3A` §2.5 labels the failed panel button `Copy failed — retry`, so a press must retry. */
-  it('retries from failed', async () => {
-    const action = createCopyAction(() => {})
-    await action.copy(() => new Error('blocked'))
-
-    const retry = vi.fn(() => {})
-    await action.copy(retry)
-
-    expect(retry).toHaveBeenCalledTimes(1)
-    expect(action.state).toBe('ok')
-  })
-
-  it('stops touching the clock once disposed', async () => {
-    const action = createCopyAction(() => {})
-    await action.copy(() => {})
-
-    action.dispose()
-    vi.advanceTimersByTime(ACTION_TIMINGS.copiedHoldMs * 2)
-
-    expect(action.state).toBe('ok')
-  })
-})
-
-describe('createDownloadAction', () => {
-  it('runs idle -> busy -> progress -> ok -> idle', () => {
-    const seen: DownloadState[] = []
-    const action = createDownloadAction((state) => seen.push(state))
-
-    action.start()
-    expect(action.state).toBe('busy')
-    // Rule 03: no percentage until a size is known, so the indeterminate phase reports none.
-    expect(action.progress).toBeUndefined()
-
-    action.advance(42)
-    expect(action.state).toBe('progress')
-    expect(action.progress).toBe(42)
-
-    action.finish()
-    expect(action.state).toBe('ok')
-    // `dlWidth` is `0%` in every state but `prog`, so the bar does not linger full.
-    expect(action.progress).toBeUndefined()
-
-    vi.advanceTimersByTime(ACTION_TIMINGS.savedHoldMs)
-    expect(action.state).toBe('idle')
-    expect(seen).toEqual(['busy', 'progress', 'ok', 'idle'])
-  })
-
-  it('ignores a press while a download is already running', () => {
-    const onChange = vi.fn()
-    const action = createDownloadAction(onChange)
-
-    action.start()
-    action.advance(42)
-    onChange.mockClear()
-
-    action.start()
-    expect(onChange).not.toHaveBeenCalled()
-    expect(action.progress).toBe(42)
-  })
-
-  it('clamps a percentage to the range the bar can draw', () => {
-    const action = createDownloadAction(() => {})
-    action.start()
-
-    action.advance(140)
-    expect(action.progress).toBe(100)
-
-    action.advance(-10)
-    expect(action.progress).toBe(0)
-  })
-
-  it('goes back to idle on reset, which is the only exit a failed download has', () => {
-    const action = createDownloadAction(() => {})
-    action.start()
-    action.advance(42)
-
-    action.reset()
-
-    expect(action.state).toBe('idle')
-    expect(action.progress).toBeUndefined()
-  })
-})
-
-/**
- * `3D` §3D.4's own script, minus the fake round trip. The artboard's `later(1200, …)` is how the
- * design pretends to reach a server; here the caller settles the check, so the only clock this
- * module owns is the 4 s hold on the resolved chip.
+ * The one sequence this module still performs, tested against the clock rather than against the
+ * DOM. `createCopyAction` and `createDownloadAction` went with `output/OutputHeader`'s hooks: what
+ * their cases stated is stated by `model/output.test.ts`'s `` `3A` — Copy all `` and
+ * `` `3A` — Download `` blocks, case name for case name, against the sequences the model actually
+ * runs.
+ *
+ * What is left is `3D` §3D.4's own script, minus the fake round trip. The artboard's
+ * `later(1200, …)` is how the design pretends to reach a server; here the caller settles the check,
+ * so the only clock this module owns is the 4 s hold on the resolved chip.
  */
 describe('createValidateAction', () => {
   it('runs idle -> checking -> valid and holds the chip for exactly 4 s', () => {

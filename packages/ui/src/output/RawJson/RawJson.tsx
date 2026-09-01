@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import { formatRawJson, type RawJsonTone } from '#output/rawJsonFormat.js'
 import s from './RawJson.module.css'
 
@@ -22,7 +23,7 @@ const toneClass = {
 } satisfies Record<RawJsonTone, string>
 
 /** design 963–976 — the `Raw` tab: the serialised report as line-numbered, coloured mono. */
-export function RawJson(props: RawJsonProps) {
+export const RawJson = reatomComponent(function RawJson(props: RawJsonProps) {
   const lines = formatRawJson(props.value)
   return (
     <div data-testid={props['data-testid']} className={s.rawJson}>
@@ -45,4 +46,4 @@ export function RawJson(props: RawJsonProps) {
       ))}
     </div>
   )
-}
+}, 'RawJson')
