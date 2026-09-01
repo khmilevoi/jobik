@@ -171,12 +171,21 @@ keyframes — `jspin .7s`, `jdash .8s`, `jshim 1.5s`, `jpulse 1.5s`/`1s` — and
 transitions**, no `cubic-bezier` and no `prefers-reduced-motion` block. The rule behind that: a
 thing moves because work is in progress, never because a state changed. Do not add a hover or
 state-change transition; do make sure the four loops actually run where the design puts them, read
-from the `--jbk-motion-*` tokens. The one deliberate departure is a `prefers-reduced-motion` block
-in `globalStyles.css`, which the design does not have and accessibility requires.
+from the `--jbk-motion-*` tokens. The one deliberate departure from the motion rules is a
+`prefers-reduced-motion` block in `globalStyles.css`, which the design does not have and
+accessibility requires.
 
 **The design file is the source of truth for layout, tokens, and states.** Do not invent colours,
 spacing, or new UI states — read the artboard first. If code and design disagree, the design wins —
 but check `DEFERRED.md` first: several disagreements are already known and deliberately deferred.
+
+**A second deliberate departure, in copy rather than motion.** `CancelRunModal` does not print the
+design's own cancel sentence (`07-copy.md` §4.5), which promises the in-flight node finishes its
+current work and that completed nodes stay cached so a re-run resumes from there. Both halves are
+false in v1: `run/execute.ts` settles the run on `Promise.race([invoked, aborted])` without waiting
+for the handler, and `cached` is unreachable (`DEFERRED.md` §3), so a re-run executes everything
+again. This dialog is the one place a user is told what cancelling costs, so it states what the
+engine does. Restore the design's sentence when the engine earns it, not before.
 
 ## Styling
 
