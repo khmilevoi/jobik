@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import { Handle, Position } from '@xyflow/react'
 import { fieldHandleClass, fieldHandleId } from '#canvas/fields.js'
 import type { FieldHandleTone, FieldProblem, HandleDirection } from '#canvas/types.js'
@@ -12,8 +13,13 @@ export interface FieldHandleProps {
   readonly problem?: FieldProblem
 }
 
-/** The 8px field handle. Sources sit on the right edge, targets on the left. */
-export function FieldHandle(props: FieldHandleProps) {
+/**
+ * The 8px field handle. Sources sit on the right edge, targets on the left.
+ *
+ * Every value it draws is the row's, and the row's is the card's. There is no atom for a handle to
+ * read and inventing one would invent state, so this is wrapped and left alone.
+ */
+export const FieldHandle = reatomComponent(function FieldHandle(props: FieldHandleProps) {
   const { direction, name, tone } = props
   return (
     <Handle
@@ -25,4 +31,4 @@ export function FieldHandle(props: FieldHandleProps) {
       data-testid={`field-handle-${direction}-${name}`}
     />
   )
-}
+}, 'FieldHandle')

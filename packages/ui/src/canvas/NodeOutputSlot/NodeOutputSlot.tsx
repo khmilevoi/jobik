@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import { canvasMetrics } from '#canvas/canvasTokens.js'
 import { StripePlaceholder } from '#canvas/StripePlaceholder/StripePlaceholder.js'
 import type { NodeOutputSlotSpec } from '#canvas/types.js'
@@ -15,8 +16,13 @@ export interface NodeOutputSlotProps {
 /**
  * `### Node cards`: the optional inline output slot between the input and output sections. This
  * component owns the well and the caption row; P12 owns whatever `slot.content` renders.
+ *
+ * `slot` does have a model home — it is `NodeOverlay.outputSlot`, `model/canvas.tsx` builds it, and
+ * `onInspect` is already bound to the model's frame there. It stays a prop anyway: the card has
+ * read that overlay one render higher, `captionColor` is the card's own (`ok` and everything else
+ * draw different hues), and a slot only ever exists because the card that owns it drew one.
  */
-export function NodeOutputSlot(props: NodeOutputSlotProps) {
+export const NodeOutputSlot = reatomComponent(function NodeOutputSlot(props: NodeOutputSlotProps) {
   const { slot } = props
   const hasCaption =
     slot.caption !== undefined || slot.source !== undefined || slot.onInspect !== undefined
@@ -77,4 +83,4 @@ export function NodeOutputSlot(props: NodeOutputSlotProps) {
       </InsetWell>
     </div>
   )
-}
+}, 'NodeOutputSlot')

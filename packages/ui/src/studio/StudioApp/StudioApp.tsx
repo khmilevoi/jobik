@@ -43,14 +43,12 @@ type StudioAppBodyProps = Pick<StudioAppProps, 'accent' | 'edgeShape' | 'showDot
  * `runMeta`. Every one of them is presentational; this component's whole job is reading
  * `packages/ui/src/model/`'s units and handing them over.
  *
- * **The array identity `FlowCanvas` syncs from is the model's to keep now.** `FlowCanvas` builds
- * its internal React Flow state from the identity of the `nodes` and `edges` props, so a rebuilt
- * array discards an in-flight drag and reverts selection. `canvas.edges` and `canvas.nodes` are
- * `computed`s that change only when the descriptor, the document, the marked node or `3D`'s marks
- * do — no clock and no run reaches them. `canvas.decoratedNodes`, which is what goes to the canvas
- * until a `NodeCard` reads its own overlay, is the one that still folds the run in and so still
- * gives that identity up on every stream frame; its own doc comment says so and names what removes
- * it.
+ * **The array identity `FlowCanvas` syncs from is the model's to keep now.** `FlowCanvas` re-syncs
+ * its internal React Flow state whenever the `nodes` or `edges` props change identity.
+ * `canvas.edges` and `canvas.nodes` are `computed`s that change only when the descriptor, the
+ * document, the marked node or `3D`'s marks do — no clock and no run reaches them, so a streaming
+ * run never moves either array. What a run has to say about a node reaches the card that draws it,
+ * which reads `canvas.nodeOverlay(id)` for itself.
  *
  * `StudioApp` builds the model and provides it; {@link StudioAppBody} consumes it. One component
  * cannot do both, and the split is the whole reason there are two.
@@ -137,8 +135,9 @@ const StudioAppBody = reatomComponent(function StudioAppBody(props: StudioAppBod
   const validate = useAction(validation.validate)
   const openReport = useAction(validation.openReport)
   const closeReport = useAction(validation.closeReport)
-  const copyAllOutput = useAction(output.copyAll)
-  const downloadOutput = useAction(output.download)
+  // `Copy all` and `Download` are not bound here any more: `OutputHeader` reads `3A`'s two cells
+  // off the model and presses `output.copyAll` / `output.download` itself, because a button's
+  // state belongs to the sequence rather than to the surface that draws it.
   const closeViewer = useAction(output.close)
   const requestSave = useAction(save.save)
 
@@ -172,7 +171,7 @@ const StudioAppBody = reatomComponent(function StudioAppBody(props: StudioAppBod
     <div className={s.canvas}>
       <div className={s.canvasSurface}>
         <FlowCanvas
-          nodes={canvas.decoratedNodes()}
+          nodes={canvas.nodes()}
           edges={canvas.edges()}
           {...(startId === undefined ? {} : { startNodeId: startId })}
           {...(selectedNodeId === undefined ? {} : { selectedNodeId })}
@@ -192,8 +191,6 @@ const StudioAppBody = reatomComponent(function StudioAppBody(props: StudioAppBod
           {...(dockStrings === undefined ? {} : dockStrings)}
           raw={viewedReport}
           logs={output.logs()}
-          onCopyAll={copyAllOutput}
-          onDownload={downloadOutput}
           onClose={closeViewer}
         />
       )}

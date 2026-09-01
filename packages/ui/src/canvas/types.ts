@@ -229,15 +229,19 @@ export interface FieldConnection {
 
 export interface FlowCanvasProps {
   /**
-   * Must be referentially stable across renders. The canvas rebuilds its internal node
-   * state (positions and selection) whenever `nodes` or `edges` changes identity, which
-   * discards any in-flight drag position and React Flow's own selection state. Memoise
-   * this array rather than constructing it inline in render.
+   * Structure: which nodes exist, where the document puts them, and what their fields declare. What
+   * a run has to say about a node is NOT in here — a card asks `CanvasModel.nodeOverlay(id)` for
+   * its own — so this array can stay still while a run streams.
+   *
+   * A new identity re-syncs the canvas's internal React Flow state, so it is still worth memoising
+   * rather than constructing inline in render. It no longer costs an in-flight drag: a position is
+   * taken from here only when this array actually MOVES the node, so a rebuilt-but-equal array
+   * leaves the node under the pointer alone. Selection is always taken from the props.
    */
   readonly nodes: readonly FlowCanvasNode[]
   /**
-   * Must be referentially stable across renders — see `nodes`. A new identity here
-   * triggers the same internal rebuild and the same loss of drag/selection state.
+   * Worth memoising for the same reason as `nodes` — a new identity re-syncs the same internal
+   * state, since the edges are what decide which handles read as live.
    */
   readonly edges: readonly FlowCanvasEdge[]
   /** The selected entry point. Edges leaving it default to the accent tone. */

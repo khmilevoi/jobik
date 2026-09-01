@@ -83,10 +83,16 @@ import type {
  * would read as a measurement.
  *
  * Together with {@link toCardState} and {@link annotationsFor} this is the per-node half of
- * `studio/runPresenter.ts`'s `toNodeOverlays`. That function has no caller left — `StudioApp` reads
- * this module's overlays now — so what holds the two spellings together is the test in
- * `canvas.test.tsx` named *agrees with `toNodeOverlays`*, and the sweep that removes one of them is
- * the one that decides which.
+ * `studio/runPresenter.ts`'s `toNodeOverlays`.
+ *
+ * **The duplication is deliberate and it stays, for now.** `toNodeOverlays` takes a whole
+ * `RunSession` and cannot be split per node, which is the entire reason this spelling exists; it
+ * has no production caller left, and its own six cases in `studio/runPresenter.test.ts` are the
+ * only place several of these rules are stated against a plain function rather than through a live
+ * model. Collapsing it means moving those six cases, and that is a `studio/` sweep, not a line to
+ * delete from here. Until then the test in `canvas.test.tsx` named *agrees with `toNodeOverlays`*
+ * is the only thing holding the two spellings honest, and it is no longer true that anything
+ * renders from the other one.
  */
 const SETTLED_WITH_TIME: ReadonlySet<NodeStatus> = new Set<NodeStatus>(['ok', 'failed', 'cached'])
 
@@ -426,30 +432,6 @@ export function reatomCanvas(
     })
   }, `${name}.nodes`)
 
-  /**
-   * The same array with the overlays folded back in — the bridge {@link CanvasModel.decoratedNodes}
-   * describes, and the one thing in this module that gives the identity back up.
-   *
-   * It exists because `NodeCard` still reads its run state off the node object `FlowCanvas` hands
-   * it. With no session there is nothing to fold, so it hands back {@link nodes} itself rather than
-   * a copy: an idle canvas keeps the stable identity, and only a run gives it up.
-   */
-  const decoratedNodes = computed<readonly FlowCanvasNode[]>(() => {
-    const overlaid = overlays()
-    if (overlaid === undefined) return nodes()
-    const descriptor = input.descriptor()
-    const document = input.document()
-    if (descriptor === undefined || document === undefined) return []
-    const selectedNodeId = input.selectedNodeId()
-    return toCanvasNodes({
-      descriptor,
-      document,
-      ...(selectedNodeId === undefined ? {} : { selectedNodeId }),
-      overlays: overlaid,
-      problems: input.problems(),
-    })
-  }, `${name}.decoratedNodes`)
-
   const edges = computed<readonly FlowCanvasEdge[]>(() => {
     const document = input.document()
     if (document === undefined) return []
@@ -459,7 +441,6 @@ export function reatomCanvas(
   return {
     overlays,
     nodes,
-    decoratedNodes,
     edges,
     nodeOverlay: (nodeId) => model(nodeId).overlay,
   }

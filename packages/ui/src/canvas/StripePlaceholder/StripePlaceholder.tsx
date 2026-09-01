@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import { type ReactNode, useId } from 'react'
 import type { StyleWithVars } from '#cx.js'
 import { px } from '#tokens.js'
@@ -13,8 +14,15 @@ export interface StripePlaceholderProps {
   readonly 'data-testid'?: string
 }
 
-/** The 45° stripe field the artboards use wherever a rendered image would go. */
-export function StripePlaceholder(props: StripePlaceholderProps) {
+/**
+ * The 45° stripe field the artboards use wherever a rendered image would go.
+ *
+ * A pure style primitive: its three numbers are the caller's own sizing, and there is nothing in
+ * the model that could hand them over.
+ */
+export const StripePlaceholder = reatomComponent(function StripePlaceholder(
+  props: StripePlaceholderProps,
+) {
   const patternId = `jobik-stripe-${useId().replace(/[^a-zA-Z0-9-]/g, '')}`
   // The three values a caller sizes this with, as the custom properties the rule reads. An absent
   // `opacity` leaves the property unset, so the rule falls back to `1` exactly as the inline style
@@ -45,4 +53,4 @@ export function StripePlaceholder(props: StripePlaceholderProps) {
       {props.label === undefined ? null : <div className={s.label}>{props.label}</div>}
     </div>
   )
-}
+}, 'StripePlaceholder')

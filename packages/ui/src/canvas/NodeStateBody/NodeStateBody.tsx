@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import { canvasMetrics } from '#canvas/canvasTokens.js'
 import { StripePlaceholder } from '#canvas/StripePlaceholder/StripePlaceholder.js'
 import type { NodeCardDetail } from '#canvas/types.js'
@@ -20,7 +21,7 @@ export interface MetadataRowProps {
 }
 
 /** `1024×1024 · png · 412 kb` — the mono metadata row of an ok node. */
-export function MetadataRow(props: MetadataRowProps) {
+export const MetadataRow = reatomComponent(function MetadataRow(props: MetadataRowProps) {
   const items = props.parts.map((part, index) => ({ key: `part-${index}-${part}`, part }))
   // Only an override travels; the artboard default lives in the rule's own fallback.
   const style: StyleWithVars = {
@@ -37,7 +38,7 @@ export function MetadataRow(props: MetadataRowProps) {
       ))}
     </div>
   )
-}
+}, 'MetadataRow')
 
 /** The bar weights are the caller's, so each one rides in as the property the rule reads. */
 function barStyle(weight: number): StyleWithVars {
@@ -65,7 +66,15 @@ function QueuedBody(props: { readonly waitingOn: string; readonly weights: reado
   )
 }
 
-export function NodeStateBody(props: NodeStateBodyProps) {
+/**
+ * The `Node states` body block, below the card's field sections.
+ *
+ * `detail` is `NodeOverlay.detail`, so it does have a model home — including the two handlers, which
+ * `model/canvas.tsx` binds to the model's frame before they ever reach a `onClick` (RTM-A04). It
+ * stays a prop because the card has already read that overlay to decide whether there is a body at
+ * all, and because `captionColor` is the card's own state-dependent hue with nothing behind it.
+ */
+export const NodeStateBody = reatomComponent(function NodeStateBody(props: NodeStateBodyProps) {
   const { detail } = props
   // The caller's colour is a value the stylesheet cannot know — an ok card reads the metadata
   // step, every other state the type-annotation step — so it rides in as a custom property.
@@ -153,4 +162,4 @@ export function NodeStateBody(props: NodeStateBodyProps) {
       )}
     </div>
   )
-}
+}, 'NodeStateBody')

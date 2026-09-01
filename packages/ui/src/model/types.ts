@@ -556,9 +556,10 @@ export interface OutputModel {
  * CanvasModel`
  *
  * **`nodes` and `edges` are keyed on the model INPUTS, never on the previous output.** `FlowCanvas`
- * syncs its internal state from prop ARRAY IDENTITY, so rebuilding either on every read silently
- * resets an in-flight drag and reverts selection. A `computed` gives that for free; do not defeat
- * it by reading a clock — the run's 100ms tick belongs in the dock header, not in a node array.
+ * re-syncs its internal React Flow state whenever either array's identity changes, so rebuilding
+ * one on every read puts the canvas back to work on every stream frame. A `computed` gives that for
+ * free; do not defeat it by reading a clock — the run's 100ms tick belongs in the dock header, not
+ * in a node array.
  *
  * `NodeOverlay.outputSlot.content` is a `ReactNode`, so this module is a `.tsx` file.
  */
@@ -570,28 +571,19 @@ export interface CanvasModel {
    */
   readonly overlays: Computed<ReadonlyMap<string, NodeOverlay> | undefined>
   readonly nodes: Computed<readonly FlowCanvasNode[]>
-  /**
-   * {@link CanvasModel.nodes} with every overlay already folded into the cards — and a bridge that
-   * is meant to be deleted.
-   *
-   * `FlowCanvas` takes one array of cards, and `NodeCard` still reads its run state out of the node
-   * object it is handed rather than from {@link CanvasModel.nodeOverlay}. Until the wave that
-   * changes that, a container has to give the canvas the decorated array, so the split this module
-   * exists for is real inside the model and not yet visible on screen.
-   *
-   * Reading this is a subscription to every node's overlay, so its identity changes on every stream
-   * frame — exactly the hazard {@link CanvasModel.nodes} removes. Nothing but the container that
-   * owns the whole canvas may read it, and the day a card reads its own overlay this member goes.
-   */
-  readonly decoratedNodes: Computed<readonly FlowCanvasNode[]>
   readonly edges: Computed<readonly FlowCanvasEdge[]>
   /**
    * One node's overlay, created on first ask and never rebuilt.
    *
-   * On the interface rather than only on the factory's return type, because a `NodeCard` reading
-   * its own id here — and `nodes` carrying no run state at all — *is* the refactor's headline fix:
-   * a `node-status` line reaches the one card it is about, and an in-flight drag survives a run.
-   * A surface that can only reach `StudioModel.canvas` must be able to ask.
+   * On the interface rather than only on the factory's return type, because `NodeCard` reads its
+   * own id here — and `nodes` carries no run state at all — and that pair *is* the refactor's
+   * headline fix: a `node-status` line reaches the one card it is about, and an in-flight drag
+   * survives a run. A surface that can only reach `StudioModel.canvas` must be able to ask.
+   *
+   * There used to be a `decoratedNodes` beside `nodes` — the same array with every overlay folded
+   * back in — because the card read its run state off the object it was handed. It gave the array
+   * a fresh identity on every stream frame, which is exactly the hazard `nodes` exists to remove,
+   * and it went the day the card started asking here.
    */
   readonly nodeOverlay: (nodeId: string) => Computed<NodeOverlay | undefined>
 }

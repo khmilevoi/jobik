@@ -771,7 +771,18 @@ describe('what the derivation is cut for', () => {
     expect(large).toEqual(small)
   })
 
-  it('agrees with toNodeOverlays, which StudioApp still renders from', async () => {
+  /**
+   * Nothing renders from `toNodeOverlays` any more — `StudioApp` hands the canvas `canvas.nodes`,
+   * and a card asks `canvas.nodeOverlay(id)` for its own decoration — so this case is no longer
+   * holding a live second reading against this one. It is kept, and renamed, because the two
+   * spellings still both exist: `toNodeOverlays` takes a whole `RunSession` and cannot be split per
+   * node, which is why this module restates `SETTLED_WITH_TIME`, `annotationsFor` and `toCardState`
+   * in the first place, and its own six cases in `studio/runPresenter.test.ts` state several of
+   * these rules against a plain function rather than through a live model. Collapsing the two means
+   * moving those six cases into a model test — a `studio/` sweep — and until someone does, this is
+   * the only thing that would notice the two drifting apart.
+   */
+  it('agrees with toNodeOverlays, the whole-session spelling it was split out of', async () => {
     const ids = ['a', 'b', 'c', 'd']
     await inFrame(
       async (world) => {

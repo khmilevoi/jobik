@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import { FieldHandle } from '#canvas/FieldHandle/FieldHandle.js'
 import {
   fieldAnnotationClass,
@@ -22,8 +23,13 @@ export interface NodeFieldRowProps {
 /**
  * `### Node cards`: one 30px row per field, name left and type annotation right in mono, with the
  * field's handle centred on the row and hanging 4px off the card edge.
+ *
+ * All four props stay. Not one of them has a home in `model/types.ts`: `field` is the descriptor's
+ * declaration with the run's annotation and `3D`'s mark already folded in by the card, `isStart` is
+ * the owning card's, and `live` is derived by `FlowCanvas` from the edge list — a fact about a pair
+ * of nodes, which no per-field unit could answer without asking the whole canvas.
  */
-export function NodeFieldRow(props: NodeFieldRowProps) {
+export const NodeFieldRow = reatomComponent(function NodeFieldRow(props: NodeFieldRowProps) {
   const { field, direction, isStart, live } = props
   const tone = resolveFieldTone(field, isStart)
   const problem = field.problem
@@ -57,4 +63,4 @@ export function NodeFieldRow(props: NodeFieldRowProps) {
       />
     </div>
   )
-}
+}, 'NodeFieldRow')

@@ -1,3 +1,4 @@
+import { reatomComponent } from '@reatom/react'
 import {
   applyNodeChanges,
   Background,
@@ -7,7 +8,7 @@ import {
   Position,
   ReactFlow,
 } from '@xyflow/react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { canvasColors, canvasMetrics } from '#canvas/canvasTokens.js'
 import { toFieldConnection, toNodeLayoutChange } from '#canvas/changes.js'
 import { FieldEdge, type FieldEdgeType } from '#canvas/FieldEdge/FieldEdge.js'
@@ -56,6 +57,48 @@ export function toReactFlowNodes(
   }))
 }
 
+/** Where the props last said each node was — the baseline a resync compares against. */
+export function nodePositions(
+  nodes: readonly FlowCanvasNode[],
+): ReadonlyMap<string, { readonly x: number; readonly y: number }> {
+  return new Map(nodes.map((node) => [node.id, node.position]))
+}
+
+/**
+ * The props, folded onto the React Flow state the canvas already holds — instead of replacing it.
+ *
+ * `rfNodes` carries two things at once: what the document says (which node, where, which fields)
+ * and what React Flow is doing right now (the position a gesture is writing, the size it measured).
+ * Rebuilding the array threw the second away, so a `nodes` prop that arrived mid-gesture reset the
+ * node under the pointer. The model no longer rebuilds that array during a run — `canvas.nodes` is
+ * structure only — but the canvas is a component anyone may hand a freshly-built array to, and
+ * "must be referentially stable" is not a contract a prop can enforce.
+ *
+ * So a position is taken from the props only when the props actually MOVED it: `synced` is what
+ * they said last time, and a node whose stated position is unchanged keeps the one it is being
+ * dragged to. Everything else — selection, the field specs, the handles' sides — is the props' to
+ * state, and is taken from `next` every time. A node the canvas has never seen is taken whole.
+ *
+ * This is what makes `reloadFromDisk` and an in-flight drag both work: the first genuinely changes
+ * the stated position and is adopted, the second does not state anything new at all.
+ */
+export function syncReactFlowNodes(
+  current: readonly JobikFlowNode[],
+  next: readonly JobikFlowNode[],
+  synced: ReadonlyMap<string, { readonly x: number; readonly y: number }>,
+): JobikFlowNode[] {
+  const held = new Map(current.map((node) => [node.id, node]))
+  return next.map((node) => {
+    const live = held.get(node.id)
+    if (live === undefined) return node
+    const was = synced.get(node.id)
+    const moved = was === undefined || was.x !== node.position.x || was.y !== node.position.y
+    // `{ ...live, ...node }` keeps what only React Flow knows — the measured size, whether a
+    // gesture is in flight — and takes back everything the props own.
+    return moved ? { ...live, ...node } : { ...live, ...node, position: live.position }
+  })
+}
+
 /**
  * `### Edges` → stepped: the elbow x is staggered per edge so two parallel runs between the same
  * pair of nodes never overlap their vertical segments — the artboard turns at `336` then `352`,
@@ -93,8 +136,19 @@ export function toReactFlowEdges(
  * The graph canvas. Positions live here while a drag is in flight, because React Flow needs to
  * move the node; everything else is props. `onNodeLayoutChange` and `onConnectFields` report the
  * result — persisting either is P14's.
+ *
+ * **`rfNodes` stays, and stays local, deliberately.** React Flow has to own the node it is moving:
+ * a position that lived in an atom would be written on every pointer frame and read back through a
+ * render, which is neither what React Flow expects nor what a drag needs. What changed is that the
+ * canvas no longer REPLACES that state whenever the `nodes` prop is rebuilt — see
+ * {@link syncReactFlowNodes}. Between that and `canvas.nodes` carrying no run state at all, an
+ * in-flight drag now survives a streaming run; before, each stream frame rebuilt the array and
+ * reset the node under the pointer.
+ *
+ * It reads no model. The cards do, one node's overlay each, which is where a run reaches the canvas
+ * now.
  */
-export function FlowCanvas(props: FlowCanvasProps) {
+export const FlowCanvas = reatomComponent(function FlowCanvas(props: FlowCanvasProps) {
   const {
     nodes,
     edges,
@@ -110,8 +164,19 @@ export function FlowCanvas(props: FlowCanvasProps) {
     toReactFlowNodes(nodes, edges, startNodeId, selectedNodeId),
   )
 
+  /**
+   * The positions the props stated at the last sync. `null` until the first one, which is the mount
+   * — where the state was built from these very nodes, so there is nothing yet to preserve.
+   */
+  const synced = useRef<ReadonlyMap<string, { readonly x: number; readonly y: number }> | null>(
+    null,
+  )
+
   useEffect(() => {
-    setRfNodes(toReactFlowNodes(nodes, edges, startNodeId, selectedNodeId))
+    const next = toReactFlowNodes(nodes, edges, startNodeId, selectedNodeId)
+    const previous = synced.current ?? nodePositions(nodes)
+    synced.current = nodePositions(nodes)
+    setRfNodes((current) => syncReactFlowNodes(current, next, previous))
   }, [nodes, edges, startNodeId, selectedNodeId])
 
   const rfEdges = useMemo(
@@ -171,4 +236,4 @@ export function FlowCanvas(props: FlowCanvasProps) {
       </ReactFlow>
     </div>
   )
-}
+}, 'FlowCanvas')
