@@ -57,6 +57,14 @@ export interface FlowsSidebarProps {
    * artboard draws.
    */
   readonly onSelectFlow?: (flowId: string) => void
+  /**
+   * `3E` note 04 — *"Blocked switching is `3b`'s rule, not a new state: the list drops to 45% and
+   * answers nothing."* The drop sits on the 248px list container rather than on a row
+   * (`flow-switching.dc.html:59`), and it covers the `Flows` list alone: nothing else in the panel
+   * is what the user is blocked from. `4A`'s coverage grid adds that it is instant — *"a disabled
+   * list should never look like it is thinking"* — so there is no transition on this opacity.
+   */
+  readonly blocked?: boolean
   readonly nodes: readonly FlowNodeSummary[]
   readonly selectedNodeId?: string
   /**
@@ -102,6 +110,7 @@ export const FlowsSidebar = reatomComponent(function FlowsSidebar(props: FlowsSi
   const onSelectFlow = props.onSelectFlow
   const onSelectStart = props.onSelectStart
   const startNodes = props.nodes.filter((node) => node.kind === 'start')
+  const blocked = props.blocked === true
 
   return (
     <div data-testid="studio-sidebar" className={s.sidebar}>
@@ -115,7 +124,7 @@ export const FlowsSidebar = reatomComponent(function FlowsSidebar(props: FlowsSi
 
       <div data-testid="studio-sidebar-scroll" className={s.scroll}>
         <SectionLabel className={s.groupLabelFirst}>Flows</SectionLabel>
-        <div className={s.list}>
+        <div data-testid="studio-flow-list" className={cx(s.list, blocked && s.listBlocked)}>
           {props.flows.map((flow) => {
             const active = flow.id === props.activeFlowId
             return (
@@ -123,7 +132,10 @@ export const FlowsSidebar = reatomComponent(function FlowsSidebar(props: FlowsSi
                 key={flow.id}
                 type="button"
                 data-testid={`studio-flow-row-${flow.id}`}
-                onClick={onSelectFlow === undefined ? undefined : () => onSelectFlow(flow.id)}
+                disabled={blocked}
+                onClick={
+                  blocked || onSelectFlow === undefined ? undefined : () => onSelectFlow(flow.id)
+                }
                 className={cx(s.row, s.flowRow, active && s.flowRowActive)}
               >
                 <div className={cx(s.flowName, active && s.flowNameActive)}>{flow.name}</div>

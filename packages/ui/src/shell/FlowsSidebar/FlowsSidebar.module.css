@@ -28,6 +28,16 @@
   border-radius: var(--jbk-radius-control);
 }
 
+/*
+ * `3E` note 04 and `4A`'s coverage grid: while a switch is blocked the whole `Flows` list drops to
+ * 45% and answers nothing. The drop is on the container, exactly as `flow-switching.dc.html:59`
+ * draws it, and it is instant — a disabled list should never look like it is thinking, so this is
+ * the one dim in the panel that deliberately carries no transition.
+ */
+.listBlocked {
+  opacity: 0.45;
+}
+
 .groupLabelFirst {
   padding: 14px 10px 6px 14px;
 }

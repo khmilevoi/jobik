@@ -45,6 +45,12 @@ export interface StudioProps {
   /** Points the Studio at the flow a sidebar row names. Absent leaves the rows inert. */
   readonly onSelectFlow?: (flowId: string) => void
   /**
+   * `3E` note 04 — the `Flows` list drops to 45% and answers nothing while a switch is blocked.
+   * Its one occupant is the window while another flow is loading; `3F` sends the dirty-draft and
+   * live-run cases to the switch dialog instead. Absent is the ordinary answering list.
+   */
+  readonly flowsBlocked?: boolean
+  /**
    * The flow's own file, as the descriptor names it — `index.ts` for the showcase's `publication`.
    * There is no default: the descriptor is absent for the whole initial-load frame, and a stand-in
    * name would be indistinguishable from a real one. Absent means the top bar shows no badge.
@@ -188,6 +194,7 @@ export const Studio = reatomComponent(function Studio(props: StudioProps) {
             flows={flows}
             activeFlowId={activeFlowId}
             {...(props.onSelectFlow === undefined ? {} : { onSelectFlow: props.onSelectFlow })}
+            blocked={props.flowsBlocked === true}
             nodes={nodes}
             selectedNodeId={props.selectedNodeId ?? entryNodeId}
             {...(props.onSelectStart === undefined ? {} : { onSelectStart: props.onSelectStart })}

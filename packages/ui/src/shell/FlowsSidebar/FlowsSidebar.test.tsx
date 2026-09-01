@@ -281,4 +281,47 @@ describe('FlowsSidebar', () => {
     renderSidebar()
     expect(screen.getByTestId('studio-sidebar-scroll')).toBeInTheDocument()
   })
+
+  /**
+   * `3E` note 04 — *"Blocked switching is `3b`'s rule, not a new state: the list drops to 45% and
+   * answers nothing."* The list stays on screen and stays readable; what it stops doing is
+   * answering.
+   */
+  it('stops the flow rows answering while switching is blocked', async () => {
+    const onSelectFlow = vi.fn()
+    render(
+      <FlowsSidebar
+        flows={flows}
+        activeFlowId="publication"
+        blocked
+        onSelectFlow={onSelectFlow}
+        nodes={nodes}
+        selectedNodeId="start1"
+        inventory={inventory}
+        onCollapse={() => {}}
+      />,
+    )
+    expect(screen.getByTestId('studio-flow-row-digest')).toBeDisabled()
+    await userEvent.click(screen.getByTestId('studio-flow-row-digest'))
+    expect(onSelectFlow).not.toHaveBeenCalled()
+    // The rows are still listed and still named — the block is a dim, not a removal.
+    expect(screen.getByTestId('studio-flow-row-backfill')).toBeInTheDocument()
+  })
+
+  it('answers again once the block lifts', async () => {
+    const onSelectFlow = vi.fn()
+    render(
+      <FlowsSidebar
+        flows={flows}
+        activeFlowId="publication"
+        onSelectFlow={onSelectFlow}
+        nodes={nodes}
+        selectedNodeId="start1"
+        inventory={inventory}
+        onCollapse={() => {}}
+      />,
+    )
+    await userEvent.click(screen.getByTestId('studio-flow-row-digest'))
+    expect(onSelectFlow).toHaveBeenCalledWith('digest')
+  })
 })
