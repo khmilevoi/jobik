@@ -1,7 +1,7 @@
 import type { FlowDocument, NodeStatus } from '@jobik/core'
 import type { Atom, Computed } from '@reatom/core'
 import { bind, computed } from '@reatom/core'
-import type { FlowCanvasEdge, FlowCanvasNode } from '#canvas/index.js'
+import type { FieldEdgeTone, FlowCanvasEdge, FlowCanvasNode } from '#canvas/index.js'
 import { MetadataRow, RUN_ANNOTATIONS } from '#canvas/index.js'
 import type {
   SafeFlowDescriptorPayload,
@@ -155,6 +155,23 @@ interface CanvasNodeModel {
    * the coarser question is what keeps that frame from reaching those cards at all.
    */
   readonly settled: Computed<boolean>
+  /**
+   * `4A` coverage, Edge flow: *"the dashed 0.8 s march is a loop, not a transition, and stops the
+   * moment the run ends."* `Studio — run in progress` draws both halves — the accent `5 7` dash
+   * into the running node, the `#23272b` `3 5` dash into the queued one.
+   *
+   * It is the **incoming** edge's tone, so it hangs off the node the edge points AT and reads that
+   * node's status and nothing else. Its own unit rather than a read of `overlay`, for the same
+   * reason `settled` is: an edge does not care about the error well, the waiting line or the
+   * settled slot, and folding it into the overlay would repaint every edge on every line that
+   * touches its target.
+   *
+   * `undefined` means "the run has nothing to say about this edge" and the edge keeps whatever
+   * `resolveEdgeTone` derived from the document. That is also the stop condition, and it is free:
+   * the march is a keyframe loop on the `.active` class, so it ends when the class does — when the
+   * target settles, or when the session goes away.
+   */
+  readonly incomingEdgeTone: Computed<FieldEdgeTone | undefined>
   /** `undefined` for a node the viewed run never seeded — an idle card, with nothing to say. */
   readonly overlay: Computed<NodeOverlay | undefined>
 }
@@ -267,6 +284,20 @@ export function reatomCanvas(
     const record = computed(() => _sessionNodes()?.get(nodeId), `${unit}.record`)
     const status = computed(() => record()?.status, `${unit}.status`)
     const settled = computed(() => isSettledStatus(status()), `${unit}.settled`)
+
+    /**
+     * The tone of every edge INTO this node — see {@link CanvasNodeModel.incomingEdgeTone}.
+     *
+     * `running` and `queued` are the raw statuses, not the card states, so a `skipped` node — which
+     * shares the queued CARD treatment — leaves its incoming edges alone rather than claiming the
+     * run is still on its way there.
+     */
+    const incomingEdgeTone = computed((): FieldEdgeTone | undefined => {
+      const current = status()
+      if (current === 'running') return 'active'
+      if (current === 'queued') return 'waiting'
+      return undefined
+    }, `${unit}.incomingEdgeTone`)
 
     const overlay = computed((): NodeOverlay | undefined => {
       const current = record()
@@ -392,7 +423,7 @@ export function reatomCanvas(
       }
     }, `${unit}.overlay`)
 
-    const built: CanvasNodeModel = { nodeId, record, status, settled, overlay }
+    const built: CanvasNodeModel = { nodeId, record, status, settled, incomingEdgeTone, overlay }
     models.set(nodeId, built)
     return built
   }
@@ -432,6 +463,13 @@ export function reatomCanvas(
     })
   }, `${name}.nodes`)
 
+  /**
+   * Structure only, exactly as {@link nodes} is — and for the same reason. The run reaches an edge
+   * through {@link CanvasModel.incomingEdgeTone}, which the edge reads for its own target, never by
+   * widening this computed to read the session: that would give the whole array a new identity on
+   * every `node-status` line, and `FlowCanvas` re-syncs its React Flow state from this array's
+   * identity.
+   */
   const edges = computed<readonly FlowCanvasEdge[]>(() => {
     const document = input.document()
     if (document === undefined) return []
@@ -443,5 +481,6 @@ export function reatomCanvas(
     nodes,
     edges,
     nodeOverlay: (nodeId) => model(nodeId).overlay,
+    incomingEdgeTone: (nodeId) => model(nodeId).incomingEdgeTone,
   }
 }

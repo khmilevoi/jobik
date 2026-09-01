@@ -597,6 +597,75 @@ describe('`2A` — run history as a navigator', () => {
 })
 
 /**
+ * `Studio — run in progress` (design 1721–1724) draws two tones at once: the accent `5 7` dash
+ * marching into the running node, and the quiet `3 5` dash into the queued one. `4A`'s coverage row
+ * adds the rule the code has to satisfy — *"the dashed 0.8 s march is a loop, not a transition, and
+ * stops the moment the run ends."*
+ *
+ * Both of these are read by the edge pointing at the node, so they are asserted here on the target's
+ * own accessor. The `.active` class carries the keyframe, so "stops" is not a timer anywhere: it is
+ * the tone reverting to `undefined`, which is the last case below.
+ */
+describe('`4A` — the edge march', () => {
+  it('marches into the running node, waits into the queued one, and stops when the run ends', async () => {
+    await inFrame(async (world) => {
+      // Idle: nothing seeded, so the run says nothing and both edges keep the document's tone.
+      expect(world.canvas.incomingEdgeTone('render')()).toBeUndefined()
+
+      world.seed(['start1', 'render'])
+      world.emit({
+        type: 'node-status',
+        nodeId: 'start1',
+        status: 'running',
+        elapsedMs: 0,
+        error: null,
+      })
+      await flush()
+
+      expect(world.canvas.incomingEdgeTone('start1')()).toBe('active')
+      // `render` has not been reached yet, so the edge into it is the static waiting dash.
+      expect(world.canvas.incomingEdgeTone('render')()).toBe('waiting')
+
+      world.emit({
+        type: 'node-status',
+        nodeId: 'start1',
+        status: 'ok',
+        elapsedMs: 10,
+        error: null,
+      })
+      world.emit({
+        type: 'node-status',
+        nodeId: 'render',
+        status: 'running',
+        elapsedMs: 0,
+        error: null,
+      })
+      await flush()
+
+      // The march moves with the run rather than accumulating behind it.
+      expect(world.canvas.incomingEdgeTone('start1')()).toBeUndefined()
+      expect(world.canvas.incomingEdgeTone('render')()).toBe('active')
+
+      world.emit({ type: 'run-settled', report: REPORT })
+      await flush()
+
+      // The stop condition, and the whole of it: no tone, so no `.active`, so no loop.
+      expect(world.canvas.incomingEdgeTone('start1')()).toBeUndefined()
+      expect(world.canvas.incomingEdgeTone('render')()).toBeUndefined()
+    }, createWorld)
+  })
+
+  it('caches the tone per node, so the edge array never has to be rebuilt for it', async () => {
+    await inFrame(async (world) => {
+      expect(world.canvas.incomingEdgeTone('render')).toBe(world.canvas.incomingEdgeTone('render'))
+      expect(world.canvas.incomingEdgeTone('render')).not.toBe(
+        world.canvas.incomingEdgeTone('start1'),
+      )
+    }, createWorld)
+  })
+})
+
+/**
  * The four measured problems this module was written to fix. Every case below is about *how often*
  * something is derived, not about what it derives.
  */
