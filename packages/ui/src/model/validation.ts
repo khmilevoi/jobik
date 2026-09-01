@@ -13,7 +13,7 @@ import {
 } from '@reatom/core'
 import type { SafeFlowDescriptorPayload } from '#client/index.js'
 import type { ValidationFinding } from '#modals/index.js'
-import { ACTION_TIMINGS, type ValidateState } from '#primitives/index.js'
+import { ACTION_TIMINGS, type CopyState, type ValidateState } from '#primitives/index.js'
 import type { TopBarValidateState } from '#shell/index.js'
 import { sameFlowShape } from '#studio/draft.js'
 import { type FlowProblemModel, NO_PROBLEMS, toFlowProblems } from '#studio/problems.js'
@@ -168,21 +168,51 @@ export function reatomValidation(
   }, `${name}._check`).extend(withAsync(), withAbort())
 
   /**
-   * §3D.4's own `if (this.state[key] !== 'idle') return`: a press while the check runs, or while a
-   * result still stands, does nothing at all. A run in flight refuses it too — the draft lock covers
-   * validation, and the top bar draws `Validate` dimmed for the length of a run.
+   * The check itself, without the chip's own admission rule. Both entry points below share it, so
+   * there is exactly one place that decides what starting a check means.
+   *
+   * `_holdChip.abort()` is what makes a second check safe to start while a result still stands: the
+   * hold from the previous answer would otherwise return the chip to `idle` in the middle of the
+   * request this starts. On the `validate` path the chip is idle and the abort is a no-op.
    */
-  const validate = action(() => {
+  const _start = action(() => {
     if (locked()) return
-    if (chip() !== 'idle') return
     const flow = flowId()
     const sent = document()
     if (flow === undefined || sent === undefined) return
+    _holdChip.abort()
     chip.set('checking')
     validatedFor.set(sent)
     state.set({ kind: 'checking' })
     detached(_check(flow, sent))
+  }, `${name}._start`)
+
+  /**
+   * §3D.4's own `if (this.state[key] !== 'idle') return`: a press while the check runs, or while a
+   * result still stands, does nothing at all. A run in flight refuses it too — the draft lock covers
+   * validation, and the top bar draws `Validate` dimmed for the length of a run.
+   *
+   * This is the **top bar's** rule, and it is the chip's: the control is showing a result for four
+   * seconds and must not be asked to show a second one underneath it.
+   */
+  const validate = action(() => {
+    if (chip() !== 'idle') return
+    _start()
   }, `${name}.validate`)
+
+  /**
+   * `3C` rule 04's `Re-validate`, and deliberately not `validate`.
+   *
+   * The four-second hold above belongs to `3D`'s top-bar chip. Applied to a dialog the user is
+   * reading it makes the modal's own primary action do *nothing at all* for four seconds after the
+   * report opens — which is when the press actually happens. So this path skips the chip's
+   * admission rule and refuses only what would be incoherent: a second request while the first is
+   * still out.
+   */
+  const revalidate = action(() => {
+    if (chip() === 'checking') return
+    _start()
+  }, `${name}.revalidate`)
 
   /**
    * `3C`'s Validation dialog, as a surface of its own rather than as the validation state itself.
@@ -192,10 +222,34 @@ export function reatomValidation(
    * RTM-S02: it opens itself whenever a check rejects the document and closes on every other answer,
    * which is a derivation of `active` rather than an effect; `closeReport` writes over it and the
    * write stands until the next answer.
+   *
+   * **`checking` holds whatever the flag already was**, which is `3C` rule 04 — *"the modal stays
+   * open until the work settles"*. Without it the dialog's own `Re-validate` unmounted the dialog it
+   * was pressed in, because `checking` is not `invalid`; and a check started from the top bar while
+   * the report is shut still leaves it shut, because the held value is `false`.
    */
   const reportOpen = atom(false, `${name}.reportOpen`).extend(
-    withComputed(() => active()?.kind === 'invalid'),
+    withComputed((open) => {
+      const kind = active()?.kind
+      if (kind === 'invalid') return true
+      if (kind === 'checking') return open
+      return false
+    }),
   )
+
+  /**
+   * What the dialog draws — `findings`, held across the `checking` phase a `Re-validate` starts.
+   *
+   * `findings` itself stays a pure function of the standing answer, because `3D`'s strip and the
+   * canvas marks must go quiet the moment a re-check begins. The dialog is the one surface that
+   * must not: rule 04 keeps it standing until the work settles, and a list that emptied under the
+   * footer's loader would be the same disappearance in a different shape. Nothing is invented — the
+   * held rows are the previous answer's own, and the loader beside them says a newer one is out.
+   */
+  const reportFindings = atom<readonly ValidationFinding[] | undefined>(
+    undefined,
+    `${name}.reportFindings`,
+  ).extend(withComputed((held) => (active()?.kind === 'checking' ? held : findings())))
 
   /**
    * The control's cell. `invalid` needs a count, so a state that has lost its findings — the flow
@@ -207,6 +261,58 @@ export function reatomValidation(
     const count = errorCount()
     return count > 0 ? { state: 'invalid', errorCount: count } : { state: 'idle' }
   }, `${name}.topBar`)
+
+  /** `3A` §4.1's four cells for the dialog's `Copy report`, the same matrix the dock's copy runs. */
+  const copyState = atom<CopyState>('idle', `${name}.copyState`)
+
+  /**
+   * The spinner is armed rather than drawn immediately: a clipboard write that answers inside
+   * `copySpinnerDelayMs` never shows one, which is `3A`'s own rule that a control does not flash a
+   * loader for work that is already done.
+   */
+  const _armCopySpinner = action(async () => {
+    await wrap(sleep(ACTION_TIMINGS.copySpinnerDelayMs))
+    copyState.set('busy')
+  }, `${name}._armCopySpinner`).extend(withAbort())
+
+  /**
+   * `3A` §4.1's copy script: swap to `ok`, hold `copiedHoldMs`, return to idle. A failure lands on
+   * `failed` and stays there — the design draws no timed exit from that cell.
+   */
+  const _copy = action(async (text: string) => {
+    detached(_armCopySpinner())
+    let failed = false
+    try {
+      const write = globalThis.navigator?.clipboard?.writeText(text)
+      // No clipboard API at all is a failure, not a silent success: nothing was written.
+      if (write === undefined) failed = true
+      else await wrap(write)
+    } catch {
+      failed = true
+    }
+    _armCopySpinner.abort()
+    if (failed) {
+      copyState.set('failed')
+      return
+    }
+    copyState.set('ok')
+    await wrap(sleep(ACTION_TIMINGS.copiedHoldMs))
+    copyState.set('idle')
+  }, `${name}._copy`).extend(withAbort())
+
+  /**
+   * `3C` §2's footer ghost. What it copies is the dialog's own list and nothing more: the wire
+   * carries one finding with no severity and no source location, so the text says exactly what the
+   * rows say. The press is refused while the spinner shows and while `Copied` still stands, and
+   * accepted from `failed` — `3A` §2.5's one deliberate exception.
+   */
+  const copyReport = action(() => {
+    const cell = copyState()
+    if (cell === 'busy' || cell === 'ok') return
+    const rows = reportFindings()
+    if (rows === undefined || rows.length === 0) return
+    detached(_copy(toReportText(rows)))
+  }, `${name}.copyReport`)
 
   const dismiss = action(() => {
     state.set(undefined)
@@ -237,9 +343,12 @@ export function reatomValidation(
   const reset = action(() => {
     _check.abort()
     _holdChip.abort()
+    _copy.abort()
+    _armCopySpinner.abort()
     state.set(undefined)
     validatedFor.set(undefined)
     chip.set('idle')
+    copyState.set('idle')
     reportOpen.set(false)
   }, `${name}.reset`)
 
@@ -251,13 +360,28 @@ export function reatomValidation(
     errorCount,
     blocked,
     findings,
+    reportFindings,
     chip,
     topBar,
     reportOpen,
+    copyState,
     validate,
+    revalidate,
+    copyReport,
     dismiss,
     openReport,
     closeReport,
     reset,
   }
+}
+
+/**
+ * The dialog's rows as plain text, in the order they are drawn. A finding carries no severity the
+ * wire could contradict and no source location, so neither is printed: the code, then the sentence
+ * its segments spell, which is the server's own message reassembled verbatim.
+ */
+function toReportText(rows: readonly ValidationFinding[]): string {
+  return rows
+    .map((row) => `${row.code}\n${row.message.map((segment) => segment.text).join('')}`)
+    .join('\n\n')
 }

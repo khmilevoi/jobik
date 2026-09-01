@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import type * as z from 'zod'
 import type {
   FieldConnection,
+  FieldEdgeTone,
   FlowCanvasEdge,
   FlowCanvasNode,
   NodeLayoutChange,
@@ -389,6 +390,11 @@ export interface ValidationModel {
   /** `3C`'s Validation dialog rows. `undefined` unless the last answer rejected the document. */
   readonly findings: Computed<readonly ValidationFinding[] | undefined>
   /**
+   * What the dialog draws: `findings`, held across the `checking` phase its own `Re-validate`
+   * starts, so `3C` rule 04's *"the modal stays open until the work settles"* has rows to stand on.
+   */
+  readonly reportFindings: Atom<readonly ValidationFinding[] | undefined>
+  /**
    * `idle → checking → valid|invalid → idle`, with `3D`'s 4 s hold on the resolved chip. Ports
    * `createValidateAction` from `primitives/actionState.ts` — which is still there, and is now
    * called by nothing but its own suite, for the two cases the model has no way to reach. The hold
@@ -399,8 +405,18 @@ export interface ValidationModel {
   readonly topBar: Computed<TopBarValidateState>
   /** `3C`'s dialog is a surface of its own: dismissing it must not throw the findings away. */
   readonly reportOpen: Atom<boolean>
+  /** `3A` §4.1's four cells for the dialog's `Copy report`. */
+  readonly copyState: Atom<CopyState>
   /** Ignored while `locked`, and while a check is already running or a result still stands. */
   readonly validate: Action<[], void>
+  /**
+   * `3C` rule 04's `Re-validate`. Same request, without `3D`'s four-second chip hold — that rule
+   * belongs to the top-bar control, and inside the dialog it makes the primary action a no-op for
+   * the exact window in which it is pressed. Refused only while a check is already out.
+   */
+  readonly revalidate: Action<[], void>
+  /** `3C` §2's footer ghost: the dialog's own rows to the clipboard, on `3A`'s copy matrix. */
+  readonly copyReport: Action<[], void>
   readonly dismiss: Action<[], void>
   readonly openReport: Action<[], void>
   readonly closeReport: Action<[], void>
@@ -604,6 +620,20 @@ export interface CanvasModel {
    * and it went the day the card started asking here.
    */
   readonly nodeOverlay: (nodeId: string) => Computed<NodeOverlay | undefined>
+  /**
+   * The tone every edge pointing AT `nodeId` takes from the run, or `undefined` when the run has
+   * nothing to say about it and the edge keeps `resolveEdgeTone`'s own derivation.
+   *
+   * `4A` coverage, Edge flow: *"the dashed 0.8 s march is a loop, not a transition, and stops the
+   * moment the run ends."* `Studio — run in progress` draws it twice over — the accent marching
+   * dash into the running node, the quiet static dash into the queued one.
+   *
+   * It is an accessor for the same reason `nodeOverlay` is. `FieldEdge` reads its own target's, so
+   * a `node-status` line repaints the edges into that one node; the `edges` array stays structure
+   * only, keeps its identity across a whole run, and the canvas never re-syncs because a run
+   * moved.
+   */
+  readonly incomingEdgeTone: (nodeId: string) => Computed<FieldEdgeTone | undefined>
 }
 
 /**

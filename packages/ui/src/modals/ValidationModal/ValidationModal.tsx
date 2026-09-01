@@ -4,7 +4,7 @@ import { ModalShell } from '#modals/ModalShell/ModalShell.js'
 import { type ProseSegment, ProseText } from '#modals/ProseText/ProseText.js'
 import { useStudioModel } from '#model/context.js'
 import { CopyIcon } from '#primitives/icons/CopyIcon.js'
-import { Button } from '#primitives/index.js'
+import { Button, type CopyState } from '#primitives/index.js'
 import s from './ValidationModal.module.css'
 
 /** §2 — the two tones a finding is drawn in. The design draws no third. */
@@ -58,6 +58,17 @@ const actionTones = {
   muted: s.actionMuted,
 } satisfies Record<ValidationActionTone, string>
 
+/**
+ * `3A` §2.1's four cells, with `3C` §2's own noun. The idle label is the artboard's `Copy report`;
+ * the other three are `3A`'s, verbatim.
+ */
+const COPY_LABELS = {
+  idle: 'Copy report',
+  busy: 'Copying',
+  ok: 'Copied',
+  failed: 'Copy failed',
+} satisfies Record<CopyState, string>
+
 /** `2 errors`, `1 warning` — the badge text is a count, so it pluralises with the count. */
 function countLabel(count: number, noun: string): string {
   return `${count} ${noun}${count === 1 ? '' : 's'}`
@@ -78,11 +89,17 @@ function countLabel(count: number, noun: string): string {
  *
  * ## It reads the model, and the wire is narrower than the artboard
  *
- * It takes no props: `ValidationModel.reportOpen` is whether it stands, `findings` is the list,
- * `flows.descriptor` builds the `publication · flow.ts` context line, `validate` is `Re-validate`
- * and `closeReport` is every dismissal. The guard is here rather than in `StudioApp` for the
- * reason `CancelRunModal`'s is — RTM-C01 means a shut dialog subscribes to `reportOpen` and reads
- * nothing else.
+ * It takes no props: `ValidationModel.reportOpen` is whether it stands, `reportFindings` is the
+ * list, `flows.descriptor` builds the `publication · flow.ts` context line, `revalidate` is
+ * `Re-validate`, `copyReport` is `Copy report` and `closeReport` is every dismissal. The guard is
+ * here rather than in `StudioApp` for the reason `CancelRunModal`'s is — RTM-C01 means a shut
+ * dialog subscribes to `reportOpen` and reads nothing else.
+ *
+ * **`revalidate`, not `validate`, and `reportFindings`, not `findings`.** Both differences are
+ * rule 04 — *"the modal stays open until the work settles"*. `validate` carries `3D`'s
+ * four-second chip hold, which is the top bar's rule and made this button a no-op for exactly the
+ * window in which it is pressed; and `findings` empties the moment a re-check starts, which would
+ * have unmounted the dialog under the loader it just lit. See `model/validation.ts`.
  *
  * **What the model can produce is one finding, and the artboard draws three.**
  * `ValidationModel.findings` runs `studio/validation.ts`'s `toValidationFindings`, which is honest
@@ -95,9 +112,10 @@ function countLabel(count: number, noun: string): string {
  * widened. They are kept rather than deleted: the day the wire carries a second finding, nothing
  * here changes. The cases that used to assert them through props were removed with the props.
  *
- * `Copy report` is the same story in miniature: `3C` §2 draws the button, no model unit backs it,
- * and a `copyReport` action added here would be state invented to satisfy a refactor. It is drawn
- * inert, which is exactly what `StudioApp` already rendered — it never passed `onCopyReport`.
+ * `Copy report` now has the unit it was missing. What it writes is the list this component draws
+ * and nothing else — a code and the server's own sentence per row — so the clipboard cannot claim
+ * a severity or a source location the wire never sent. It runs `3A` §4.1's matrix, the same one
+ * the output dock's copy runs.
  */
 export const ValidationModal = reatomComponent(function ValidationModal() {
   const { flows, validation } = useStudioModel()
@@ -105,16 +123,24 @@ export const ValidationModal = reatomComponent(function ValidationModal() {
   // RTM-C02: both are pressed from a DOM event, outside this render's frame. They are declared
   // above the guards because they are hooks, and they read no atom, so hoisting them costs the
   // lazy-read discipline below nothing.
-  const revalidate = useAction(validation.validate)
+  const revalidate = useAction(validation.revalidate)
+  const copyReport = useAction(validation.copyReport)
   const dismiss = useAction(validation.closeReport)
 
   // RTM-C01: the guards first, and every value the body draws only after them.
   if (!validation.reportOpen()) return null
-  const findings = validation.findings()
+  const findings = validation.reportFindings()
   if (findings === undefined) return null
 
+  const checking = validation.active()?.kind === 'checking'
+  const copyCell = validation.copyState()
+
+  // §1.3 draws the context as `name · file`, and draws no state in which it is missing. A
+  // descriptor that has not resolved yet has neither half, so the slot is omitted rather than
+  // degraded to the separator between two empty strings.
   const descriptor = flows.descriptor()
-  const context = `${descriptor?.name ?? ''} · ${descriptor?.sourceFile ?? ''}`
+  const context =
+    descriptor === undefined ? undefined : `${descriptor.name} · ${descriptor.sourceFile}`
   const errors = findings.filter((finding) => finding.severity === 'error').length
   const warnings = findings.length - errors
 
@@ -135,10 +161,29 @@ export const ValidationModal = reatomComponent(function ValidationModal() {
 
   const actions = (
     <>
-      <Button variant="quiet" size="modal" icon={<CopyIcon />} reserveWidth={118}>
-        Copy report
+      <Button
+        variant="quiet"
+        size="modal"
+        state={copyCell}
+        icon={<CopyIcon />}
+        reserveWidth={118}
+        onClick={copyReport}
+        data-testid="validation-copy-report"
+      >
+        {COPY_LABELS[copyCell]}
       </Button>
-      <Button variant="accent" size="modal" onClick={revalidate}>
+      {/*
+        Rule 04 — the footer action carries `3A`'s loader while its work runs, and the dialog stands
+        until the answer lands. `busy` is also what makes a second press visibly refused: the model
+        turns one down for as long as this cell is drawn.
+      */}
+      <Button
+        variant="accent"
+        size="modal"
+        state={checking ? 'busy' : 'idle'}
+        onClick={revalidate}
+        data-testid="validation-revalidate"
+      >
         Re-validate
       </Button>
     </>
@@ -150,7 +195,7 @@ export const ValidationModal = reatomComponent(function ValidationModal() {
       title="Validation"
       width={560}
       bodyGap={10}
-      header={{ context, extra: badges, onClose: dismiss }}
+      header={{ ...(context === undefined ? {} : { context }), extra: badges, onClose: dismiss }}
       hint="esc to close"
       actions={actions}
       onDismiss={dismiss}

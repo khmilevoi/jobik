@@ -170,24 +170,71 @@ describe('ValidationModal', () => {
   })
 
   /**
-   * `Re-validate` is `ValidationModel.validate`, so the assertion is that the server is asked
-   * again. It is asked from a chip that has returned to idle — §3D.4 refuses a press while a result
-   * still stands — which is what `reset` between the two presses stands in for.
-   *
-   * `Copy report` has no handler at all: `3C` §2 draws the button, no model unit backs it, and
-   * `StudioApp` never passed `onCopyReport` either, so nothing about what it does has changed.
+   * `Re-validate` is `ValidationModel.revalidate`, and the press happens **without** the chip being
+   * put back to idle first. That is rule 04: the press lands the moment the report opens, which is
+   * inside `3D`'s four-second hold, and `validate` — the top bar's action — refuses exactly then.
    */
-  it('asks the server again from Re-validate', async () => {
+  it('asks the server again from Re-validate, inside the chip’s own hold', async () => {
     const validate = vi.fn<JobikClient['validate']>(async () => REJECTED)
     const { model } = await mountRejected(stubClient({ validate }))
     expect(validate).toHaveBeenCalledTimes(1)
+    expect(model.validation.chip()).toBe('invalid')
 
-    await act(async () => {
-      model.validation.chip.set('idle')
-    })
     fireEvent.click(screen.getByRole('button', { name: 'Re-validate' }))
 
     expect(validate).toHaveBeenCalledTimes(2)
+  })
+
+  /** Rule 04's other half: *"the modal stays open until the work settles"*. */
+  it('stays open, with its rows, for the length of the re-check', async () => {
+    let answer: ((payload: ValidatePayload) => void) | undefined
+    const validate = vi.fn<JobikClient['validate']>(async () => {
+      if (answer === undefined) return REJECTED
+      return new Promise<ValidatePayload>((resolve) => {
+        answer = resolve
+      })
+    })
+    const { model } = await mountRejected(stubClient({ validate }))
+    // Arms the second answer: from here the stub holds its promise open.
+    answer = () => {}
+
+    fireEvent.click(screen.getByRole('button', { name: 'Re-validate' }))
+    await waitFor(() => {
+      expect(model.validation.active()?.kind).toBe('checking')
+    })
+
+    expect(screen.getByTestId('validation-modal')).toBeInTheDocument()
+    expect(screen.getAllByTestId('validation-finding')).toHaveLength(1)
+    // The footer's primary carries `3A`'s loader while the answer is out, and a second press is
+    // refused for as long as it does — the visible half is the gates' business, this is the
+    // behaviour behind it.
+    fireEvent.click(screen.getByTestId('validation-revalidate'))
+    expect(validate).toHaveBeenCalledTimes(2)
+  })
+
+  /** `Copy report` writes the rows the dialog draws — `3C` §2's ghost, on `3A` §4.1's matrix. */
+  it('copies the standing findings from Copy report', async () => {
+    const writeText = vi.fn(async (_text: string) => {})
+    Object.defineProperty(globalThis.navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true,
+    })
+
+    try {
+      await mountRejected()
+
+      fireEvent.click(screen.getByTestId('validation-copy-report'))
+      await waitFor(() => {
+        expect(writeText).toHaveBeenCalledTimes(1)
+      })
+
+      expect(writeText.mock.calls[0]?.[0]).toBe(
+        'TypeMismatch\nrender.markdown expects string, receives Buffer',
+      )
+      expect(await screen.findByText('Copied')).toBeInTheDocument()
+    } finally {
+      Reflect.deleteProperty(globalThis.navigator, 'clipboard')
+    }
   })
 
   it('is non-destructive: esc and the backdrop both dismiss it', async () => {

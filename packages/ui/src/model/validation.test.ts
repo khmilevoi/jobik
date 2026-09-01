@@ -108,6 +108,8 @@ function createWorld(answer: () => Promise<ValidatePayload | Error>): World {
     validation.chip.subscribe(() => {}),
     validation.problems.subscribe(() => {}),
     validation.findings.subscribe(() => {}),
+    validation.reportFindings.subscribe(() => {}),
+    validation.copyState.subscribe(() => {}),
     validation.blocked.subscribe(() => {}),
     validation.topBar.subscribe(() => {}),
     validation.reportOpen.subscribe(() => {}),
@@ -413,6 +415,140 @@ describe('what the answer is drawn as', () => {
       expect(validation.state()).toBeUndefined()
       expect(validation.validatedFor()).toBeUndefined()
       expect(validation.chip()).toBe('invalid')
+    })
+  })
+})
+
+/**
+ * `3C` rule 04 — *"While the footer action runs it shows the loader from 3a and the modal stays
+ * open until the work settles."* Both halves were broken: the press did nothing for the four
+ * seconds `3D`'s chip holds its result, and past them it closed the dialog it was pressed in.
+ */
+describe('the dialog’s own Re-validate', () => {
+  it('sends a second check inside the four-second chip hold, which validate refuses', async () => {
+    await withValidation(rejects, async ({ validation, validate, settle }) => {
+      validation.validate()
+      await settle()
+      expect(validation.chip()).toBe('invalid')
+
+      // The top bar's control is showing a result and must not be asked to show a second one.
+      validation.validate()
+      await settle()
+      expect(validate).toHaveBeenCalledTimes(1)
+
+      validation.revalidate()
+      await settle()
+      expect(validate).toHaveBeenCalledTimes(2)
+    })
+  })
+
+  it('keeps the report open, with its rows, for the length of the re-check', async () => {
+    let answer!: (payload: ValidatePayload) => void
+    const pending = async (): Promise<ValidatePayload> =>
+      new Promise<ValidatePayload>((resolve) => {
+        answer = resolve
+      })
+
+    await withValidation(pending, async ({ validation, settle }) => {
+      validation.validate()
+      await settle()
+      answer(REJECTED)
+      await settle()
+      expect(validation.reportOpen()).toBe(true)
+
+      validation.revalidate()
+      await settle()
+
+      // The check is out and its answer has not landed.
+      expect(validation.state()).toEqual({ kind: 'checking' })
+      expect(validation.reportOpen()).toBe(true)
+      // The strip goes quiet; the dialog does not.
+      expect(validation.findings()).toBeUndefined()
+      expect(validation.reportFindings()).toHaveLength(1)
+
+      answer(REJECTED)
+      await settle()
+      expect(validation.reportOpen()).toBe(true)
+      expect(validation.reportFindings()).toHaveLength(1)
+    })
+  })
+
+  it('leaves a dismissed report shut while a check started elsewhere runs', async () => {
+    await withValidation(rejects, async ({ validation, settle, elapse }) => {
+      validation.validate()
+      await settle()
+      validation.closeReport()
+      expect(validation.reportOpen()).toBe(false)
+
+      // Past the hold, so the top bar's own control admits the press.
+      await elapse(ACTION_TIMINGS.validatedHoldMs)
+      validation.validate()
+      expect(validation.state()).toEqual({ kind: 'checking' })
+      expect(validation.reportOpen()).toBe(false)
+
+      // It reopens on the next rejection, exactly as it did before.
+      await settle()
+      expect(validation.reportOpen()).toBe(true)
+    })
+  })
+
+  it('returns the chip to idle on the re-check’s own answer, not on the aborted hold', async () => {
+    await withValidation(rejects, async ({ validation, settle, elapse }) => {
+      validation.validate()
+      await settle()
+
+      // Two seconds into the first result's four-second hold.
+      await elapse(2000)
+      validation.revalidate()
+      expect(validation.chip()).toBe('checking')
+
+      // The first hold would have fired here; it was aborted with the re-check.
+      await elapse(2000)
+      await settle()
+      expect(validation.chip()).toBe('invalid')
+    })
+  })
+})
+
+/** `3C` §2's footer ghost, on `3A` §4.1's copy matrix. */
+describe('Copy report', () => {
+  it('writes the standing findings to the clipboard and holds Copied', async () => {
+    const writeText = vi.fn(async (_text: string) => {})
+    Object.defineProperty(globalThis.navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true,
+    })
+
+    try {
+      await withValidation(rejects, async ({ validation, settle, elapse }) => {
+        validation.validate()
+        await settle()
+
+        validation.copyReport()
+        await settle()
+
+        expect(writeText).toHaveBeenCalledTimes(1)
+        // The server's own words, under the tag it sent them with. Nothing is added.
+        expect(writeText.mock.calls[0]?.[0]).toBe('ConnectionError\nrender.markdown expects string')
+        expect(validation.copyState()).toBe('ok')
+
+        await elapse(ACTION_TIMINGS.copiedHoldMs)
+        expect(validation.copyState()).toBe('idle')
+      })
+    } finally {
+      Reflect.deleteProperty(globalThis.navigator, 'clipboard')
+    }
+  })
+
+  it('lands on failed when there is no clipboard to write to', async () => {
+    await withValidation(rejects, async ({ validation, settle }) => {
+      validation.validate()
+      await settle()
+
+      validation.copyReport()
+      await settle()
+
+      expect(validation.copyState()).toBe('failed')
     })
   })
 })
