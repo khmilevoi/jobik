@@ -289,12 +289,106 @@ describe('deriveInputControls() — asset and JSON controls', () => {
   })
 })
 
+describe('deriveInputControls() — required is the question the engine asks', () => {
+  /** What `runFlow` does with the object the run panel collected: is a missing key rejected? */
+  const engineRequiresKey = (schema: z.core.$ZodType) =>
+    !z.safeParse(z.object({ field: schema }), {}).success
+
+  it('does not require a .catch() field, because the engine does not', () => {
+    // `z.toJSONSchema` lists a `.catch()` field in `required`, but the object accepts the key
+    // missing and applies the fallback. Saying required made the run panel keep an empty draft
+    // instead of omitting the field — and for an object `.catch()`, whose control is `json`,
+    // `JSON.parse('')` then blocked a run the engine completes.
+    const caught = z.object({ a: z.string() }).catch({ a: 'x' })
+    expect(z.safeParse(z.object({ payload: caught }), {})).toStrictEqual({
+      success: true,
+      data: { payload: { a: 'x' } },
+    })
+    expect(fieldsOf(z.object({ payload: caught }))[0]?.required).toBe(false)
+  })
+
+  it('requires a z.any() and a z.unknown() field, because the engine does', () => {
+    // Zod 4.4 changed this: "Keys for z.any() and z.unknown() are now required at parse time".
+    // `z.any().parse(undefined)` still succeeds, so `graph/field-type.ts`'s `isRequiredField`
+    // answers "not required" for these two — a different question, and not the one the run panel
+    // asks. The engine rejects the missing key, so the descriptor must say required.
+    expect(z.safeParse(z.object({ payload: z.any() }), {}).success).toBe(false)
+    expect(z.safeParse(z.any(), undefined).success).toBe(true)
+
+    const fields = fieldsOf(z.object({ a: z.any(), u: z.unknown(), s: z.string() }))
+    expect(fields.map((field) => [field.field, field.required])).toStrictEqual([
+      ['a', true],
+      ['u', true],
+      ['s', true],
+    ])
+  })
+
+  it('answers what the engine answers, wrapper for wrapper', () => {
+    const shape = {
+      plain: z.string(),
+      any: z.any(),
+      unknown: z.unknown(),
+      optional: z.string().optional(),
+      nullable: z.string().nullable(),
+      withDefault: z.string().default('x'),
+      prefault: z.string().prefault('x'),
+      caught: z.string().catch('x'),
+      nonoptional: z.string().optional().nonoptional(),
+      coerced: z.coerce.number(),
+      literal: z.literal('only'),
+      binary: asset({ mime: 'image/png' }),
+    }
+    const fields = fieldsOf(z.object(shape))
+
+    expect(fields.map((field) => [field.field, field.required])).toStrictEqual(
+      Object.entries(shape).map(([field, schema]) => [field, engineRequiresKey(schema)]),
+    )
+    // Spelled out too, so a change on either side is readable here and not only as a mismatch.
+    expect(Object.fromEntries(fields.map((field) => [field.field, field.required]))).toStrictEqual({
+      plain: true,
+      any: true,
+      unknown: true,
+      optional: false,
+      nullable: true,
+      withDefault: false,
+      prefault: false,
+      caught: false,
+      nonoptional: true,
+      coerced: true,
+      literal: true,
+      binary: true,
+    })
+  })
+})
+
 describe('deriveInputControls() — a non-array required from a node author meta()', () => {
-  it('does not throw, and treats a field as not required', () => {
+  it('does not throw, and the field schema still decides', () => {
     const result = derive(z.object({ a: z.string() }).meta({ required: 5 }))
     if (result instanceof Error) throw result
     expect(result.fields).toStrictEqual([
-      { field: 'a', required: false, annotation: 'string', control: { kind: 'string' } },
+      { field: 'a', required: true, annotation: 'string', control: { kind: 'string' } },
+    ])
+  })
+
+  it('falls back to the document for a property meta() invented, and degrades a bad required', () => {
+    // `.meta()` merges verbatim, so it can name a property the schema's shape does not have. There
+    // is no schema to ask about `ghost`, so the document's own `required` array answers — and a
+    // non-array one degrades to "nothing is required" rather than throwing.
+    const invented = { a: { type: 'string' }, ghost: { type: 'string' } }
+    const listed = derive(z.object({ a: z.string() }).meta({ properties: invented }))
+    if (listed instanceof Error) throw listed
+    expect(listed.fields.map((field) => [field.field, field.required])).toStrictEqual([
+      ['a', true],
+      ['ghost', false],
+    ])
+
+    const corrupt = derive(
+      z.object({ a: z.string() }).meta({ properties: invented, required: ['ghost'] }),
+    )
+    if (corrupt instanceof Error) throw corrupt
+    expect(corrupt.fields.map((field) => [field.field, field.required])).toStrictEqual([
+      ['a', true],
+      ['ghost', true],
     ])
   })
 })

@@ -81,6 +81,68 @@ function requiredFieldsOf(document: JsonSchemaDocument): readonly string[] {
 }
 
 /**
+ * The field schemas of the object being converted, guarded exactly as `propertyEntriesOf` guards
+ * `document.properties`: `args.input` is typed `z.ZodObject`, but this is a public function and a
+ * shape that is not a plain object must degrade to "no schema to ask" rather than throw.
+ */
+function shapeOf(schema: z.ZodObject): { readonly [field: string]: z.core.$ZodType | undefined } {
+  const shape: unknown = schema.shape
+  if (typeof shape !== 'object' || shape === null || Array.isArray(shape)) return {}
+  return shape as { readonly [field: string]: z.core.$ZodType | undefined }
+}
+
+/**
+ * Whether a field must be given a value — asked of Zod, not read off the converted document.
+ *
+ * The question the run panel needs answered is the one the ENGINE asks. `runFlow` hands the start's
+ * schema exactly the object the controls produced, so a field is required precisely when that
+ * object rejects a MISSING KEY. `z.object({ field: schema }).safeParse({})` is that question,
+ * stated rather than approximated.
+ *
+ * It is NOT `document.required`. `z.toJSONSchema` lists a `.catch()` field there, while
+ * `z.object({ f: z.string().catch('x') }).parse({})` succeeds and yields the fallback. Reading the
+ * array verbatim therefore made the Studio stricter than the engine on exactly those fields: the
+ * draft seeds `''`, the run panel's empty-skip does not fire for a field that claims to be
+ * required, and an object-or-array `.catch()` then fails `JSON.parse('')` — a run blocked in the
+ * browser that `flow.run(startId, {})` completes.
+ *
+ * It is NOT `graph/field-type.ts`'s `isRequiredField` either, and deliberately. That function asks
+ * whether the field's own schema rejects `undefined`, which stopped being the same question in
+ * Zod 4.4: *"Keys for `z.any()` and `z.unknown()` are now required at parse time"* (Zod v4
+ * changelog), so `z.any().parse(undefined)` succeeds while `z.object({ a: z.any() }).parse({})`
+ * fails. The engine demands the key, so the descriptor says required — the two functions disagree
+ * on those two types, and this side is the one the run panel must follow.
+ *
+ * `fallback` is the converted document's own answer, used when there is no schema to ask.
+ */
+function requiresKey(schema: z.core.$ZodType, fallback: boolean): boolean {
+  try {
+    return !z.safeParse(z.object({ field: schema }), {}).success
+  } catch {
+    // `z.safeParse` throws on a schema whose refinement is async, and this clause deliberately
+    // catches every synchronous failure rather than only that one: `deriveInputControls` returns
+    // its failures as values and must not throw out of a probe. The document's answer stands.
+    return fallback
+  }
+}
+
+/**
+ * The `required` flag for one derived field.
+ *
+ * `.meta()` merges into the converted document verbatim, so a node author can name a property the
+ * schema's shape does not have. There is nothing to ask about that one, and the document answers.
+ */
+function inputRequiredOf(args: {
+  field: string
+  shape: { readonly [field: string]: z.core.$ZodType | undefined }
+  listed: ReadonlySet<string>
+}): boolean {
+  const schema = args.shape[args.field]
+  const listed = args.listed.has(args.field)
+  return schema === undefined ? listed : requiresKey(schema, listed)
+}
+
+/**
  * `document.properties` is typed `{ readonly [field: string]: JsonSchemaFragment } | undefined`, but
  * that type is a cast over `JSON.parse` output, not a runtime guarantee: a node author's `.meta()`
  * merges into the JSON Schema document verbatim, and zod's `GlobalMeta` allows any value there, so
@@ -237,9 +299,10 @@ export function deriveInputControls(args: {
   const document = convert({ nodeId: args.nodeId, schema: args.input, io: 'input' })
   if (document instanceof JobUiSchemaError) return document
 
-  const required = new Set(requiredFieldsOf(document))
+  const shape = shapeOf(args.input)
+  const listed = new Set(requiredFieldsOf(document))
   const fields = propertyEntriesOf(document).map(([field, fragment]) =>
-    inputFieldOf(field, fragment, required.has(field)),
+    inputFieldOf(field, fragment, inputRequiredOf({ field, shape, listed })),
   )
 
   const descriptor: {
