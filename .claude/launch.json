@@ -1,0 +1,18 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "jobik-studio",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@jobik/examples", "run", "dev:server"],
+      "port": 4318
+    },
+    {
+      "name": "jobik-studio-hmr",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@jobik/examples", "run", "dev:client"],
+      "port": 5173,
+      "autoPort": true
+    }
+  ]
+}
