@@ -36,6 +36,13 @@ export const NodeFieldRow = reatomComponent(function NodeFieldRow(props: NodeFie
 
   // `3D`: a marked port draws its annotation in the failure hue whatever its tone was, so the
   // wrapping span is what both the dim tone and a validation mark need — never both at once.
+  //
+  // **The span is inside `field-annotation`, and that nesting is load-bearing.** `TypeAnnotation`
+  // takes a `className`, so the hue looks like it could ride on the annotation element itself —
+  // but that class and `.typeAnnotation` sit in two different stylesheets, and which of the two
+  // wins would then depend on the order the bundler happens to emit them in. A child element
+  // beats its parent whatever that order is. Anything reading the rendered colour — a test, an
+  // audit — must therefore read the INNER span; `field-annotation` carries the size, not the tone.
   const annotation =
     problem === undefined && tone !== 'dim' ? (
       field.annotation
