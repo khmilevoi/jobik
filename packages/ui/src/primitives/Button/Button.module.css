@@ -49,6 +49,15 @@
    */
   min-width: var(--jbk-button-reserve, auto);
   transition: min-width var(--jbk-motion-duration-swap) var(--jbk-motion-ease-settle);
+  /*
+   * A button sits as a plain child in more than one scrolling flex column (`RunDock`'s body among
+   * them). Without this, a flex column with `overflow-y: auto` shrinks every child — button
+   * included — before it starts scrolling once content overflows, so the button's fixed height
+   * (34px on `accent:lg`, etc.) collapses instead of the column scrolling past it. No cell here is
+   * ever meant to resize; `3B`'s dim-to-45%-opacity is the only state-driven size change the design
+   * allows.
+   */
+  flex-shrink: 0;
   background: none;
   font-family: var(--jbk-font-ui);
   font-weight: var(--jbk-weight-regular);
