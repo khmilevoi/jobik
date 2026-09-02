@@ -1,6 +1,6 @@
 import { reatomComponent } from '@reatom/react'
 import type { Node, NodeProps } from '@xyflow/react'
-import type { ReactNode } from 'react'
+import { type ReactNode, useRef } from 'react'
 import { resolveCardChrome, resolveCardWidth } from '#canvas/cardChrome.js'
 import { fieldHandleId } from '#canvas/fields.js'
 import { NodeCardHeader } from '#canvas/NodeCardHeader/NodeCardHeader.js'
@@ -126,23 +126,47 @@ export const NodeCard = reatomComponent(function NodeCard(props: NodeCardProps) 
    * block, which the `Node states` tile draws — here it sits in the reserved region rather than
    * below the outputs, because a state may change what fills the box and not where the box is.
    *
+   * A `queued` card reserves the region even with nothing to put in it, and that empty case is the
+   * one that matters most: a START node waits on no upstream, so it never carries a `Waiting on …`
+   * block, and without this it was the one card in a graph that still grew 200 px when its result
+   * landed.
+   *
+   * **The reservation is latched, and measurement is why.** A node's `ok` status and the report
+   * carrying its output are two different lines on the stream, so for the frames in between the
+   * card is settled with no slot to draw — and it collapsed to its idle height and grew back, a
+   * visible twitch at the end of every node. The latch holds the region from the first in-run frame
+   * until the card leaves the run, so those frames are simply the reserved box with nothing in it
+   * yet. `idle` and `failed` release it: the first is a card no longer in a run, and the second is
+   * terminal and has its own body to size to.
+   *
+   * A card that MOUNTS already settled — an artboard fixture, a canvas rebuilt from a finished run —
+   * never latches, so it draws exactly what it is handed. Nothing reflowed, so nothing needs
+   * reserving.
+   *
    * A card with NO field sections is a `Node states` catalogue tile rather than a node on a graph:
    * it has no slot position to reserve, nothing around it to reflow, and the artboard draws its
    * five cards at five different heights on purpose. Those keep the old layout exactly.
    */
   const hasSections = inputs.length > 0 || outputs.length > 0
-  const runRegion = ((): ReactNode | undefined => {
-    if (!hasSections) return undefined
+  const inFlight = data.state === 'queued' || data.state === 'running'
+  const latched = useRef(false)
+  if (data.state === 'idle' || data.state === 'failed') latched.current = false
+  else if (inFlight) latched.current = true
+  const reserves = hasSections && (inFlight || latched.current || data.outputSlot !== undefined)
+  const runBody = ((): ReactNode => {
+    if (!reserves) return null
     if (data.outputSlot !== undefined) {
       return <NodeOutputSlot slot={data.outputSlot} captionColor={captionColor} />
     }
-    if (data.detail?.kind === 'queued') {
+    if (data.detail !== undefined && data.detail.kind !== 'failed') {
       return <NodeStateBody detail={data.detail} captionColor={captionColor} />
     }
     if (data.state === 'running') {
       return <NodeOutputSlot slot={SKELETON_SLOT} captionColor={captionColor} />
     }
-    return undefined
+    // A queued node with no upstream to name — a start — reserves the space and shows nothing in
+    // it. The reservation is the point; the emptiness is honest.
+    return null
   })()
 
   /**
@@ -152,7 +176,7 @@ export const NodeCard = reatomComponent(function NodeCard(props: NodeCardProps) 
    * other body has moved into the reserved region above, so it is not drawn twice.
    */
   const detailBelow =
-    data.detail === undefined || (runRegion !== undefined && data.detail.kind !== 'failed')
+    data.detail === undefined || (reserves && data.detail.kind !== 'failed')
       ? undefined
       : data.detail
 
@@ -189,14 +213,12 @@ export const NodeCard = reatomComponent(function NodeCard(props: NodeCardProps) 
         />
       )}
 
-      {runRegion === undefined ? (
-        data.outputSlot === undefined ? null : (
-          <NodeOutputSlot slot={data.outputSlot} captionColor={captionColor} />
-        )
-      ) : (
+      {reserves ? (
         <div data-testid="node-run-region" className={s.runRegion}>
-          {runRegion}
+          {runBody}
         </div>
+      ) : data.outputSlot === undefined ? null : (
+        <NodeOutputSlot slot={data.outputSlot} captionColor={captionColor} />
       )}
 
       {outputs.length === 0 ? null : (

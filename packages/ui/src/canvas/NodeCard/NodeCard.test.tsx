@@ -1,7 +1,7 @@
 import type { FlowDocument } from '@jobik/core'
 import { action, atom } from '@reatom/core'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
-import { Profiler, type ReactNode } from 'react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { Profiler, type ReactNode, useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { renderInNodeContext } from '#canvas/canvasTestUtils.js'
 import { MetadataRow } from '#canvas/NodeStateBody/NodeStateBody.js'
@@ -626,6 +626,35 @@ describe('NodeCard — the reserved run region', () => {
     const region = screen.getByTestId('node-run-region')
     expect(within(region).getByTestId('node-state-queued')).toBeInTheDocument()
     expect(screen.getAllByTestId('node-state-queued')).toHaveLength(1)
+  })
+
+  /**
+   * Measured, not theorised: a node's `ok` status and the report carrying its output arrive as two
+   * separate lines, so between them the card is settled with no slot to draw. Without the latch it
+   * collapsed to its idle height and grew back — a twitch at the end of every node in the graph.
+   */
+  it('holds the region through the frames between an ok status and its report', () => {
+    function Settling() {
+      const [state, setState] = useState<'running' | 'ok'>('running')
+      return (
+        <>
+          <button type="button" data-testid="settle" onClick={() => setState('ok')}>
+            settle
+          </button>
+          <NodeCard data={withSections({ state, ...(state === 'ok' ? { status: 'ok' } : {}) })} />
+        </>
+      )
+    }
+    mountCard(<Settling />)
+    expect(screen.getByTestId('node-run-region')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('settle'))
+    expect(screen.getByTestId('node-run-region')).toBeInTheDocument()
+  })
+
+  it('reserves nothing for a card that mounts already settled with no slot', () => {
+    mountCard(<NodeCard data={withSections({ state: 'ok', status: 'ok' })} />)
+    expect(screen.queryByTestId('node-run-region')).toBeNull()
   })
 
   it('leaves the failed body unreserved — it has to size to its own error well', () => {
