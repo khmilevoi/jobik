@@ -169,7 +169,12 @@ const StudioAppBody = reatomComponent(function StudioAppBody(props: StudioAppBod
    * thing a tick moves is the chip. `runMeta` prints an elapsed too, but a settled one — the
    * report's own number, which lands once.
    */
-  const flowsReady = descriptor !== undefined || flows.everLoaded()
+  // Read before the `||`, never inside it. `everLoaded` is a `withComputed` atom, so it folds
+  // `descriptor` in only while something is reading it; short-circuiting past it on exactly the
+  // renders where `descriptor` is defined — the renders that set the latch — would leave the latch
+  // riding on state surviving a disconnect. Reading it every render is what keeps it subscribed.
+  const everLoaded = flows.everLoaded()
+  const flowsReady = descriptor !== undefined || everLoaded
 
   const flowList = flows.flows()
   const sidebar = useMemo(
