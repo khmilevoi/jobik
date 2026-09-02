@@ -6,6 +6,10 @@
 .card {
   width: var(--jbk-run-card-width);
   height: var(--jbk-run-card-height);
+  /* A caller may place this beside another card or panel in a flex row (see RunInputControl.tsx's
+   * own doc comment); without this the row's default flex-shrink squeezes the whole card — button
+   * included — below its fixed width instead of overflowing. */
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;

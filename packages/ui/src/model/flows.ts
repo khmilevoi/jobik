@@ -99,6 +99,21 @@ export function reatomFlows(deps: StudioDeps, name: string): FlowsModel {
   }, `${name}.descriptor`)
 
   /**
+   * Latches `true` the render a descriptor first lands, and never reverts — the same atom +
+   * `withComputed` shape `flowId` above uses to fold a computed input into remembered state
+   * (RTM-S02).
+   *
+   * `flows()` names no node and no file, so nothing about it — unlike `descriptor`, `nodes` or
+   * `inventory` — depends on which flow's document has resolved. `everLoaded` is what a consumer
+   * reads to show `flows()` immediately on every later switch while still holding the sidebar's
+   * first reveal back until the initial mount's document has actually landed, matching every other
+   * descriptor-derived read.
+   */
+  const everLoaded = atom(false, `${name}.everLoaded`).extend(
+    withComputed((state) => state || descriptor() !== undefined),
+  )
+
+  /**
    * `## UI and persistence`'s other half of the conflict offer: take what is on disk.
    *
    * `retry()` on a computed drops its dependencies and re-evaluates it, which is a fetch of the same
@@ -126,5 +141,5 @@ export function reatomFlows(deps: StudioDeps, name: string): FlowsModel {
     flowId.set(nextFlowId)
   }, `${name}.selectFlow`)
 
-  return { list, flows, flowId, loaded, descriptor, reloadFromDisk, selectFlow }
+  return { list, flows, flowId, loaded, descriptor, everLoaded, reloadFromDisk, selectFlow }
 }

@@ -144,23 +144,40 @@ const StudioAppBody = reatomComponent(function StudioAppBody(props: StudioAppBod
   const requestSave = useAction(save.save)
 
   /**
-   * `flows`, the node rows and the inventory are held back until the descriptor has landed too.
+   * The inventory — and, below, the node rows — are held back until the descriptor has landed.
    * Discovery and load are two units (R5), so the listing and the id settle ahead of `descriptor`,
-   * and naming the flow before its own document has resolved would flash a half-loaded shell.
+   * and naming a flow's nodes before its own document has resolved would flash the previous flow's
+   * graph under the new flow's name.
    *
-   * They are memoised because this component re-renders on every stream frame that moves anything
-   * it reads, and none of the three has anything to do with a run. It no longer re-renders on the
-   * run's 100ms clock: `run.elapsedMs` is read by `RunningChip` alone, so the only thing a tick
-   * moves is the chip. `runMeta` prints an elapsed too, but a settled one — the report's own number,
-   * which lands once.
+   * **`flows` used to be held back the same way, and that was wrong in the other direction.**
+   * `flowId` — and so `flows.flows()`, which seeds it (see `model/flows.ts`) — always settles a full
+   * `GET /api/flows/:id` round trip ahead of `descriptor`, so gating the listing on `descriptor`
+   * emptied the sidebar's whole `Flows` section, every row and not just the switching one, for the
+   * length of every switch. `3E` note 04 settles it: the blocked list is *a list* — the artboard's
+   * `Disabled` column draws the row and its count at 45% — so `flowsBlocked` below has to have
+   * something left to dim. An empty container at 45% is not the state the design draws.
+   *
+   * `flows.flows()` names no node and no file, so nothing about it depends on which flow's document
+   * has resolved; only the very first reveal has to wait, so the initial mount still comes up as one
+   * shell rather than a lone flow list against an empty canvas. `flows.everLoaded` (RTM-S02: a model
+   * derivation, not component state) latches true the render `descriptor` first lands and never
+   * reverts, which is the difference between "held back once" and "held back every time".
+   *
+   * It is memoised because this component re-renders on every stream frame that moves anything it
+   * reads, and neither the listing nor the inventory has anything to do with a run. It no longer
+   * re-renders on the run's 100ms clock: `run.elapsedMs` is read by `RunningChip` alone, so the only
+   * thing a tick moves is the chip. `runMeta` prints an elapsed too, but a settled one — the
+   * report's own number, which lands once.
    */
+  const flowsReady = descriptor !== undefined || flows.everLoaded()
+
   const flowList = flows.flows()
   const sidebar = useMemo(
     () => ({
-      flows: descriptor === undefined ? [] : toFlowSummaries(flowList),
+      flows: flowsReady ? toFlowSummaries(flowList) : [],
       inventory: descriptor === undefined ? [] : toInventory(descriptor),
     }),
-    [descriptor, flowList],
+    [flowsReady, descriptor, flowList],
   )
 
   /**
@@ -273,7 +290,7 @@ const StudioAppBody = reatomComponent(function StudioAppBody(props: StudioAppBod
       <Studio
         {...(props.accent === undefined ? {} : { accent: props.accent })}
         flows={sidebar.flows}
-        {...(descriptor !== undefined && flowId !== undefined ? { activeFlowId: flowId } : {})}
+        {...(flowsReady && flowId !== undefined ? { activeFlowId: flowId } : {})}
         onSelectFlow={requestFlow}
         flowsBlocked={flowsBlocked}
         {...(descriptor === undefined ? {} : { flowFile: descriptor.sourceFile })}
