@@ -226,9 +226,12 @@ export const FlowsSidebar = reatomComponent(function FlowsSidebar(props: FlowsSi
           <>
             <SectionLabel className={s.groupLabel}>Run history</SectionLabel>
             <div className={s.list}>
-              {runs.map((run) => {
+              {runs.map((run, index) => {
                 const selected = run.id === props.selectedRunId
                 const failed = run.status === 'failed'
+                // F-C5: the history is newest-first, so the head is the row a settling run just
+                // added — the one row the prototype animates. See `.runRowLatest`.
+                const latest = index === 0
                 // `failed` replaces the duration; a run with neither shows no meta at all rather
                 // than a number the wire never carried.
                 const meta = failed ? 'failed' : run.elapsed
@@ -238,7 +241,12 @@ export const FlowsSidebar = reatomComponent(function FlowsSidebar(props: FlowsSi
                     type="button"
                     data-testid={`studio-run-row-${run.id}`}
                     onClick={onSelectRun === undefined ? undefined : () => onSelectRun(run.id)}
-                    className={cx(s.row, s.runRow, selected && s.runRowSelected)}
+                    className={cx(
+                      s.row,
+                      s.runRow,
+                      latest && s.runRowLatest,
+                      selected && s.runRowSelected,
+                    )}
                   >
                     <div className={cx(s.runLabel, selected && s.runLabelSelected)}>
                       {run.label}

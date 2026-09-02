@@ -252,6 +252,20 @@
   background: var(--jbk-surface-active-node-row);
 }
 
+/*
+ * F-C5 — `jline`'s other half. `4A` (design 22) counts `row` among the 140ms state changes, and
+ * the demo prototype (`demo.dc.html:668`) puts exactly this animation on exactly this row:
+ * `jline 140ms cubic-bezier(.2,.8,.25,1)`, and on no other row of the list.
+ *
+ * It rides on the newest row alone, which is the one a settling run adds. A `key` is what makes it
+ * play at all — the row is keyed on the run id, so a new run mounts a new element and the one-shot
+ * entrance runs once — and restricting it to the head is what keeps a flow switch or a first load
+ * from fading in the whole history at once, which is a list arriving rather than a row.
+ */
+.runRowLatest {
+  animation: var(--jbk-motion-line-in);
+}
+
 .runLabel {
   font-family: var(--jbk-font-mono);
   font-size: var(--jbk-size-11);
