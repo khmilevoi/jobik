@@ -8,6 +8,7 @@ import {
   sleep,
   withAbort,
   withAsync,
+  withComputed,
   withConnectHook,
   wrap,
 } from '@reatom/core'
@@ -75,6 +76,12 @@ import { toFailurePayload } from './types.js'
 
 /** How often the running chip's clock advances. Fast enough for a `0.1s` readout. */
 const TICK_MS = 100
+
+/**
+ * The archive of a flow that has run nothing. One instance, so a flow with no runs answers the same
+ * value every time and no reader is invalidated by the absence.
+ */
+const EMPTY_ARCHIVE: readonly RunSession[] = []
 
 /**
  * R28: the reducer in `runSession.ts` relies on the server's structural guarantee that the
@@ -190,7 +197,34 @@ export function reatomRun(
    * before its first `await`; `reset` bumps it, and so does the next start.
    */
   const generation = atom(0, `${name}.generation`)
-  const archive = atom<readonly RunSession[]>([], `${name}.archive`)
+  /**
+   * Every flow's settled runs, keyed by the flow they were made under.
+   *
+   * The archive is a client-side record — nothing on the wire returns an earlier run's report — so
+   * it lives exactly as long as the tab, and a reload legitimately empties it. **A flow switch is
+   * not a reload.** It used to be treated as one: `reset` cleared the whole archive, so looking at
+   * another flow destroyed this one's `Runs` group and returning never brought it back. Keying by
+   * flow keeps the reason that clear existed — a row of flow `#1` must never appear under flow
+   * `#2`'s name — while costing nothing on the way back.
+   */
+  const archives = atom<ReadonlyMap<string, readonly RunSession[]>>(
+    new Map(),
+    `${name}.archives`,
+  )
+
+  /**
+   * The active flow's slice of {@link archives}, and the only shape every reader wants.
+   *
+   * RTM-S02: writable state derived from a source is `withComputed`, not a watcher — moving
+   * `flowId` re-derives this on the same frame, so no surface ever paints one flow's rows under
+   * another's name, and returning to a flow restores its rows with no restore step to run.
+   */
+  const archive = atom<readonly RunSession[]>([], `${name}.archive`).extend(
+    withComputed(() => {
+      const flowId = input.flowId()
+      return (flowId === undefined ? undefined : archives().get(flowId)) ?? EMPTY_ARCHIVE
+    }),
+  )
   const selectedRunId = atom<string | undefined>(undefined, `${name}.selectedRunId`)
   const cancelPrompt = atom(false, `${name}.cancelPrompt`)
 
@@ -276,7 +310,11 @@ export function reatomRun(
           {
             id: String(report.runNumber),
             label: `#${report.runNumber}`,
-            status: report.status === 'ok' ? ('ok' as const) : ('failed' as const),
+            // R7 — the three outcomes stay three. This used to collapse `cancelled` into
+            // `failed`, which told a user who had stopped a run themselves that it had broken.
+            // `model/toast.ts` reads the same field and prints `Run #4 cancelled`; the row it
+            // sits beside must not disagree with it.
+            status: report.status,
             ...(report.status === 'ok' ? { elapsed: formatElapsed(report.elapsedMs) } : {}),
           },
         ]
@@ -284,7 +322,18 @@ export function reatomRun(
     `${name}.history`,
   )
 
-  const activeRunId = computed(() => selectedRunId() ?? history()[0]?.id, `${name}.activeRunId`)
+  /**
+   * The row the sidebar marks. A pick always wins; otherwise the newest run is marked, but only
+   * while a session is actually on the surfaces. Returning to a flow restores its rows without
+   * restoring what was on screen, so marking one then would claim a run is being shown when the
+   * canvas, the panel and the dock are all idle.
+   */
+  const activeRunId = computed(() => {
+    const picked = selectedRunId()
+    if (picked !== undefined) return picked
+    if (session() === undefined) return undefined
+    return history()[0]?.id
+  }, `${name}.activeRunId`)
 
   /**
    * A picked row wins, but only while nothing is in flight. A live run owns the canvas and is the
@@ -306,15 +355,22 @@ export function reatomRun(
   )
 
   /**
-   * Every run joins the archive as it settles, newest first, exactly once per run number. A run
-   * that never settled has no report and no number, so it never joins.
+   * Every run joins its own flow's archive as it settles, newest first, exactly once per run
+   * number. A run that never settled has no report and no number, so it never joins.
+   *
+   * The flow is the one `start` read before its first `await`, never a fresh read: run numbers are
+   * per flow, so filing a run under whatever flow is open when its report lands is how a row ends
+   * up under the wrong name.
    */
-  const archiveSettled = (settled: RunSession): void => {
+  const archiveSettled = (flowId: string, settled: RunSession): void => {
     const report = settled.report
     if (report === undefined) return
-    const current = peek(archive)
+    const all = peek(archives)
+    const current = all.get(flowId) ?? EMPTY_ARCHIVE
     if (current.some((entry) => entry.report?.runNumber === report.runNumber)) return
-    archive.set([settled, ...current])
+    const next = new Map(all)
+    next.set(flowId, [settled, ...current])
+    archives.set(next)
   }
 
   /**
@@ -402,7 +458,7 @@ export function reatomRun(
         const next = applyRunEvent(current, event)
         session.set(next)
         // Terminal conditions 1 and 2 both land here; only a settled report joins the archive.
-        archiveSettled(next)
+        archiveSettled(flowId, next)
       }
       // Terminal condition 6 (R28): the stream ended without a terminal line. `applyRunEvent` sets
       // neither `report` nor `failure` on its own, so a session that reaches here with neither is a
@@ -518,9 +574,10 @@ export function reatomRun(
     session.set(undefined)
     endRun()
     cancelPrompt.set(false)
-    // Every run in the history belongs to the flow being left; a row of flow `#1` under flow `#2`'s
-    // name is the frame `switchTo` existed to prevent.
-    archive.set([])
+    // The archive is deliberately NOT cleared. Every run in it belongs to the flow being left, and
+    // a row of flow `#1` under flow `#2`'s name is the frame `switchTo` existed to prevent — but
+    // `archives` is keyed by flow, so moving `flowId` is what prevents it now, and the runs the
+    // user made survive a look at another flow.
     selectedRunId.set(undefined)
   }, `${name}.reset`)
 

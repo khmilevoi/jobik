@@ -548,6 +548,52 @@ describe('switching the active flow', () => {
       },
     )
   })
+
+  /**
+   * R1 — the other half of the case above. Hiding a flow's rows is not destroying them: the archive
+   * is keyed by flow, so coming back lists exactly the runs that flow made, and a row still restores
+   * the run it names. The dock and the validation strip stay dropped — those belong to a moment, not
+   * to the flow.
+   */
+  it('gives a flow its run history back when it is returned to', async () => {
+    await inFrame(
+      twoFlowClient({
+        startRun: async () =>
+          streamOf([
+            { type: 'run-accepted', runToken: 'tok' },
+            {
+              type: 'run-started',
+              runNumber: 219,
+              flowName: 'publication',
+              startId: 'start1',
+              nodeCount: 1,
+            },
+            { type: 'run-settled', report: REPORT },
+          ]),
+      }),
+      async (h) => {
+        await wrap(startRun(h))
+        await wrap(until(() => h.run.archive().length === 1, 'the run to be archived'))
+        expect(h.run.history()).toHaveLength(1)
+
+        h.model.requestFlow('pokedex')
+        await wrap(until(() => h.flows.descriptor()?.id === 'pokedex', 'the second flow'))
+        expect(h.run.history()).toEqual([])
+
+        h.model.requestFlow('publication')
+        await wrap(until(() => h.flows.descriptor()?.id === 'publication', 'the first flow again'))
+
+        expect(h.run.history()).toEqual([
+          { id: '221', label: '#221', status: 'ok', elapsed: '2.4s' },
+        ])
+        // Nothing is on the surfaces yet, so no row claims to be what is shown.
+        expect(h.run.activeRunId()).toBeUndefined()
+
+        h.run.selectRun('221')
+        expect(h.run.viewedSession()?.report?.runNumber).toBe(221)
+      },
+    )
+  })
 })
 
 /**

@@ -492,12 +492,19 @@ export interface RunModel {
    * a session, so keeping the session is the whole feature. v1 has no endpoint that returns an
    * earlier run's report, so this lives exactly as long as the tab does. A run that never settled
    * has no report and no number, so it never joins.
+   *
+   * It is the **active flow's** slice of a record kept per flow, derived with `withComputed`, so a
+   * flow switch changes which runs are listed and destroys none of them. A tab is what empties it;
+   * looking at another flow is not.
    */
   readonly archive: Atom<readonly RunSession[]>
   /** The row the sidebar marks. `undefined` means the newest, which is the run on screen. */
   readonly selectedRunId: Atom<string | undefined>
   readonly history: Computed<readonly RunHistoryEntry[]>
-  /** What a click picked, or the newest run when nothing did. */
+  /**
+   * What a click picked, or the newest run when nothing did — and `undefined` when no session is on
+   * the surfaces at all, which is a flow returned to with its archive intact and nothing shown.
+   */
   readonly activeRunId: Computed<string | undefined>
   /**
    * The run every read-only surface projects. A picked row wins, but only while nothing is in

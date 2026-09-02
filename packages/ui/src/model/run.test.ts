@@ -1311,7 +1311,7 @@ describe('the run archive', () => {
     )
   })
 
-  it('empties the history on a flow switch, along with everything else about the run', async () => {
+  it('ends the run on a reset without destroying the runs the flow has made', async () => {
     await inFrame(
       async ({ model }) => {
         await wrap(model.start({ title: 't' }))
@@ -1319,13 +1319,47 @@ describe('the run archive', () => {
 
         model.reset()
 
-        expect(model.archive()).toEqual([])
-        expect(model.history()).toEqual([])
         expect(model.selectedRunId()).toBeUndefined()
         expect(model.runToken()).toBeUndefined()
         expect(model.session()).toBeUndefined()
         expect(model.running()).toBe(false)
         expect(model.cancelPrompt()).toBe(false)
+        // The reset ends the run; the flow's own record of what it has run is not the run.
+        expect(model.history()).toHaveLength(1)
+      },
+      () => makeHarness(settling(REPORT)),
+    )
+  })
+
+  /**
+   * R1. The archive is keyed by flow, so the switch that hides a flow's rows is the same move that
+   * brings them back — and no row of one flow is ever listed under another's name.
+   */
+  it('lists another flow no runs, and gives the first one its runs back on return', async () => {
+    await inFrame(
+      async ({ model, flowId }) => {
+        await wrap(model.start({ title: 't' }))
+        expect(model.history()).toHaveLength(1)
+
+        // One flow switch, in `commitSwitch`'s own order: every reset, then the id moves.
+        model.reset()
+        flowId.set('pokedex')
+
+        expect(model.archive()).toEqual([])
+        expect(model.history()).toEqual([])
+
+        model.reset()
+        flowId.set('publication')
+
+        expect(model.history()).toEqual([
+          { id: '219', label: '#219', status: 'ok', elapsed: '2.4s' },
+        ])
+        // Nothing is on the surfaces, so no row claims to be what is shown — until one is picked,
+        // and then it restores the run it names.
+        expect(model.activeRunId()).toBeUndefined()
+        model.selectRun('219')
+        expect(model.activeRunId()).toBe('219')
+        expect(model.viewedSession()?.report?.runNumber).toBe(219)
       },
       () => makeHarness(settling(REPORT)),
     )
