@@ -4,8 +4,7 @@
  * Every state is fixture-driven: nothing here talks to a server, streams a run, or derives a
  * descriptor. Mapping a real run report and a live stream onto `RunPanelState` is P14's job.
  */
-import type { AssetDescriptor, NodeInputDescriptor } from '@jobik/core'
-import type { ReactNode } from 'react'
+import type { NodeInputDescriptor } from '@jobik/core'
 import type * as z from 'zod'
 
 /**
@@ -82,35 +81,6 @@ export type RunStack = {
   /** The remainder the server did not send. `0` renders no hidden-frame line. */
   readonly hiddenFrames: number
 }
-
-export type RunOutputField =
-  | {
-      readonly kind: 'asset'
-      readonly field: string
-      readonly asset: AssetDescriptor
-      /** The mono meta line. Defaults to `formatAssetMeta(asset)`; the artboard reads
-       *  `png · 1024² · 412 kb`, whose dimensions no descriptor carries. */
-      readonly meta?: string
-      /**
-       * The resolved bytes URL for the 54px thumbnail — `client.assetUrl(asset)`.
-       *
-       * Absent falls through to {@link thumbnail}, and then to the striped placeholder, which is
-       * `ImageFrame`'s own rule for the same situation: a descriptor is not an image until
-       * something turns its `id` into a URL, and the panel never invents one.
-       */
-      readonly src?: string
-      /** The 54px thumbnail, when a caller wants to draw it itself. `src` wins over it. */
-      readonly thumbnail?: ReactNode
-      /**
-       * What the row's `Open` does. Optional, because a caller with no viewer to open exists —
-       * `RunPanelCard` mounts this state with fixtures alone. Left out, the button takes `3B`'s
-       * treatment for a control that cannot act: 45% opacity, disabled, nothing else moved. It is
-       * never drawn live over an absent handler.
-       */
-      readonly onOpen?: () => void
-    }
-  | { readonly kind: 'text'; readonly field: string; readonly value: string }
-  | { readonly kind: 'url'; readonly field: string; readonly value: string }
 
 /**
  * How a `string` or `json` control is drawn. The artboard shows `title` as a single line and
@@ -253,13 +223,6 @@ export type RunCompletedState = {
   /** e.g. `2.4s`. */
   readonly elapsed: string
   readonly nodes: readonly RunNodeTiming[]
-  /**
-   * `Run panel — states`' completed card puts the run's outputs in the panel; `2A`, which is newer,
-   * puts them in the bottom output dock and shows the inputs here instead. Optional so a Studio
-   * that has not mounted that dock yet does not strand them: supplied, the `Outputs` section is
-   * drawn after the log exactly as the states card draws it.
-   */
-  readonly outputs?: readonly RunOutputField[]
   /** `2A`: the primary reads `Re-run start1`. Omitted draws no primary at all. */
   readonly entryNodeId?: string
   /** `2A`: `title` and `markdown`, still shown and still editable, above the primary. */

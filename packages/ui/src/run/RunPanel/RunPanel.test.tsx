@@ -63,7 +63,6 @@ const COMPLETED: RunPanelState = {
   runNumber: 221,
   elapsed: '2.4s',
   nodes: [{ nodeId: 'render', status: 'ok', elapsed: '2.1s' }],
-  outputs: [{ kind: 'text', field: 'caption', value: 'Release 0.4' }],
 }
 
 const DOCUMENT = {
@@ -238,9 +237,10 @@ describe('RunPanelBody', () => {
     expect(screen.getByTestId('run-error-name').textContent).toBe('ImageRenderError')
   })
 
-  it('renders the completed outputs', () => {
+  it('renders the completed timings, with no Outputs section', () => {
     render(<RunPanelBody state={COMPLETED} />)
-    expect(screen.getByTestId('run-outputs-label').textContent).toBe('Outputs')
+    expect(screen.getByTestId('run-timing-value-render').textContent).toBe('2.1s')
+    expect(screen.queryByTestId('run-outputs-label')).toBeNull()
   })
 })
 
@@ -326,9 +326,8 @@ describe('RunPanel', () => {
 
   /**
    * `2A` draws the settled dock as timings, the inputs still editable, `Re-run start1`, then the
-   * `Log` / `tail` block — the run's outputs live in the bottom output dock, so the model does not
-   * pass them and `run-outputs-label` is deliberately absent. The older `Run panel — states`
-   * completed card, outputs included, is the `RunPanelBody` case above.
+   * `Log` / `tail` block. There is no `Outputs` section any more (R8, retired): a run's output
+   * lives only in the bottom `OutputDock`, which now auto-opens once the run settles successfully.
    */
   it('renders the completed panel', async () => {
     mountPanel(

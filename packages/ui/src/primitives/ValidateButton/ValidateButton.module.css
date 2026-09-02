@@ -19,6 +19,12 @@
   position: relative;
   overflow: hidden;
   height: 30px;
+  /*
+   * The same fixed-height-leaf guarantee `Button.module.css`'s `.button` states: dropped into a
+   * scrolling flex column, the column's default flex-shrink would squeeze this below its 30px
+   * height instead of scrolling past it. No cell here is ever meant to resize.
+   */
+  flex-shrink: 0;
   min-width: 128px;
   transition: min-width var(--jbk-motion-duration-swap) var(--jbk-motion-ease-settle);
   padding: 0 12px;
@@ -103,6 +109,7 @@
 
 .report {
   height: 20px;
+  flex-shrink: 0;
   padding: 0 8px;
   display: inline-flex;
   align-items: center;

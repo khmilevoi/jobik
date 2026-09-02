@@ -563,6 +563,9 @@ export interface RunModel {
  * runs this way round on purpose, so `model/run.ts` never names an output unit. Without it the
  * viewer only appears to close, and silently reopens if the next report contains a node with the
  * same id.
+ *
+ * A run that settles successfully now opens the viewer on its own — see
+ * {@link OutputModel.expanded}.
  */
 export interface OutputModel {
   readonly viewerNodeId: Atom<string | undefined>
@@ -575,9 +578,13 @@ export interface OutputModel {
    */
   readonly dockNode: Computed<WireNodeReportPayload | undefined>
   /**
-   * Whether the dock draws at full height rather than as the 34px strip. A dock that is about a
-   * node only because a run settled has never been opened, so a settled run raises the strip and
-   * never the dock — opening stays the deliberate act `DEFERRED.md` records.
+   * Whether the dock draws at full height rather than as the 34px strip.
+   *
+   * A run that settles successfully auto-opens onto its own restorable node, so `expanded` goes
+   * `true` the moment that run lands — no `Show output` click required. A run that fails, is
+   * cancelled, or is still running raises the strip instead and leaves the dock collapsed, exactly
+   * as before; and the dock's own dismiss (`collapse`) still puts an auto-opened dock away, with
+   * `Show output` still the manual way back in.
    */
   readonly expanded: Computed<boolean>
   /** `2A`'s two mono strings, both read off the report and the descriptor, never fabricated. */
@@ -588,7 +595,8 @@ export interface OutputModel {
    * dock. It is the dock's *own* dismiss, and it is separate from {@link OutputModel.viewerNodeId}
    * on purpose: the strip still names the node and the run it summarises, so a dock the user put
    * away has not stopped being about anything. Only a new run, a flow switch or another start
-   * clears the node itself.
+   * clears the node itself — and each of those also resets `collapsed` back to `false`, so a stale
+   * manual dismiss from a previous run can never suppress the next run's auto-open.
    */
   readonly collapsed: Atom<boolean>
   readonly open: Action<[nodeId: string], void>

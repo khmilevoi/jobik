@@ -29,6 +29,12 @@
 .emptyTile {
   box-sizing: border-box;
   height: var(--jbk-output-variant-height);
+  /*
+   * Sits inside `.column`, itself inside the output dock's scrolling right column
+   * (`OutputPreview.module.css`'s `.columnDock`). Its default flex-shrink would squeeze this below
+   * its fixed height — the same fix `Button.module.css`'s `.button` states.
+   */
+  flex-shrink: 0;
   border: 1px dashed var(--jbk-border-dashed);
   border-radius: var(--jbk-radius-control);
   background: var(--jbk-surface-top-bar);

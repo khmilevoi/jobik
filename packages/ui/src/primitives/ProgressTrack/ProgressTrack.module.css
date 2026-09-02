@@ -12,6 +12,12 @@
 
 .track {
   height: 2px;
+  /*
+   * The same fixed-height-leaf guarantee `Button.module.css`'s `.button` states. This primitive has
+   * no caller yet, but a fixed-size leaf control gets the guarantee unconditionally — the point of
+   * putting it on the control rather than on whichever scrolling column happens to hold it today.
+   */
+  flex-shrink: 0;
   border-radius: var(--jbk-primitive-progress-track-radius);
   background: var(--jbk-primitive-progress-track-fill);
   overflow: hidden;

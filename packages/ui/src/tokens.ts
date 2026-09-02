@@ -278,6 +278,16 @@ export const layout = {
   panelHeaderHeight: 38,
   leftSidebarWidth: 248,
   rightDockWidth: 320,
+  /**
+   * Below this, the output dock's own header (tabs, the mono source line, `Copy all` / `Download`,
+   * the `esc` hint, the close button) needs more room than the centre column has left once the
+   * fixed sidebar and run dock are subtracted, and its actions overflow past the dock's own edge
+   * into the run dock beside it. Measured: the overflow clears at a canvas column width around
+   * 1088px (`1200 - leftSidebarWidth - rightDockWidth = 632px` of headroom), so the frame — not any
+   * one inner panel — carries a floor here and the page scrolls horizontally below it instead of
+   * letting components spill into each other. No artboard defines a narrower Studio state than this.
+   */
+  studioMinWidth: 1200,
   nodeHeaderHeight: 36,
   sectionLabelRowHeight: 22,
   fieldRowHeight: 30,

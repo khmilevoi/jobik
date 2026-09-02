@@ -4,9 +4,11 @@ import {
   type Computed,
   computed,
   getCalls,
+  isChanged,
   isInit,
   sleep,
   withAbort,
+  withComputed,
   wrap,
 } from '@reatom/core'
 import type {
@@ -95,60 +97,18 @@ export function reatomOutput(
   const { descriptor, viewedSession, viewedReport } = input
 
   /**
-   * Which node the viewer is open on — stored, never derived from the report.
-   *
-   * **It closes on three things, and all three are derivations rather than effects** (RTM-S02), so
-   * no frame ever paints one run's output under another run's report:
-   *
-   *  - **A run beginning.** That is why `start` is an input at all: without it the viewer only
-   *    *appears* to close, because `viewedReport` goes briefly `undefined` — and it silently reopens
-   *    with no user action the moment the next report contains a node with the same id.
-   *  - **The run on screen changing.** `RunModel.selectRun` makes one write and deliberately does
-   *    not touch the viewer, because the open output belongs to the run that produced it and that
-   *    side is this module's; a session identity change is exactly that event, and it needs no
-   *    second input to observe.
-   *  - **The panel being pointed at another start.** `StudioApp.selectStart` closed the viewer by
-   *    hand, and nothing else in the model layer could: `InputsModel` knows nothing about a viewer,
-   *    and an open output is a statement about a run of the start that was selected when it was
-   *    opened. So `startId` is the third input, read here for the same reason `start` is — a
-   *    surface calling `inputs.selectStart` must not have to remember a second call, and a
-   *    derivation cannot be forgotten.
-   *
-   * `startId` moves on a flow switch and on a mount seed too, and closing there is right for the
-   * same reason; a *reload* that keeps the selection (F10) does not move it, so the reload the
-   * conflict offer asks for leaves an open viewer alone.
-   */
-  const viewerNodeId = atom<string | undefined>(undefined, `${name}.viewerNodeId`).extend(
-    withOptionalComputed<string>((state) => {
-      // Read as dependencies, not called: `getCalls` is how a computed observes an action.
-      getCalls(input.start)
-      viewedSession()
-      input.startId()
-      return isInit() ? state : undefined
-    }),
-  )
-
-  const openViewerNode = computed<WireNodeReportPayload | undefined>(() => {
-    const nodeId = viewerNodeId()
-    if (nodeId === undefined) return undefined
-    return viewedReport()?.nodes.find((node) => node.nodeId === nodeId)
-  }, `${name}.openViewerNode`)
-
-  /**
-   * The node `2A`'s **closed** strip is about, on a page whose dock has never been opened.
+   * The node `2A`'s **closed** strip is about, on a page whose dock has never been opened — and,
+   * now, the node a successful settle auto-opens the dock onto. See {@link viewerNodeId} for the
+   * auto-open itself; this is only the derivation of *which* node.
    *
    * `2A`'s subtitle is *"output dock is dismissable (× or esc)"*, and dismissable implies
    * restorable: the artboard draws a closed state — a mono `Output` label and a `Show output`
-   * button — as a strip at the bottom of the canvas column. Until now that strip existed only
-   * *after* a manual collapse, because the whole dock was mounted on {@link viewerNodeId} and
-   * nothing but a settled card's `inspect` ever wrote it. So a run finished, its output was
-   * reachable from exactly one link inside one card, and a user who did not know about that link
-   * had no route into the viewer at all.
+   * button — as a strip at the bottom of the canvas column. That is the manual half, and it still
+   * works exactly as before: a user who collapses the dock gets the strip back, naming this node.
    *
-   * This is the missing half, and it is a **derivation of the report, not a second stored node**:
-   * a settled run that produced something has a node the strip can name, and `Show output` adopts
-   * it. It is deliberately *not* an auto-open — `DEFERRED.md` records that the dock opens from a
-   * card's `inspect` and from nothing else, and {@link OutputModel.expanded} keeps that true.
+   * It is a **derivation of the report, not a second stored node**: a settled run that produced
+   * something has a node the strip can name, and `Show output` — or the auto-open below — adopts
+   * it.
    *
    * Which node: the **last** one that produced an asset, since that is what the artboard's own
    * strip summarises (`render.image · 3 files · run #221`), falling back to the last one that
@@ -167,6 +127,68 @@ export function reatomOutput(
     }
     return withAsset ?? withOutput
   }, `${name}.restorableNode`)
+
+  /**
+   * Which node the viewer is open on — stored, but not purely so: it now also **auto-opens**.
+   *
+   * **It closes on two things unconditionally, on a third conditionally, and now auto-opens on a
+   * fourth — and all four are derivations rather than effects** (RTM-S02), so no frame ever paints
+   * one run's output under another run's report:
+   *
+   *  - **A run beginning, unconditionally.** That is why `start` is an input at all: without it the
+   *    viewer only *appears* to close, because `viewedReport` goes briefly `undefined` — and it
+   *    silently reopens with no user action the moment the next report contains a node with the
+   *    same id. Detected as `getCalls(input.start).length > 0`, which is true only in the pass a
+   *    real call landed — a recompute this action had no part in reads back empty.
+   *  - **The panel being pointed at another start, unconditionally.** `StudioApp.selectStart`
+   *    closed the viewer by hand, and nothing else in the model layer could: `InputsModel` knows
+   *    nothing about a viewer, and an open output is a statement about a run of the start that was
+   *    selected when it was opened. Detected with `isChanged(input.startId)` rather than merely
+   *    reading it, because both a start move and a plain session change recompute this atom — the
+   *    two are told apart by whether `startId` ITSELF is what moved, not by whether the computed
+   *    ran again. `startId` moves on a flow switch and on a mount seed too, and closing there is
+   *    right for the same reason; a *reload* that keeps the selection (F10) does not move it, so
+   *    the reload the conflict offer asks for leaves an open viewer alone.
+   *  - **The run on screen changing, conditionally: closes on anything but a clean settle.** A
+   *    failed or cancelled run, or a session still carrying its own `failure`, closes the viewer
+   *    exactly as it always did.
+   *  - **The run on screen changing to one that DID settle successfully — the fourth event, and the
+   *    new one: it now auto-opens instead of closing.** A run that just streamed to completion, or
+   *    a different already-settled run picked from history, adopts {@link restorableNode} the
+   *    moment it becomes the viewed session — the same node `Show output` would have adopted by
+   *    hand. This retires the standing ruling that opening was a deliberate act: the run panel's
+   *    own inline `Outputs` section, which used to be the fallback route to the same fields, is
+   *    gone (see `run/RunCompletedView/RunCompletedView.tsx` and R8 in `model/runPanel.ts`), so the
+   *    dock is now the *only* place a run's output is shown, and it has to reach the screen without
+   *    a click for nothing to be lost.
+   */
+  const viewerNodeId = atom<string | undefined>(undefined, `${name}.viewerNodeId`).extend(
+    withOptionalComputed<string>((state) => {
+      // Read as dependencies, not called: `getCalls` is how a computed observes an action.
+      const startCalls = getCalls(input.start)
+      const session = viewedSession()
+      input.startId()
+      // `isChanged` is what tells "the panel moved to another start" apart from "the session
+      // changed while the start stayed put" — both recompute this atom, because both are read
+      // here, but only the first must force a close regardless of what the new session says.
+      const startIdChanged = isChanged(input.startId)
+      if (isInit()) return state
+      // A run beginning, or the panel moving to another start, close unconditionally — neither is
+      // a session settling, so there is nothing here to auto-open onto.
+      if (startCalls.length > 0 || startIdChanged) return undefined
+      // A run still in flight, one that failed or was cancelled, or a fresh start all close the
+      // viewer exactly as before. Only a session that settled with `report.status === 'ok'` — the
+      // same criterion the retired inline Outputs section used — auto-opens onto its own node.
+      if (session?.failure !== undefined || session?.report?.status !== 'ok') return undefined
+      return restorableNode()?.nodeId
+    }),
+  )
+
+  const openViewerNode = computed<WireNodeReportPayload | undefined>(() => {
+    const nodeId = viewerNodeId()
+    if (nodeId === undefined) return undefined
+    return viewedReport()?.nodes.find((node) => node.nodeId === nodeId)
+  }, `${name}.openViewerNode`)
 
   /**
    * What the dock draws, open or collapsed — the opened node while there is one, the restorable
@@ -235,16 +257,34 @@ export function reatomOutput(
    * same node rather than making the user find the card again. That is also what lets `4A`'s
    * 180ms height settle play at all: the dock is a surface that changes height, not one that comes
    * and goes.
+   *
+   * It resets to `false` on the same triggers {@link viewerNodeId} resets on, so a manual collapse
+   * left over from a previous run cannot suppress the next run's auto-open: without this, a user who
+   * had put a dock away, then ran again, would have `viewerNodeId` adopt the new node while
+   * `collapsed` still said `true`, and `expanded` would stay `false` regardless. Every other case
+   * this touches was already a no-op — everywhere `viewerNodeId` resets to `undefined` instead,
+   * `expanded` is `false` either way, so forcing `collapsed` to `false` there changes nothing
+   * observable.
    */
-  const collapsed = atom(false, `${name}.collapsed`)
+  const collapsed = atom(false, `${name}.collapsed`).extend(
+    withComputed((state) => {
+      getCalls(input.start)
+      viewedSession()
+      input.startId()
+      return isInit() ? state : false
+    }),
+  )
 
   /**
    * Whether the dock is at full height — and the reason `collapsed` alone is not the answer.
    *
-   * A dock that is *about* a node only because a run settled has never been opened, so it draws
-   * the strip: opening stays the deliberate act `DEFERRED.md` records, and nothing about a run
-   * finishing takes the canvas' space away from the user. `collapsed` keeps meaning what it meant
-   * — the dock's own dismiss — and it is the second half of this, not the whole of it.
+   * A dock that is about a node only because a run settled but never auto-opened — a run that
+   * failed, was cancelled, or is still running — draws the strip, not the full dock: `viewerNodeId`
+   * stays `undefined` in exactly that case, so `expanded` is `false` regardless of `collapsed`.
+   * `collapsed` keeps meaning what it always meant — the dock's own dismiss — and it is the second
+   * half of this, not the whole of it: a run that DID settle successfully sets `viewerNodeId` on its
+   * own node and resets `collapsed` to `false` in the same pass, which is what makes `expanded` true
+   * without a click.
    */
   const expanded = computed(() => viewerNodeId() !== undefined && !collapsed(), `${name}.expanded`)
 

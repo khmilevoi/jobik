@@ -410,20 +410,25 @@ describe('the run the open output belongs to', () => {
     })
   })
 
-  it('does not silently reopen when the next report carries a node with the same id', async () => {
+  /**
+   * This used to assert that the viewer stayed closed here — "does not silently reopen when the
+   * next report carries a node with the same id" — back when opening was a deliberate act. It no
+   * longer is: a run settling successfully now auto-opens, and a report that happens to reuse
+   * `render`'s id is not a stale reopen of the run that just closed, it is the auto-open feature
+   * correctly adopting the NEW run's own restorable node.
+   */
+  it('re-opens when the next run settles successfully, even though it reused the same node id', async () => {
     await withOutput(async ({ output, start, viewedSession, settle }) => {
       output.open('render')
 
       void start({ title: 'A post' })
       await settle()
+      expect(output.viewerNodeId()).toBeUndefined()
+
       // The next run settles with a report of its own that also contains `render`.
       viewedSession.set(sessionOf({ ...REPORT, runNumber: 220 }))
 
-      expect(output.viewerNodeId()).toBeUndefined()
-      expect(output.openViewerNode()).toBeUndefined()
-
-      // Still openable: the close is a transition, not a lock.
-      output.open('render')
+      expect(output.viewerNodeId()).toBe('render')
       expect(output.openViewerNode()?.nodeId).toBe('render')
     })
   })
@@ -457,14 +462,43 @@ describe('the run the open output belongs to', () => {
     })
   })
 
-  it('closes the viewer when another run is picked from the history', async () => {
+  /**
+   * This used to assert a close here too, back when opening was a deliberate act. History picks a
+   * SETTLED run same as any other, so it now auto-opens exactly like a fresh settle — onto the
+   * PICKED run's own restorable node, which this asserts is `publish` rather than whatever was
+   * open before, so a stale leftover selection cannot be mistaken for the real thing.
+   */
+  it('auto-opens onto the history pick’s own restorable node when another run is picked', async () => {
     await withOutput(async ({ output, viewedSession }) => {
       output.open('render')
 
-      viewedSession.set(sessionOf({ ...REPORT, runNumber: 218, elapsedMs: 1100 }))
+      viewedSession.set(
+        sessionOf({
+          ...REPORT,
+          runNumber: 218,
+          nodes: [
+            {
+              nodeId: 'start1',
+              status: 'ok',
+              elapsedMs: 10,
+              output: { title: 't' },
+              assets: {},
+              error: null,
+            },
+            {
+              nodeId: 'publish',
+              status: 'ok',
+              elapsedMs: 40,
+              output: { url: 'https://example.test/p/1' },
+              assets: {},
+              error: null,
+            },
+          ],
+        }),
+      )
 
-      expect(output.viewerNodeId()).toBeUndefined()
-      expect(output.openViewerNode()).toBeUndefined()
+      expect(output.viewerNodeId()).toBe('publish')
+      expect(output.expanded()).toBe(true)
     })
   })
 
@@ -477,6 +511,130 @@ describe('the run the open output belongs to', () => {
       expect(output.viewerNodeId()).toBeUndefined()
       expect(output.copyState()).toBe('idle')
       expect(output.downloadState()).toBe('idle')
+    })
+  })
+})
+
+/**
+ * The dock now auto-opens at full height the moment a run settles successfully — the run panel's
+ * own inline `Outputs` section is gone (R8, retired), so this is the only route a run's output
+ * reaches the screen without a click. Every case here writes `viewedSession` itself, after first
+ * clearing it, so the transition under test is a real recompute and not `isInit()`'s own guard —
+ * see `stays closed — a run settling is not an open` above for what a preloaded initial session
+ * still does.
+ */
+describe('auto-open on a successful settle', () => {
+  it('opens onto the restorable node when a session settles with report.status "ok"', async () => {
+    await withOutput(async ({ output, viewedSession }) => {
+      viewedSession.set(undefined)
+      expect(output.viewerNodeId()).toBeUndefined()
+
+      viewedSession.set(sessionOf(REPORT))
+
+      expect(output.viewerNodeId()).toBe('render')
+      expect(output.collapsed()).toBe(false)
+      expect(output.expanded()).toBe(true)
+    })
+  })
+
+  it('leaves the viewer closed when the settled session failed', async () => {
+    await withOutput(async ({ output, viewedSession }) => {
+      viewedSession.set(undefined)
+      viewedSession.set(sessionOf({ ...REPORT, status: 'failed' }))
+
+      expect(output.viewerNodeId()).toBeUndefined()
+      expect(output.expanded()).toBe(false)
+    })
+  })
+
+  it('leaves the viewer closed when the settled session was cancelled', async () => {
+    await withOutput(async ({ output, viewedSession }) => {
+      viewedSession.set(undefined)
+      viewedSession.set(sessionOf({ ...REPORT, status: 'cancelled' }))
+
+      expect(output.viewerNodeId()).toBeUndefined()
+      expect(output.expanded()).toBe(false)
+    })
+  })
+
+  it('leaves the viewer closed when the session itself carries a failure', async () => {
+    await withOutput(async ({ output, viewedSession }) => {
+      viewedSession.set(undefined)
+      viewedSession.set({
+        ...sessionOf(REPORT),
+        failure: { _tag: 'JobikTransportError', message: 'boom' },
+      })
+
+      expect(output.viewerNodeId()).toBeUndefined()
+      expect(output.expanded()).toBe(false)
+    })
+  })
+
+  it('resets an auto-opened viewer back to undefined when a new run begins', async () => {
+    await withOutput(async ({ output, viewedSession, start, settle }) => {
+      viewedSession.set(undefined)
+      viewedSession.set(sessionOf(REPORT))
+      expect(output.viewerNodeId()).toBe('render')
+
+      void start({ title: 'A post' })
+      await settle()
+
+      expect(output.viewerNodeId()).toBeUndefined()
+    })
+  })
+
+  it('auto-opens onto a different already-settled run picked from history', async () => {
+    await withOutput(async ({ output, viewedSession }) => {
+      viewedSession.set(undefined)
+      viewedSession.set(sessionOf(REPORT))
+      expect(output.viewerNodeId()).toBe('render')
+
+      const otherReport: WireRunReportPayload = {
+        ...REPORT,
+        runNumber: 218,
+        nodes: [
+          {
+            nodeId: 'start1',
+            status: 'ok',
+            elapsedMs: 10,
+            output: { title: 't' },
+            assets: {},
+            error: null,
+          },
+          {
+            nodeId: 'publish',
+            status: 'ok',
+            elapsedMs: 40,
+            output: { url: 'https://example.test/p/1' },
+            assets: {},
+            error: null,
+          },
+        ],
+      }
+      // A different, already-settled run replacing the current one — a session identity change
+      // that never touched `start`, exactly what picking a row in `Run history` does.
+      viewedSession.set(sessionOf(otherReport))
+
+      expect(output.viewerNodeId()).toBe('publish')
+    })
+  })
+
+  /**
+   * The safety net {@link collapsed}'s own reset exists for: without it, a dock the user had put
+   * away would stay collapsed under the very next run's auto-opened node, and `expanded` would
+   * never go `true` no matter how the run settled.
+   */
+  it('clears a stale manual collapse before the next successful settle', async () => {
+    await withOutput(async ({ output, viewedSession }) => {
+      output.open('render')
+      output.collapse()
+      expect(output.collapsed()).toBe(true)
+      expect(output.expanded()).toBe(false)
+
+      viewedSession.set(sessionOf({ ...REPORT, runNumber: 220 }))
+
+      expect(output.collapsed()).toBe(false)
+      expect(output.expanded()).toBe(true)
     })
   })
 })

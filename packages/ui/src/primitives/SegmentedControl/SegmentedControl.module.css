@@ -24,6 +24,12 @@
   align-items: center;
   position: relative;
   height: 22px;
+  /*
+   * The same fixed-height-leaf guarantee `Button.module.css`'s `.button` states: a scrolling flex
+   * column's default flex-shrink would squeeze an option below its 22px height instead of
+   * scrolling past it.
+   */
+  flex-shrink: 0;
   padding: 0 10px;
   border-radius: var(--jbk-radius-badge);
   font-family: var(--jbk-font-mono);

@@ -31,6 +31,12 @@
 /* design 913–915 */
 .variant {
   height: var(--jbk-output-variant-height);
+  /*
+   * A variant tile sits inside `VariantRow`'s `.column`, itself inside the output dock's scrolling
+   * right column (`OutputPreview.module.css`'s `.columnDock`). Its default flex-shrink would squeeze
+   * this below its fixed height — the same fix `Button.module.css`'s `.button` states.
+   */
+  flex-shrink: 0;
   border: 1px solid var(--jbk-border-inset);
   border-radius: var(--jbk-radius-control);
 }

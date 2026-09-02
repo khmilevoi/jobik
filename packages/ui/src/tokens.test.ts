@@ -179,6 +179,7 @@ describe('tokens', () => {
       panelHeaderHeight: 38,
       leftSidebarWidth: 248,
       rightDockWidth: 320,
+      studioMinWidth: 1200,
       nodeHeaderHeight: 36,
       sectionLabelRowHeight: 22,
       fieldRowHeight: 30,

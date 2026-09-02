@@ -41,6 +41,14 @@
   gap: 8px;
   width: 100%;
   height: var(--jbk-run-action-height);
+  /*
+   * `RunAction` (`Cancel run`, `Copy log`, `Re-run`) sits as a plain child in two scrolling flex
+   * columns: `RunDock`'s `.body` and `RunPanel`'s `.cardBody`, both `overflow-y:auto` inside a
+   * `flex-direction:column` box. Without this the column shrinks the action before it scrolls, so
+   * its fixed `height` collapses instead of the column scrolling past it — the same bug
+   * `Button.module.css`'s `.button` fixes for the shared button primitive.
+   */
+  flex-shrink: 0;
   border: 1px solid var(--jbk-border-secondary-button);
   border-radius: var(--jbk-radius-control);
   background: none;

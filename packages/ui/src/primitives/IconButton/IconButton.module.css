@@ -121,11 +121,16 @@
   background: var(--jbk-accent);
 }
 
-/* 3A §2.2 — the `copied` chip that trails the copied icon button. */
+/*
+ * 3A §2.2 — the `copied` chip that trails the copied icon button.
+ * Same fixed-height-leaf guarantee as `.iconButton` above: a scrolling flex column's default
+ * flex-shrink would otherwise squeeze this below its 20px height instead of scrolling past it.
+ */
 .chip {
   display: flex;
   align-items: center;
   height: 20px;
+  flex-shrink: 0;
   padding: 0 7px;
   border: 1px solid var(--jbk-border-control);
   border-radius: var(--jbk-radius-badge);

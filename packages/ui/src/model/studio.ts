@@ -124,8 +124,8 @@ export function reatomStudio(deps: StudioDeps, name = 'studio'): StudioModel {
    * Built **before** `canvas`, and that order is load-bearing rather than incidental: the failed
    * node card's `View trace` opens `3C`'s Stack trace dialog, which is `runPanel.openTrace`, so the
    * canvas names a unit this factory returns. Nothing runs the other way — `reatomRunPanel` takes
-   * `descriptor`, `inputs`, `run`, `blocked` and `output.open`, all of them wired above — so moving
-   * it up needs no forwarder and closes the only edge that would have wanted one.
+   * `descriptor`, `inputs`, `run` and `blocked`, all of them wired above — so moving it up needs no
+   * forwarder and closes the only edge that would have wanted one.
    */
   const runPanel = reatomRunPanel(
     deps,
@@ -134,7 +134,6 @@ export function reatomStudio(deps: StudioDeps, name = 'studio'): StudioModel {
       inputs,
       run,
       blocked: validation.blocked,
-      openOutput: output.open,
     },
     `${name}.runPanel`,
   )

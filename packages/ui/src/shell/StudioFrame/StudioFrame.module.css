@@ -1,5 +1,15 @@
+/*
+ * `width: 100%` shrinks the frame to fit any host, but the three-column body underneath it
+ * (`leftSidebarWidth` + a flexible canvas + `rightDockWidth`) has content that does not shrink
+ * gracefully forever — the output dock's own header is the one that breaks first, its actions
+ * spilling past the dock's edge into the run dock beside it once the canvas column has less than
+ * ~630px. `studioMinWidth` is the floor below which the frame stops shrinking and the host page
+ * scrolls horizontally instead of letting two panels' content overlap. No artboard draws a Studio
+ * narrower than this — it is a guard, not a breakpoint with its own layout.
+ */
 .frame {
   width: 100%;
+  min-width: var(--jbk-layout-studio-min-width);
   height: 100%;
   display: flex;
   flex-direction: column;

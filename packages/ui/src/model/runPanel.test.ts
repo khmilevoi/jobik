@@ -413,8 +413,6 @@ interface Harness {
   readonly blocked: Atom<boolean>
   /** The injected clock, movable so the running readout has something to print. */
   readonly clock: { value: number }
-  /** Every node id R8's `Open` asked the output model to show, in press order. */
-  readonly opened: readonly string[]
 }
 
 function makeHarness(
@@ -461,18 +459,13 @@ function makeHarness(
   )
   runModel = run
 
-  const opened: string[] = []
-  const openOutput = action((nodeId: string) => {
-    opened.push(nodeId)
-  }, 'test.openOutput')
-
   const panel = reatomRunPanel(
     deps,
-    { descriptor: descriptorInput, inputs, run, blocked: blockedInput, openOutput },
+    { descriptor: descriptorInput, inputs, run, blocked: blockedInput },
     'test.runPanel',
   )
 
-  return { panel, run, inputs, descriptor, blocked, clock, opened }
+  return { panel, run, inputs, descriptor, blocked, clock }
 }
 
 /** One isolated Reatom frame per case, which is what `context.start` is for. */
@@ -672,11 +665,10 @@ describe('running from the panel', () => {
   })
 
   // `2A`'s completed panel: node timings, the inputs still editable, `Re-run start1`, then the
-  // `Log` block. The run's OUTPUTS are deliberately NOT here — they live in the bottom output dock.
-  // The `no nested card` half of the original name is `RunPanel`'s own structure and stays in
-  // `StudioApp.test.tsx`. R8: `outputs` is no longer absent — the `Outputs` group is drawn from the
-  // report, and the cases below this one fix what it may and may not contain.
-  it('streams to a completed panel showing the outputs, docked with no nested card', async () => {
+  // `Log` block. The run's outputs are deliberately NOT here (R8, retired) — they live only in the
+  // bottom output dock, which now opens itself once the run settles successfully. The `no nested
+  // card` half of the original name is `RunPanel`'s own structure and stays in `StudioApp.test.tsx`.
+  it('streams to a completed panel with no outputs of its own, docked with no nested card', async () => {
     await inFrame(
       async ({ panel, run }) => {
         await wrap(run.start({ title: 'A post' }))
@@ -692,7 +684,6 @@ describe('running from the panel', () => {
         expect(state.log?.followLabel).toBe('tail')
         expect(state.log?.lines.map((line) => line.text)).toEqual(['render layout pass complete'])
         expect(state.inputs?.draft).toEqual({ title: '' })
-        expect(state.outputs?.map((output) => output.field)).toEqual(['image'])
         expect(panel.dockStatus()).toBe('completed')
       },
       () =>
@@ -1107,171 +1098,6 @@ describe('the dock status', () => {
               })(),
           }),
         ),
-    )
-  })
-})
-
-/**
- * R8 — `Run panel — states`' completed `Outputs` group.
- *
- * The artboard lists `image`, `caption` and `url` for run `#221` and does **not** list the two
- * fields its own log shows the start node emitting, so the entry point's output is the one thing
- * excluded. Everything else is asserted for what it is allowed to contain: real descriptor
- * metadata, a real asset URL, the output viewer's own tone rule, and nothing at all for a value
- * this card has no well for.
- */
-describe('R8: the completed panel’s Outputs group', () => {
-  const IMAGE = { type: 'Buffer' as const, mime: 'image/png', bytes: 421_888, id: 'asset-1' }
-
-  const RICH_REPORT = {
-    ...REPORT,
-    runNumber: 221,
-    nodes: [
-      {
-        nodeId: 'start1',
-        status: 'ok' as const,
-        elapsedMs: 10,
-        output: { title: 'Typed flows, quietly' },
-        assets: {},
-        error: null,
-      },
-      {
-        nodeId: 'render',
-        status: 'ok' as const,
-        elapsedMs: 2100,
-        output: {
-          image: IMAGE,
-          caption: 'Release 0.4 — field-level connections',
-          bytes: 654_336,
-          stats: [{ label: 'hp', base: 35 }],
-        },
-        assets: { image: IMAGE },
-        error: null,
-      },
-      {
-        nodeId: 'publish',
-        status: 'ok' as const,
-        elapsedMs: 300,
-        output: { url: 'cdn.jobik.dev/p/221/cover.png' },
-        assets: {},
-        error: null,
-      },
-    ],
-  } as unknown as WireRunReportPayload
-
-  /** Two nodes declaring the same field name — legal, and unreadable if both rows say `url`. */
-  const COLLIDING_REPORT = {
-    ...RICH_REPORT,
-    nodes: [
-      RICH_REPORT.nodes[0],
-      {
-        nodeId: 'render',
-        status: 'ok' as const,
-        elapsedMs: 2100,
-        output: { url: 'cdn.jobik.dev/p/221/cover.png' },
-        assets: {},
-        error: null,
-      },
-      RICH_REPORT.nodes[2],
-    ],
-  } as unknown as WireRunReportPayload
-
-  function completedHarness(report: WireRunReportPayload): Harness {
-    return makeHarness(
-      stubClient({
-        startRun: async () =>
-          streamOf([
-            { type: 'run-accepted', runToken: 'tok' },
-            {
-              type: 'run-started',
-              runNumber: 221,
-              flowName: 'publication',
-              startId: 'start1',
-              nodeCount: 3,
-            },
-            { type: 'run-settled', report },
-          ]),
-      }),
-    )
-  }
-
-  it('lists every node’s output except the entry point’s, in report order', async () => {
-    await inFrame(
-      async ({ panel, run }) => {
-        await wrap(run.start({ title: 'A post' }))
-
-        const outputs = completedOf(panel.state()).outputs ?? []
-        // `title` is the run's INPUT, drawn as the editable form above this group; `stats` is an
-        // array, and the card has no well for one — neither is stringified into a row.
-        expect(outputs.map((output) => output.field)).toEqual(['image', 'caption', 'bytes', 'url'])
-      },
-      () => completedHarness(RICH_REPORT),
-    )
-  })
-
-  it('fills the asset row from the descriptor and the asset URL, and nothing else', async () => {
-    await inFrame(
-      async ({ panel, run, opened }) => {
-        await wrap(run.start({ title: 'A post' }))
-
-        const row = (completedOf(panel.state()).outputs ?? [])[0]
-        if (row?.kind !== 'asset') throw new Error('expected an asset row')
-        expect(row.asset).toEqual(IMAGE)
-        expect(row.src).toBe('/api/assets/asset-1')
-        // The artboard's `png · 1024² · 412 kb` cannot be filled: `AssetDescriptor` carries no
-        // dimensions. `meta` is left unset so the view prints `formatAssetMeta`'s two true parts
-        // rather than a fabricated third.
-        expect(row.meta).toBeUndefined()
-
-        row.onOpen?.()
-        expect(opened).toEqual(['render'])
-      },
-      () => completedHarness(RICH_REPORT),
-    )
-  })
-
-  it('takes the accent url well from the output viewer’s own tone rule, and groups a number', async () => {
-    await inFrame(
-      async ({ panel, run }) => {
-        await wrap(run.start({ title: 'A post' }))
-
-        const outputs = completedOf(panel.state()).outputs ?? []
-        expect(outputs.map((output) => output.kind)).toEqual(['asset', 'text', 'text', 'url'])
-        const bytes = outputs[2]
-        const url = outputs[3]
-        if (bytes?.kind === 'asset' || url?.kind === 'asset') throw new Error('expected value rows')
-        expect(bytes?.value).toBe('654 336')
-        expect(url?.value).toBe('cdn.jobik.dev/p/221/cover.png')
-      },
-      () => completedHarness(RICH_REPORT),
-    )
-  })
-
-  it('qualifies a field name two nodes both declare, and only then', async () => {
-    await inFrame(
-      async ({ panel, run }) => {
-        await wrap(run.start({ title: 'A post' }))
-
-        expect((completedOf(panel.state()).outputs ?? []).map((output) => output.field)).toEqual([
-          'render.url',
-          'publish.url',
-        ])
-      },
-      () => completedHarness(COLLIDING_REPORT),
-    )
-  })
-
-  it('draws no group at all for a run whose only node is the entry point', async () => {
-    await inFrame(
-      async ({ panel, run }) => {
-        await wrap(run.start({ title: 'A post' }))
-        expect(completedOf(panel.state()).outputs).toBeUndefined()
-      },
-      () =>
-        completedHarness({
-          ...RICH_REPORT,
-          nodes: [RICH_REPORT.nodes[0]],
-        } as unknown as WireRunReportPayload),
     )
   })
 })

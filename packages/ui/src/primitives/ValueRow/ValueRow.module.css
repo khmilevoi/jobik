@@ -14,6 +14,12 @@
   align-items: center;
   gap: 8px;
   height: 32px;
+  /*
+   * The same fixed-height-leaf guarantee `Button.module.css`'s `.button` states — the run panel's
+   * completed `url` field is this row, sitting in `RunDock`'s and `RunPanel`'s scrolling bodies.
+   * Without this the column's default flex-shrink squeezes it below its 32px height.
+   */
+  flex-shrink: 0;
   padding: 0 4px 0 10px;
   border: 1px solid var(--jbk-border-node-header-divider);
   border-radius: var(--jbk-radius-control);

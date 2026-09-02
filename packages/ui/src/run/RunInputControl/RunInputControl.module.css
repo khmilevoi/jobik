@@ -36,6 +36,12 @@
 
 .area {
   height: var(--jbk-run-markdown-area-height);
+  /*
+   * Each `RunInputControl` sits directly in the idle run panel's scrolling body (`RunDock`'s and
+   * `RunPanel`'s). Their default flex-shrink would squeeze this textarea below its fixed height
+   * instead of the column scrolling past it — the same fix `Button.module.css`'s `.button` states.
+   */
+  flex-shrink: 0;
   resize: none;
   font-family: var(--jbk-font-mono);
   font-size: var(--jbk-size-11);

@@ -23,6 +23,12 @@
   align-items: center;
   gap: 9px;
   height: var(--jbk-run-node-row-height);
+  /*
+   * `RunNodeRows` renders `.rows` directly into `RunDock`'s `.body`, a scrolling flex column. Its
+   * default flex-shrink would squeeze a row below its fixed height instead of the column scrolling
+   * past it — the same fix `Button.module.css`'s `.button` states for the shared button primitive.
+   */
+  flex-shrink: 0;
   padding: 0 var(--jbk-run-node-row-padding-x);
   box-sizing: border-box;
   border-radius: var(--jbk-radius-control);

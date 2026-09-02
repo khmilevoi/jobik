@@ -35,6 +35,12 @@
  */
 .progressTrack {
   height: var(--jbk-run-progress-bar-height);
+  /*
+   * `RunRunningView` renders this straight into `RunDock`'s and `RunPanel`'s scrolling bodies (via
+   * the `.progress` block). Their default flex-shrink would squeeze the bar below its fixed height
+   * instead of the column scrolling past it — the same fix `Button.module.css`'s `.button` states.
+   */
+  flex-shrink: 0;
   overflow: hidden;
   border-radius: var(--jbk-radius-kind-dot);
   background: var(--jbk-run-progress-track);

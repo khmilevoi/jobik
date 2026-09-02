@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev:server": "node --watch ../../packages/ui/scripts/dev.mjs",
+    "dev:client": "pnpm --filter @jobik/ui run dev:studio",
+    "build:client": "pnpm --filter @jobik/ui run build:studio",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --config ../../vitest.config.ts examples/showcase/"
   },

@@ -44,7 +44,6 @@ const COMPLETED: RunPanelState = {
   runNumber: 221,
   elapsed: '2.4s',
   nodes: [{ nodeId: 'render', status: 'ok', elapsed: '2.1s' }],
-  outputs: [{ kind: 'text', field: 'caption', value: 'Release 0.4' }],
 }
 
 describe('RunStateHeader', () => {

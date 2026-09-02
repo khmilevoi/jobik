@@ -7,6 +7,13 @@
   display: flex;
   align-items: center;
   height: var(--jbk-layout-chip-height);
+  /*
+   * A chip is a plain fixed-height leaf, the same shape `Button.module.css`'s `.button` documents:
+   * dropped into a scrolling flex column (any `overflow-y:auto; flex-direction:column` body — see
+   * `RunDock`'s and `RunPanel`'s), the column's default flex-shrink squeezes it below its fixed
+   * height instead of scrolling past it. Fixed here rather than at each call site.
+   */
+  flex-shrink: 0;
   padding: 0 10px;
   gap: var(--jbk-chip-gap, 8px);
   border: 1px solid var(--jbk-border-quiet-control);
