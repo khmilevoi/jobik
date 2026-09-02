@@ -74,8 +74,8 @@ export interface FlowsSidebarProps {
   readonly selectedNodeId?: string
   /**
    * Points the run panel at another of the flow's declared starts — the same move a click on a
-   * start card on the canvas makes. Reachable only from the `Start` section, which itself only
-   * draws once the flow declares more than one start; see that section's own comment.
+   * start card on the canvas makes. Reachable only from the `Start` section, which draws for every
+   * flow that declares a start at all; see that section's own comment.
    */
   readonly onSelectStart?: (nodeId: string) => void
   /** The flow's node definitions. Read-only reference in v1 — nodes cannot be added from it. */
@@ -139,6 +139,8 @@ export const FlowsSidebar = reatomComponent(function FlowsSidebar(props: FlowsSi
   const onSelectFlow = props.onSelectFlow
   const onSelectStart = props.onSelectStart
   const startNodes = props.nodes.filter((node) => node.kind === 'start')
+  /** Everything but the starts: they are named by the `Start` section, and never twice. */
+  const listedNodes = props.nodes.filter((node) => node.kind !== 'start')
   const blocked = props.blocked === true
 
   return (
@@ -175,13 +177,21 @@ export const FlowsSidebar = reatomComponent(function FlowsSidebar(props: FlowsSi
         </div>
 
         {/*
-          The flow's declared starts, ahead of the full node list — clicking one moves the run
-          panel's entry point, exactly as clicking a start card on the canvas does. Drawn only
-          past the first: a single-start flow already names its one start in the row below, and
-          every artboard shows exactly that flow, so this section would draw a single redundant
-          row for every flow the design was checked against.
+          The flow's declared starts, ahead of the node list — clicking one moves the run panel's
+          entry point, exactly as clicking a start card on the canvas does.
+
+          A deliberate departure from the artboards, made by the operator. `2A:933-939` and
+          `Studio — default:1310-1316` both draw `start1 · start` inside `Nodes in publication`,
+          with no `Start` section above it, and this section used to draw only past the first start
+          for exactly that reason. The rule now is that a start is never a row in the node list: it
+          is named once, here, in every flow — a one-start flow included. The node list below is
+          the flow's body, and an entry point is not a body node.
+
+          The two are exclusive on purpose. Drawing a start in both places is the state to avoid,
+          because the two rows answer differently: this one moves the entry point, the one below is
+          inert.
         */}
-        {startNodes.length <= 1 ? null : (
+        {startNodes.length === 0 ? null : (
           <>
             <SectionLabel className={s.groupLabel}>Start</SectionLabel>
             <div className={s.list}>
@@ -210,7 +220,7 @@ export const FlowsSidebar = reatomComponent(function FlowsSidebar(props: FlowsSi
           Nodes in {activeFlow?.name ?? props.activeFlowId}
         </SectionLabel>
         <div className={s.list}>
-          {props.nodes.map((node) => {
+          {listedNodes.map((node) => {
             const selected = node.id === props.selectedNodeId
             return (
               <div

@@ -223,6 +223,15 @@ for the handler, and `cached` is unreachable (`DEFERRED.md` §3), so a re-run ex
 again. This dialog is the one place a user is told what cancelling costs, so it states what the
 engine does. Restore the design's sentence when the engine earns it, not before.
 
+**A second deliberate departure, in structure.** The sidebar never lists a start node among
+`Nodes in <flow>`. Every declared start is named once, in the `Start` section above the list, for
+every flow — a one-start flow included. The artboards disagree: `2A` and `Studio — default` both
+draw `start1 · start` inside `Nodes in publication` with no `Start` section above it, and both show
+a one-start flow. This is an operator decision, not a reading of the design: an entry point is not
+a body node, and drawing a start in both places would give a user two rows for one node that answer
+differently — the `Start` row moves the run panel's entry point, a node row is inert. The two
+sections are exclusive, and `FlowsSidebar.tsx` says so where the filter lives.
+
 ## Styling
 
 `@jobik/ui` styles itself with **CSS Modules**. `tokens.ts` is still the TypeScript-side source of

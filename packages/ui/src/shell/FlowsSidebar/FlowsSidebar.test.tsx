@@ -138,9 +138,11 @@ describe('FlowsSidebar — start nodes', () => {
     { id: 'render', kind: 'transform', dot: 'neutral' as const },
   ]
 
-  it('draws nothing for the single-start flow every artboard shows', () => {
+  it('draws the section for a single-start flow too, and keeps that start out of the node list', () => {
     renderSidebar()
-    expect(screen.queryByText('Start')).not.toBeInTheDocument()
+    expect(screen.getByText('Start')).toBeInTheDocument()
+    expect(screen.getByTestId('studio-start-row-start1')).toHaveTextContent('start1')
+    expect(screen.queryByTestId('studio-node-row-start1')).not.toBeInTheDocument()
   })
 
   it('lists every declared start once there is more than one, marking the selected one', () => {
@@ -227,24 +229,25 @@ describe('FlowsSidebar', () => {
         flows={flows}
         activeFlowId="publication"
         nodes={[
-          { id: 'start1', kind: 'start', dot: 'ok' },
-          { id: 'render', kind: 'transform', dot: 'start' },
+          { id: 'render', kind: 'transform', dot: 'ok' },
+          { id: 'publish', kind: 'sink', dot: 'start' },
         ]}
         selectedNodeId="render"
         inventory={inventory}
         onCollapse={() => {}}
       />,
     )
-    expect(screen.getByTestId('studio-node-dot-start1')).toBeInTheDocument()
     expect(screen.getByTestId('studio-node-dot-render')).toBeInTheDocument()
+    expect(screen.getByTestId('studio-node-dot-publish')).toBeInTheDocument()
   })
 
-  it('lists every node with its kind and dot, marking the selected one', () => {
+  it('lists every node but the starts, with its kind and dot', () => {
     renderSidebar()
-    expect(screen.getByTestId('studio-node-row-start1')).toHaveTextContent('start1start')
-    expect(screen.getByTestId('studio-node-dot-start1')).toBeInTheDocument()
     expect(screen.getByTestId('studio-node-row-render')).toHaveTextContent('rendertransform')
     expect(screen.getByTestId('studio-node-dot-render')).toBeInTheDocument()
+    expect(screen.getByTestId('studio-node-row-publish')).toHaveTextContent('publishsink')
+    // The start is named once, by the section above — never twice.
+    expect(screen.queryByTestId('studio-node-row-start1')).not.toBeInTheDocument()
   })
 
   it('lists the inventory read-only', () => {
@@ -257,16 +260,18 @@ describe('FlowsSidebar', () => {
    * This used to assert `getAllByRole('button')` had length 1 — "exposes no interaction other than
    * collapse". That stopped being true when the flow rows became real buttons, because the Studio
    * ships three flows now and could only ever load the first. The honest statement of what the
-   * panel offers is: collapse, plus one button per flow, and nothing else — the node rows and the
-   * inventory rows are still inert, which is what the old test was really protecting.
+   * panel offers is: collapse, plus one button per flow and one per declared start, and nothing
+   * else — the node rows and the inventory rows are still inert, which is what the old test was
+   * really protecting.
    */
-  it('offers collapse and one button per flow, and no other interaction', () => {
+  it('offers collapse, one button per flow and one per start, and no other interaction', () => {
     renderSidebar()
-    expect(screen.getAllByRole('button')).toHaveLength(1 + flows.length)
+    const starts = nodes.filter((node) => node.kind === 'start')
+    expect(screen.getAllByRole('button')).toHaveLength(1 + flows.length + starts.length)
     for (const flow of flows) {
       expect(screen.getByTestId(`studio-flow-row-${flow.id}`).tagName).toBe('BUTTON')
     }
-    expect(screen.getByTestId('studio-node-row-start1').tagName).not.toBe('BUTTON')
+    expect(screen.getByTestId('studio-node-row-render').tagName).not.toBe('BUTTON')
     expect(screen.getByTestId('studio-inventory-row-markdown').tagName).not.toBe('BUTTON')
   })
 

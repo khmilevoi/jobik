@@ -37,7 +37,7 @@ describe('Studio', () => {
     expect(screen.getByTestId('studio-flow-row-digest')).toBeInTheDocument()
     expect(screen.getByTestId('studio-flow-row-backfill')).toBeInTheDocument()
     expect(screen.getByText('Nodes in publication')).toBeInTheDocument()
-    expect(screen.getByTestId('studio-node-row-start1')).toBeInTheDocument()
+    expect(screen.getByTestId('studio-start-row-start1')).toBeInTheDocument()
     expect(screen.getByTestId('studio-inventory-row-httpSink')).toBeInTheDocument()
   })
 
