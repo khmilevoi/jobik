@@ -132,7 +132,7 @@ describe('the Studio over the publication example', () => {
     expect(screen.getByTestId('run-input-annotation-title').textContent).toBe('string')
   })
 
-  it('runs the flow, streams it, and shows the completed panel with the run number and outputs', {
+  it('runs the flow, streams it, and shows the completed panel with the run number, the dock auto-opened', {
     timeout: 60_000,
   }, async () => {
     mount()
@@ -144,33 +144,27 @@ describe('the Studio over the publication example', () => {
     await userEvent.type(screen.getByTestId('run-input-markdown'), publicationSampleInput.markdown)
     await userEvent.click(screen.getByTestId('run-start-button'))
 
-    // R8 — `Run panel — states`' completed `Outputs` group, over a REAL run of the flow the
-    // artboard draws. The three rows are the artboard's own three, and they are the three the
-    // flow really produces: `imageOut` emits `image` and `caption`, `httpSink` emits `url`. The
-    // start node's `title` and `markdown` are the run's INPUT, drawn as the editable form above,
-    // and are deliberately not listed again.
+    // R8 is retired: the run panel no longer draws its own `Outputs` group. What the flow really
+    // produces — `imageOut` emits `image` and `caption`, `httpSink` emits `url` — now shows up only
+    // in the bottom output dock, over a REAL run of the flow, and that dock now opens itself the
+    // moment the run settles successfully rather than waiting on a card's `inspect` click.
     await waitFor(() => expect(screen.getByTestId('run-rerun-button')).toBeInTheDocument(), {
       timeout: 30_000,
     })
-    expect(screen.getByTestId('run-outputs-label')).toHaveTextContent('Outputs')
-    expect(screen.getByTestId('run-output-name-image')).toHaveTextContent('image')
-    // The meta line is `formatAssetMeta`'s two true parts. The artboard's `1024²` is a dimension
-    // no `AssetDescriptor` carries, so it is absent rather than invented.
-    expect(screen.getByTestId('run-output-meta-image').textContent).toMatch(/^png · \d/)
-    expect(screen.getByTestId('run-output-well-caption')).toBeInTheDocument()
-    expect(screen.getByTestId('run-output-well-url')).toBeInTheDocument()
-    expect(screen.queryByTestId('run-output-name-title')).toBeNull()
-    expect(screen.queryByTestId('run-output-name-markdown')).toBeNull()
+    expect(screen.queryByTestId('run-outputs-label')).toBeNull()
     // Every node settled ok.
     expect(screen.getByTestId('run-timing-value-publish').textContent).toMatch(/s$/)
 
     // `### Run identity` (closeout finding 8-A, now closed): the dock header carries the run
-    // number the server really issued — `#N · 2.4s` once settled (design 838) — and the chevron
-    // that occupies that slot while idle is gone. This is the run number over a real run, not a
-    // fixture: nothing in this file chooses `N`.
+    // number the server really issued — `#N · 2.4s` once settled (design 838) — and no collapse
+    // control of its own, those having moved to the top bar. This is the run number over a real
+    // run, not a fixture: nothing in this file chooses `N`.
     const meta = screen.getByTestId('studio-dock-run-meta').textContent ?? ''
     expect(meta).toMatch(/^#\d+ · \d+\.\d+s$/)
-    expect(screen.queryByLabelText('Collapse run panel')).toBeNull()
+    // Scoped to the header: the top bar's permanent toggle carries the very same label.
+    expect(
+      within(screen.getByTestId('studio-dock-header')).queryByLabelText('Collapse run panel'),
+    ).toBeNull()
     // Still exactly one header in the dock: `RunPanel` returns a fragment and draws none.
     expect(screen.queryByTestId('run-state-header')).toBeNull()
 
@@ -191,7 +185,9 @@ describe('the Studio over the publication example', () => {
     )
     expect(caption.textContent).toMatch(/^png · \d+ kb/)
     expect(caption.textContent).not.toContain('×')
-    // The caption row's right cell is `inspect`, and it opens the output dock.
+    // The caption row's right cell is `inspect`, and it opens the output dock. It stays offered
+    // even now that the dock has already opened itself: pressing it re-targets the dock onto this
+    // node explicitly, the same manual route `Studio — default` and `2A` both draw.
     //
     // Two artboards fix that cell differently: `Studio — default` (206) puts the producing node
     // definition's own name there — `imageOut`, the string that artboard's `Inventory` lists — and
@@ -202,12 +198,10 @@ describe('the Studio over the publication example', () => {
       within(screen.getByTestId('node-card-render')).getByTestId('node-output-inspect'),
     ).toHaveTextContent('inspect')
 
-    // `StudioApp` also hands the whole `WireRunReportPayload` — `runNumber` included — to the
-    // dock's `Raw` tab. Opening the dock from the card and switching to `Raw` proves the tabs
+    // The dock is already open — auto-opened onto `render`, the node that produced the run's own
+    // asset — with no click required. `StudioApp` also hands the whole `WireRunReportPayload` —
+    // `runNumber` included — to the dock's `Raw` tab; switching to it proves the tabs
     // `## Verification` asks for, over the one route `StudioApp` actually built.
-    await userEvent.click(
-      within(screen.getByTestId('node-card-render')).getByTestId('node-output-inspect'),
-    )
     await waitFor(() => expect(screen.getByTestId('output-dock')).toBeInTheDocument())
     // The header's mono context line is composed from real data: the node, its asset-bearing
     // output field, that field's own annotation, the file count and the run number.

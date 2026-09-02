@@ -175,7 +175,7 @@ describe('the loaded Studio', () => {
 })
 
 describe('running from the panel', () => {
-  it('streams to a completed panel showing the outputs, docked with no nested card', async () => {
+  it('streams to a completed panel with the dock auto-opened, docked with no nested card', async () => {
     mount(
       stubClient({
         startRun: async () =>
@@ -198,17 +198,15 @@ describe('running from the panel', () => {
     await userEvent.click(screen.getByTestId('run-start-button'))
 
     // `2A`'s completed panel: node timings, the inputs still editable, `Re-run start1`, then the
-    // `Log` block — with `Run panel — states`' `Outputs` group between the inputs and the primary.
-    // R8: the group is drawn from the report, and `model/runPanel.ts`'s completed branch says why
-    // both artboards are honoured rather than one. `start1`'s own output is the run's input and is
-    // not listed twice; `render`'s asset is.
+    // `Log` block. There is no `Outputs` group any more (R8, retired) — `render`'s asset shows up
+    // only in the bottom output dock, which auto-opens itself the moment this run settles.
     await waitFor(() => expect(screen.getByTestId('run-rerun-button')).toBeInTheDocument())
     expect(screen.getByTestId('run-log-label')).toHaveTextContent('Log')
     expect(screen.getByTestId('run-log-follow')).toHaveTextContent('tail')
     expect(screen.getByTestId('run-input-title')).toBeInTheDocument()
-    expect(screen.getByTestId('run-outputs-label')).toHaveTextContent('Outputs')
-    expect(screen.getByTestId('run-output-name-image')).toHaveTextContent('image')
-    expect(screen.queryByTestId('run-output-name-title')).toBeNull()
+    expect(screen.queryByTestId('run-outputs-label')).toBeNull()
+    await waitFor(() => expect(screen.getByTestId('output-dock')).toBeInTheDocument())
+    expect(screen.getByTestId('output-dock').textContent).toContain('run #219')
     // R30: `RunDock` already draws the dock's one header; `Studio`'s `runPanel` must be `RunPanel`
     // (no header, no card frame), never the standalone `RunPanelCard` — which would stack a second
     // header and a fixed-size card inside the dock.
@@ -766,22 +764,28 @@ describe('the output viewer', () => {
 
   /**
    * G4. `2A`'s subtitle is *"output dock is dismissable (× or esc)"*, and dismissable implies
-   * restorable — the strip is the restore. It used to be mounted only after a manual collapse, so
-   * a settled run's output was reachable from a card's `inspect` link and from nowhere else.
+   * restorable. The run panel's own inline `Outputs` section is gone now (R8, retired), so the
+   * dock is the only place a run's output is shown — and it opens itself, at full height, the
+   * moment a run settles successfully, rather than requiring a `Show output` click on a strip.
    */
-  it('raises 2A’s closed strip once a run settles, without opening the dock', async () => {
+  it('auto-opens the dock at full height the moment a run settles successfully', async () => {
     await runToSettled()
 
-    expect(screen.getByTestId('output-dock-strip')).toBeInTheDocument()
-    expect(screen.getByTestId('output-dock-summary').textContent).toContain('run #219')
-    // Not an auto-open: `DEFERRED.md` keeps the dock a deliberate act.
-    expect(screen.queryByTestId('output-dock')).toBeNull()
+    await waitFor(() => expect(screen.getByTestId('output-dock')).toBeInTheDocument())
+    expect(screen.getByTestId('output-dock').textContent).toContain('run #219')
+    expect(screen.queryByTestId('output-dock-strip')).toBeNull()
   })
 
-  it('opens the dock from the strip’s own Show output', async () => {
+  it('collapses to the strip and reopens from its own Show output', async () => {
     await runToSettled()
-    await userEvent.click(screen.getByTestId('output-dock-show'))
+    await waitFor(() => expect(screen.getByTestId('output-dock')).toBeInTheDocument())
 
+    await userEvent.click(screen.getByTestId('output-dock-close'))
+    expect(screen.getByTestId('output-dock-strip')).toBeInTheDocument()
+    expect(screen.getByTestId('output-dock-summary').textContent).toContain('run #219')
+    expect(screen.queryByTestId('output-dock')).toBeNull()
+
+    await userEvent.click(screen.getByTestId('output-dock-show'))
     await waitFor(() => expect(screen.getByTestId('output-dock')).toBeInTheDocument())
     expect(screen.queryByTestId('output-dock-strip')).toBeNull()
   })
@@ -1023,14 +1027,18 @@ describe('the treatments a real run builds', () => {
     expect(within(card).getByTestId('node-output-caption').textContent).not.toContain('×')
   })
 
-  // 8-A: `Studio — run in progress` (592) replaces the dock header's chevron with the run number;
-  // the standalone settled cards (801, 838) add the elapsed after it.
-  it('replaces the dock header’s chevron with the run number, then the settled meta', async () => {
+  // 8-A: `Studio — run in progress` (592) heads the dock with the run number; the standalone
+  // settled cards (801, 838) add the elapsed after it. The header draws no collapse control of its
+  // own in either state — the panel toggles live in the top bar now — and that read is scoped to
+  // the header, because the top bar's permanent toggle carries the very same label.
+  it('heads the dock with the run number, then the settled meta', async () => {
     const { client, release } = gatedRun()
     await startRun(client)
 
     await waitFor(() => expect(screen.getByTestId('studio-dock-run-meta').textContent).toBe('#219'))
-    expect(screen.queryByLabelText('Collapse run panel')).toBeNull()
+    expect(
+      within(screen.getByTestId('studio-dock-header')).queryByLabelText('Collapse run panel'),
+    ).toBeNull()
 
     release()
     await waitFor(() =>
