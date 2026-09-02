@@ -30,10 +30,31 @@
   transition: opacity var(--jbk-motion-duration-exit) var(--jbk-motion-ease-exit);
 }
 
-/* Arriving: 140ms, and `4A` puts an opacity-only fade on `linear` rather than on the settle curve. */
+/*
+ * Arriving: 140ms, and `4A` puts an opacity-only fade on `linear` rather than on the settle curve.
+ *
+ * **It is a keyframe rather than a second transition, and that is the whole of R6.** `model/toast.ts`
+ * writes `message` and `visible` in one transaction, so React inserts the element already carrying
+ * `.visible`: the browser has no earlier computed style to interpolate from and a transition has
+ * nothing to run. Measured, the surface arrived at `opacity:1` on its first frame while the 120ms
+ * exit played correctly. A CSS animation *does* run on a newly inserted element, so the arrival is
+ * declared as one — `ModalShell` states its own two entrances the same way, for the same reason.
+ *
+ * The exit stays a transition on `.toast`, untouched: that one has a previous frame to leave from.
+ */
+@keyframes toastIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
 .visible {
   opacity: 1;
-  transition: opacity var(--jbk-motion-duration-state) var(--jbk-motion-ease-linear);
+  animation: toastIn var(--jbk-motion-duration-state) var(--jbk-motion-ease-linear);
 }
 
 .dot {
