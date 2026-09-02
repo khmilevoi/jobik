@@ -207,10 +207,7 @@ export function reatomRun(
    * flow keeps the reason that clear existed — a row of flow `#1` must never appear under flow
    * `#2`'s name — while costing nothing on the way back.
    */
-  const archives = atom<ReadonlyMap<string, readonly RunSession[]>>(
-    new Map(),
-    `${name}.archives`,
-  )
+  const archives = atom<ReadonlyMap<string, readonly RunSession[]>>(new Map(), `${name}.archives`)
 
   /**
    * The active flow's slice of {@link archives}, and the only shape every reader wants.

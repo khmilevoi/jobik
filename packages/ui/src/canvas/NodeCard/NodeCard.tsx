@@ -131,17 +131,37 @@ export const NodeCard = reatomComponent(function NodeCard(props: NodeCardProps) 
    * block, and without this it was the one card in a graph that still grew 200 px when its result
    * landed.
    *
+   * **`failed` is inside the reservation, and a correction is why.** This card used to release the
+   * region on failure, justified in a comment here that said the `Node states` artboard draws the
+   * failed card taller than the rest. That is backwards. Measured off the artboard itself
+   * (`.design/raw/studio.dc.html:1888-1996`), the failed body is an error well and two `26px`
+   * actions where `ok` has a `96px` preview, so the artboard's failed card is the SHORTEST of the
+   * five — and the app followed the false claim into a real 562 -> 496 px drop on failure.
+   *
+   * The five cards differ because they are five different cards. `demo.dc.html` is the only place
+   * the design puts ONE node through `queued -> running -> ok/failed`, and it settles it: the node
+   * markup there (`:148-176`) has no state-conditional branch at all — header, `Inputs`, `Outputs`,
+   * an `8px` spacer — and the `fail` branch (`:568`) changes `border`, `glow`, `headBg`, the port
+   * ring, the dot and the status word, and nothing else. The box is held absolutely, failure
+   * included. `4A` agrees in words: `running -> failed` is a run-time transition, and *"the node
+   * keeps its exact box, so a running graph never reflows"*.
+   *
+   * So a catalogue of different nodes may differ; one node changing state must not. The failed
+   * treatment fills the same reserved region every other run state fills, and `overflow: hidden`
+   * there is a reservation rather than a suggestion — the region is `200px` against a body of
+   * roughly `134px`, so several more lines of message fit before anything is clipped, and the run
+   * panel and the stack-trace dialog carry the error in full either way.
+   *
    * **The reservation is latched, and measurement is why.** A node's `ok` status and the report
    * carrying its output are two different lines on the stream, so for the frames in between the
    * card is settled with no slot to draw — and it collapsed to its idle height and grew back, a
    * visible twitch at the end of every node. The latch holds the region from the first in-run frame
-   * until the card leaves the run, so those frames are simply the reserved box with nothing in it
-   * yet. `idle` and `failed` release it: the first is a card no longer in a run, and the second is
-   * terminal and has its own body to size to.
+   * until the card leaves the run. Only `idle` releases it, because only `idle` is a card no longer
+   * in a run.
    *
-   * A card that MOUNTS already settled — an artboard fixture, a canvas rebuilt from a finished run —
-   * never latches, so it draws exactly what it is handed. Nothing reflowed, so nothing needs
-   * reserving.
+   * A card that MOUNTS already in a run state — an artboard fixture, a canvas rebuilt from an
+   * archived run — never latched, so `inRun` reserves for it directly. That is what keeps a
+   * restored failed card the same height as its restored `ok` siblings.
    *
    * A card with NO field sections is a `Node states` catalogue tile rather than a node on a graph:
    * it has no slot position to reserve, nothing around it to reflow, and the artboard draws its
@@ -149,16 +169,22 @@ export const NodeCard = reatomComponent(function NodeCard(props: NodeCardProps) 
    */
   const hasSections = inputs.length > 0 || outputs.length > 0
   const inFlight = data.state === 'queued' || data.state === 'running'
+  const inRun = inFlight || data.state === 'failed'
   const latched = useRef(false)
-  if (data.state === 'idle' || data.state === 'failed') latched.current = false
-  else if (inFlight) latched.current = true
-  const reserves = hasSections && (inFlight || latched.current || data.outputSlot !== undefined)
+  if (data.state === 'idle') latched.current = false
+  else if (inRun) latched.current = true
+  const reserves = hasSections && (inRun || latched.current || data.outputSlot !== undefined)
   const runBody = ((): ReactNode => {
     if (!reserves) return null
+    // The failed treatment is checked first: a node that failed after producing something would
+    // otherwise draw the output it never finished with instead of the error that stopped it.
+    if (data.detail?.kind === 'failed') {
+      return <NodeStateBody detail={data.detail} captionColor={captionColor} />
+    }
     if (data.outputSlot !== undefined) {
       return <NodeOutputSlot slot={data.outputSlot} captionColor={captionColor} />
     }
-    if (data.detail !== undefined && data.detail.kind !== 'failed') {
+    if (data.detail !== undefined) {
       return <NodeStateBody detail={data.detail} captionColor={captionColor} />
     }
     if (data.state === 'running') {
@@ -170,15 +196,11 @@ export const NodeCard = reatomComponent(function NodeCard(props: NodeCardProps) 
   })()
 
   /**
-   * The body that still sits BELOW the output section. The failed treatment stays there and stays
-   * unreserved: it is a terminal state whose error well and two actions have to size to their own
-   * content, and the `Node states` artboard draws that card taller than the rest on purpose. Every
-   * other body has moved into the reserved region above, so it is not drawn twice.
+   * The body that still sits BELOW the output section, and the only card that has one is the
+   * `Node states` catalogue tile: no field sections, so nothing to reserve and nothing to reflow.
+   * Every reserving card draws its detail in the region above, so no body is ever drawn twice.
    */
-  const detailBelow =
-    data.detail === undefined || (reserves && data.detail.kind !== 'failed')
-      ? undefined
-      : data.detail
+  const detailBelow = data.detail === undefined || reserves ? undefined : data.detail
 
   return (
     <div

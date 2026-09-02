@@ -657,7 +657,12 @@ describe('NodeCard — the reserved run region', () => {
     expect(screen.queryByTestId('node-run-region')).toBeNull()
   })
 
-  it('leaves the failed body unreserved — it has to size to its own error well', () => {
+  /**
+   * R4. `demo.dc.html` is the only place the design puts one node through the run, and its `fail`
+   * branch changes colours and nothing else — so the failed treatment fills the same reserved
+   * region every other run state fills, rather than replacing it with a body of its own size.
+   */
+  it('draws the failed body inside the region, not below the outputs', () => {
     mountCard(
       <NodeCard
         data={withSections({
@@ -666,8 +671,43 @@ describe('NodeCard — the reserved run region', () => {
         })}
       />,
     )
-    expect(screen.queryByTestId('node-run-region')).toBeNull()
-    expect(screen.getByTestId('node-state-failed')).toBeInTheDocument()
+    const region = screen.getByTestId('node-run-region')
+    expect(region).toContainElement(screen.getByTestId('node-state-failed'))
+    // One body, not two: nothing is left below the output section to draw it a second time.
+    expect(screen.getAllByTestId('node-state-failed')).toHaveLength(1)
+  })
+
+  it('keeps the region across running -> failed, so the box does not change on the failure', () => {
+    function Failing() {
+      const [state, setState] = useState<'running' | 'failed'>('running')
+      return (
+        <>
+          <button type="button" data-testid="fail" onClick={() => setState('failed')}>
+            fail
+          </button>
+          <NodeCard
+            data={withSections({
+              state,
+              ...(state === 'failed'
+                ? {
+                    detail: {
+                      kind: 'failed' as const,
+                      errorName: 'ImageRenderError',
+                      message: 'bad profile',
+                    },
+                  }
+                : {}),
+            })}
+          />
+        </>
+      )
+    }
+    mountCard(<Failing />)
+    expect(screen.getByTestId('node-run-region')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('fail'))
+    const region = screen.getByTestId('node-run-region')
+    expect(region).toContainElement(screen.getByTestId('node-state-failed'))
   })
 
   it('reserves nothing on an idle card, or on a Node states tile with no field sections', () => {
