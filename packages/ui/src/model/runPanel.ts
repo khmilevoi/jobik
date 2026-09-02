@@ -1,6 +1,8 @@
 import type { Computed } from '@reatom/core'
-import { computed } from '@reatom/core'
+import { action, atom, computed, sleep, withAbort, wrap } from '@reatom/core'
 import type { SafeFlowDescriptorPayload } from '#client/index.js'
+import type { StackTraceMetaEntry, StackTraceView } from '#modals/index.js'
+import { ACTION_TIMINGS } from '#primitives/index.js'
 import type {
   RunErrorDetail,
   RunInputForm,
@@ -8,9 +10,10 @@ import type {
   RunNodeTiming,
   RunPanelState,
   RunStack,
+  RunStackFrame,
   RunSummary,
 } from '#run/index.js'
-import { formatRunMeta } from '#run/index.js'
+import { formatHiddenFrames, formatRunMeta } from '#run/index.js'
 import type { RunDockMetaTone, RunDockStatus } from '#shell/index.js'
 import { formatElapsed } from '#studio/format.js'
 import {
@@ -22,6 +25,8 @@ import {
 } from '#studio/runPresenter.js'
 import type { RunSession } from '#studio/runSession.js'
 import { completedNodeCount } from '#studio/runSession.js'
+import { toProse } from '#studio/validation.js'
+import { detached } from './reatom.js'
 import type { InputsModel, RunModel, RunPanelModel, StudioDeps, ValidationModel } from './types.js'
 
 /**
@@ -87,6 +92,70 @@ const NO_TIMINGS: readonly RunNodeTiming[] = []
 const NO_LOG: RunLog = { lines: [], followLabel: 'follow' }
 const NO_TAIL: RunLog = { lines: [], followLabel: 'tail' }
 const NO_PROGRESS = { completedNodes: 0, totalNodes: 0, progress: 0 }
+
+const NO_FRAMES: readonly RunStackFrame[] = []
+const NO_META: readonly StackTraceMetaEntry[] = []
+
+/** `3C` Modal C's header line — `render · run #220 · 0.8s`. An unnamed node drops its own segment. */
+function traceContext(nodeId: string, runNumber: number, elapsed: string): string {
+  const run = `run #${runNumber} · ${elapsed}`
+  return nodeId === '' ? run : `${nodeId} · ${run}`
+}
+
+/**
+ * The one meta row both halves of which are on the wire. See {@link RunPanelModel.trace} for the
+ * two that are not and why they are absent rather than filled.
+ */
+function traceMeta(
+  descriptor: SafeFlowDescriptorPayload | undefined,
+  nodeId: string,
+): readonly StackTraceMetaEntry[] {
+  if (nodeId === '') return NO_META
+  const node = descriptor?.nodes.find((entry) => entry.id === nodeId)
+  return [
+    {
+      label: 'node',
+      value: node === undefined ? nodeId : `${nodeId} · ${node.kind}`,
+      tone: 'lifted',
+    },
+  ]
+}
+
+/** What `Copy` writes and what `Save trace` saves: the header line, the error, then the frames. */
+function toTraceText(
+  detail: { readonly error: RunErrorDetail; readonly stack: RunStack | undefined },
+  context: string,
+): string {
+  const lines = [context, '', `${detail.error.name}: ${detail.error.message}`]
+  for (const frame of detail.stack?.frames ?? NO_FRAMES) {
+    lines.push(`    at ${frame.fn} (${frame.file}:${frame.line})`)
+  }
+  return `${lines.join('\n')}\n`
+}
+
+/** `render-run-220-trace.txt`, named as `model/output.ts` names the report it downloads. */
+function traceFileName(nodeId: string, runNumber: number): string {
+  return `${nodeId === '' ? 'run' : nodeId}-run-${runNumber}-trace.txt`
+}
+
+/**
+ * The anchor-click write, identical in shape to `model/output.ts`'s `writeDownload` and failing the
+ * same way: an environment with no `Blob` or no `URL.createObjectURL` writes nothing and says so by
+ * doing nothing, because `3C` draws this button no failed cell.
+ */
+function writeTrace(text: string, fileName: string): void {
+  try {
+    const blob = new Blob([text], { type: 'text/plain' })
+    const url = globalThis.URL.createObjectURL(blob)
+    const link = globalThis.document.createElement('a')
+    link.href = url
+    link.download = fileName
+    link.click()
+    globalThis.URL.revokeObjectURL(url)
+  } catch {
+    // No Blob/URL.createObjectURL here. `Copy` is the fallback, and it is beside this button.
+  }
+}
 
 /**
  * `Copy log` on the failed card. It reads nothing reactive — the session it copies is the one the
@@ -237,8 +306,12 @@ export function reatomRunPanel(
    * The failed card's error block and its `3C` stack, from whichever surface carried the failure:
    * the run's own `failure`, then the report's error, then a failed node's. Nothing here re-tags or
    * re-humanises what arrived.
+   *
+   * **It is public because `3C`'s Stack trace dialog is the second reader.** `state`'s failed
+   * branch is one; {@link trace} is the other, and both want the same pair rather than two
+   * derivations that could disagree about which surface carried the failure.
    */
-  const _failedDetail = computed<
+  const failedDetail = computed<
     { readonly error: RunErrorDetail; readonly stack: RunStack | undefined } | undefined
   >(() => {
     const failed = _failedSession()
@@ -252,7 +325,7 @@ export function reatomRunPanel(
       error: toRunErrorDetail(failed),
       stack: payload === undefined || payload === null ? undefined : toRunStack(payload),
     }
-  }, `${name}._failedDetail`)
+  }, `${name}.failedDetail`)
 
   const _completedNodes = computed<readonly RunNodeTiming[]>(() => {
     const session = _completedSession()
@@ -326,7 +399,7 @@ export function reatomRunPanel(
 
     if (kind === 'failed') {
       const failed = _failedSession()
-      const detail = _failedDetail()
+      const detail = failedDetail()
       if (failed === undefined || detail === undefined) return undefined
       const form = _inputForm()
       return {
@@ -440,5 +513,149 @@ export function reatomRunPanel(
     return undefined
   }, `${name}.dockStatus`)
 
-  return { state, meta, dockStatus }
+  /**
+   * `3C` Modal C's open flag. `undefined`-ing the detail underneath it is what closes the dialog
+   * for free — a new run, another start or a flow switch all move `_kind` off `failed`, and
+   * {@link trace} answers `undefined` from that alone.
+   */
+  const traceOpen = atom(false, `${name}.traceOpen`)
+
+  /** The settled half of `3A`'s copy sequence, which is the only half `3C` draws. */
+  const traceCopied = atom(false, `${name}.traceCopied`)
+
+  /**
+   * The dialog's own text, and what both `Copy` and `Save trace` write. Frames verbatim, the error
+   * verbatim, the context line the header already prints — nothing here is composed for the file
+   * that was not already on screen.
+   */
+  const _traceText = computed<string | undefined>(() => {
+    const detail = failedDetail()
+    if (detail === undefined) return undefined
+    return toTraceText(detail, traceContext(detail.error.nodeId, _runNumber(), _settledElapsed()))
+  }, `${name}._traceText`)
+
+  /**
+   * `3C` Modal C, assembled from what the wire actually carries — and **only** from that.
+   *
+   * The context line, the error class, its sentence, the frames `toRunStack` unpacked and the count
+   * of the ones it trimmed are all real. **Two of the artboard's three meta rows are not, and they
+   * are left out rather than filled:**
+   *
+   *  * the `input` row (`markdown · 1.4 kb`) — no wire field names a failed node's input, and none
+   *    carries a byte size;
+   *  * the `runtime` row (`0.9.2 · node 20.11`) — neither version is on any payload.
+   *
+   * The `node` row survives because both halves are in the document: the id the error names, and
+   * that node's `kind`. The artboard's own second half is the node definition's identity, which the
+   * descriptor does not carry — `title` is a human sentence, not `imageOut` — so `kind` is what is
+   * true here.
+   *
+   * `hiddenFrames` arrives as `formatHiddenFrames`' string rather than as a number, and that is the
+   * other honesty call: `server/stackFrames.ts` really does count the frames it trimmed and
+   * `runWire.ts` really does send the count, so the line is true — but the frames themselves never
+   * leave the server, so `3C`'s `↳ show 6 hidden frames` link could reveal nothing. The design's own
+   * static wording for the same fact, `Run panel — states`' `↳ 6 frames hidden`, is what is drawn.
+   */
+  const trace = computed<StackTraceView | undefined>(() => {
+    if (!traceOpen()) return undefined
+    const detail = failedDetail()
+    if (detail === undefined) return undefined
+    const nodeId = detail.error.nodeId
+    const hidden = formatHiddenFrames(detail.stack?.hiddenFrames ?? 0)
+    return {
+      context: traceContext(nodeId, _runNumber(), _settledElapsed()),
+      errorClass: detail.error.name,
+      errorMessage: toProse(detail.error.message, nodeId === '' ? undefined : nodeId),
+      frames: detail.stack?.frames ?? NO_FRAMES,
+      ...(hidden === undefined ? {} : { hiddenFrames: hidden }),
+      meta: traceMeta(descriptor(), nodeId),
+      copied: traceCopied(),
+    }
+  }, `${name}.trace`)
+
+  /**
+   * `3A` §4.1's copy script, minus the two cells `3C` does not draw: the artboard has a `Copied`
+   * chip and an idle icon ghost and nothing between them, so a failure returns to idle rather than
+   * inventing a `Copy failed — retry` this dialog has no room for. RTM-A05: the hold is
+   * `await wrap(sleep(…))` under `withAbort()`, so closing the dialog cancels it without a handle.
+   */
+  const _copyTrace = action(async (text: string) => {
+    let failed = false
+    try {
+      const write = globalThis.navigator?.clipboard?.writeText(text)
+      if (write === undefined) failed = true
+      else await wrap(write)
+    } catch {
+      failed = true
+    }
+    if (failed) return
+    traceCopied.set(true)
+    await wrap(sleep(ACTION_TIMINGS.copiedHoldMs))
+    traceCopied.set(false)
+  }, `${name}._copyTrace`).extend(withAbort())
+
+  /** The header control. Refused while `Copied` still stands, exactly as the dock's `Copy all` is. */
+  const copyTrace = action(() => {
+    if (traceCopied()) return
+    const text = _traceText()
+    if (text === undefined) return
+    detached(_copyTrace(text))
+  }, `${name}.copyTrace`)
+
+  /**
+   * The footer ghost. It is the same anchor-click write `model/output.ts` performs for the dock's
+   * `Download`, on the same text `Copy` puts on the clipboard, so the two cannot disagree.
+   *
+   * No `3A` cell is drawn for it: `3C` gives this button no loader and no `Saved` confirmation, and
+   * a blob write settles inside one tick anyway.
+   */
+  const saveTrace = action(() => {
+    const text = _traceText()
+    const detail = failedDetail()
+    if (text === undefined || detail === undefined) return
+    writeTrace(text, traceFileName(detail.error.nodeId, _runNumber()))
+  }, `${name}.saveTrace`)
+
+  /**
+   * The footer's destructive primary. It is the failed card's own `Retry node` — the same
+   * `run.retryNode`, on the same target — because the engine has exactly one re-execution and both
+   * surfaces must reach it, not two that could drift.
+   */
+  const retryTraceNode = action(() => {
+    const detail = failedDetail()
+    if (detail === undefined) return
+    run.retryNode({
+      nodeId: detail.error.nodeId,
+      errorName: detail.error.name,
+      message: detail.error.message,
+    })
+    traceOpen.set(false)
+  }, `${name}.retryTraceNode`)
+
+  /** `View trace` on the failed node card. A run with no failure to show opens nothing. */
+  const openTrace = action(() => {
+    if (failedDetail() === undefined) return
+    traceOpen.set(true)
+  }, `${name}.openTrace`)
+
+  /** `esc`, the `×` and a backdrop click. The copy hold is cancelled with the dialog it lived in. */
+  const closeTrace = action(() => {
+    _copyTrace.abort()
+    traceCopied.set(false)
+    traceOpen.set(false)
+  }, `${name}.closeTrace`)
+
+  return {
+    state,
+    meta,
+    dockStatus,
+    failedDetail,
+    traceOpen,
+    trace,
+    openTrace,
+    closeTrace,
+    copyTrace,
+    saveTrace,
+    retryTraceNode,
+  }
 }

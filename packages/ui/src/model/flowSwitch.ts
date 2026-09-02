@@ -72,6 +72,16 @@ export function reatomFlowSwitch(
   const saveAndSwitchTo = atom<string | undefined>(undefined, `${name}.saveAndSwitchTo`)
 
   /**
+   * The target held between the dialog's dismissal and the end of its `120 ms` departure.
+   * `undefined` is "no switch is waiting on an exit".
+   *
+   * `4A` (`.design/raw/studio.dc.html:203`) is explicit about this one dialog: *"Switch-flow modal
+   * — 200 / 120 ms, and the 240 ms screen change starts only after it closes."* So the answer and
+   * the transition are two separate moments, and this atom is the whole of what sits between them.
+   */
+  const closingFlowId = atom<string | undefined>(undefined, `${name}.closingFlowId`)
+
+  /**
    * The transition itself, in the order that makes all three seeding behaviours come out right.
    *
    * **Every `reset` runs before `flows.selectFlow`, and that is the whole of it.** Moving `flowId`
@@ -93,7 +103,7 @@ export function reatomFlowSwitch(
    * transition — and every other call site reaches this with a target the dialog is standing in
    * front of, which by construction is not the flow that is open.
    */
-  const switchTo = action((nextFlowId: string) => {
+  const commitSwitch = action((nextFlowId: string) => {
     draft.reset()
     save.reset()
     inputs.reset()
@@ -103,8 +113,55 @@ export function reatomFlowSwitch(
     output.reset()
     pendingFlowId.set(undefined)
     saveAndSwitchTo.set(undefined)
+    closingFlowId.set(undefined)
     flows.selectFlow(nextFlowId)
+  }, `${name}.commitSwitch`)
+
+  /**
+   * The transition as every caller asks for it, and the one place `4A`'s ordering is applied.
+   *
+   * **A switch nothing asked about commits now; a switch a dialog is standing in front of commits
+   * when that dialog has finished leaving.** The test is `body() !== undefined`, and it is exactly
+   * the right one rather than approximately: `body` is what `SwitchFlowModal` reads into its view,
+   * so a defined `body` means the card is on screen and `useModalExit` will hold it for the
+   * departure and report {@link switchExited} at the end of it. Anything else — `requestFlow`'s
+   * straight-through case, the self-answering effect firing the instant the question evaporates,
+   * `_saveAndSwitch` resuming after a write that already cleaned the draft — has no card left to
+   * wait for, and waiting on an exit that will never be announced would strand the switch.
+   *
+   * **Rule 04 — *"a transition never delays a result"* — is not bent by this.** The result the user
+   * asked for is the flow change, and the only thing standing between the press and it is the
+   * `120 ms` the dialog was always going to spend leaving; no timer is added on top of one. Under
+   * `prefers-reduced-motion` that duration is zero, `ModalShell` measures it off the card's own
+   * computed style, and `onExited` fires in the same tick — so the sequencing costs nothing at all
+   * there, and the same holds in jsdom, where no stylesheet is applied.
+   *
+   * `body` is named before it is declared, which is deliberate and safe: this is a call-time read
+   * inside an action body, the shape `model/studio.ts`'s `locked` forwarder already uses. Declaring
+   * it the other way round is impossible — `body` carries `switchToPending` and `cancelAndSwitch`,
+   * and both of those call this.
+   */
+  const switchTo = action((nextFlowId: string) => {
+    if (body() === undefined) {
+      commitSwitch(nextFlowId)
+      return
+    }
+    closingFlowId.set(nextFlowId)
+    saveAndSwitchTo.set(undefined)
+    // Last, because it is what makes `body` undefined and starts the departure.
+    pendingFlowId.set(undefined)
   }, `${name}.switchTo`)
+
+  /**
+   * What `SwitchFlowModal` calls when the card's exit animation has ended — `ModalShell`'s
+   * `onExited`, which fires for every dismissal and not only for a switch. A dismissal that parked
+   * no target finds none here and does nothing.
+   */
+  const switchExited = action(() => {
+    const target = closingFlowId()
+    if (target === undefined) return
+    commitSwitch(target)
+  }, `${name}.switchExited`)
 
   /**
    * What a sidebar flow row calls. `3F`: a switch that would lose something asks first; one that
@@ -119,10 +176,23 @@ export function reatomFlowSwitch(
     switchTo(nextFlowId)
   }, `${name}.requestFlow`)
 
-  /** `esc`, and the dialog's own dismiss. Nothing about the flow being left is touched. */
+  /**
+   * `esc`, and the dialog's own dismiss. Nothing about the flow being left is touched.
+   *
+   * **The guard is what keeps `4A`'s exit window honest in both directions.** During the `120 ms`
+   * departure the card is still in the DOM and still answers `esc`, but there is no longer a
+   * question standing: a switch has been answered and is waiting on {@link switchExited}. So a
+   * dismissal arriving then is a no-op rather than a cancellation of a decision already taken.
+   *
+   * When a question *is* standing, this also drops any target parked by an earlier answer — the
+   * case where a new dialog opened inside that window and is now being dismissed, which would
+   * otherwise commit the previous, abandoned switch on the way out.
+   */
   const stay = action(() => {
+    if (pendingFlowId() === undefined) return
     pendingFlowId.set(undefined)
     saveAndSwitchTo.set(undefined)
+    closingFlowId.set(undefined)
   }, `${name}.stay`)
 
   /** `Switch and keep running` and `Discard changes`: one behaviour, two labels for what it costs. */
@@ -280,5 +350,8 @@ export function reatomFlowSwitch(
     switchToPending,
     cancelAndSwitch,
     saveAndSwitch,
+    closingFlowId,
+    commitSwitch,
+    switchExited,
   }
 }

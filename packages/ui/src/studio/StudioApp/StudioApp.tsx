@@ -5,7 +5,7 @@ import type { EdgeShape } from '#canvas/index.js'
 import { FlowCanvas } from '#canvas/index.js'
 import type { JobikClient } from '#client/index.js'
 import { createJobikClient } from '#client/index.js'
-import { CancelRunModal, SwitchFlowModal, ValidationModal } from '#modals/index.js'
+import { CancelRunModal, StackTraceModal, SwitchFlowModal, ValidationModal } from '#modals/index.js'
 import { reatomStudio, StudioModelProvider, useStudioModel } from '#model/index.js'
 import { detached } from '#model/reatom.js'
 import { OutputDock } from '#output/index.js'
@@ -335,6 +335,14 @@ const StudioAppBody = reatomComponent(function StudioAppBody(props: StudioAppBod
         elapsed time and so moves ten times a second for the length of a run.
       */}
       <SwitchFlowModal />
+      {/*
+        `3C`'s `Stack trace`, opened by `View trace` on a failed node card. It is the fourth and
+        last of `3C`'s dialogs to get a render site, and it is mounted unconditionally for the same
+        reason as the other three: `runPanel.trace` is `undefined` while the dialog is shut, so a
+        closed dialog subscribes to that one computed and reaches neither the failed session nor
+        the descriptor underneath it.
+      */}
+      <StackTraceModal />
     </>
   )
 }, 'StudioAppBody')

@@ -1054,3 +1054,206 @@ describe('the dock status', () => {
     )
   })
 })
+
+/**
+ * `3C` Modal C, from the model side. The dialog itself is asserted in
+ * `modals/StackTraceModal/StackTraceModal.test.tsx`; what is asserted here is the projection, and
+ * above all **the two rows that are not in it** — the artboard draws `node`, `input` and `runtime`
+ * and only the first has anything behind it on the wire.
+ */
+describe('the stack trace dialog', () => {
+  const WITH_FRAMES = {
+    ...IMAGE_RENDER_ERROR,
+    frames: [
+      { fn: 'imageOut.raster', file: 'imageOut.ts', line: 184 },
+      { fn: 'render.invoke', file: 'flow.ts', line: 41 },
+    ],
+    hiddenFrames: 6,
+  }
+
+  const REPORT_WITH_FRAMES = {
+    ...FAILED_REPORT,
+    nodes: [
+      REPORT.nodes[0],
+      {
+        nodeId: 'render',
+        status: 'failed' as const,
+        elapsedMs: 800,
+        output: null,
+        assets: {},
+        error: WITH_FRAMES,
+      },
+    ],
+  } as unknown as WireRunReportPayload
+
+  function failedHarness(report: WireRunReportPayload): Harness {
+    return makeHarness(
+      stubClient({
+        startRun: async () =>
+          streamOf([
+            { type: 'run-accepted', runToken: 'tok' },
+            { type: 'run-settled', report },
+          ]),
+      }),
+    )
+  }
+
+  it('draws nothing until View trace is pressed, and nothing at all without a failure', async () => {
+    await inFrame(
+      async ({ panel, run }) => {
+        expect(panel.trace()).toBeUndefined()
+        // A run that has not failed cannot open it: `openTrace` reads `failedDetail` first.
+        panel.openTrace()
+        expect(panel.traceOpen()).toBe(false)
+
+        await wrap(run.start({ title: 'A post' }))
+        expect(panel.trace()).toBeUndefined()
+        panel.openTrace()
+        expect(panel.trace()).toBeDefined()
+      },
+      () => failedHarness(REPORT_WITH_FRAMES),
+    )
+  })
+
+  it('carries the artboard header, the error and every frame the wire sent', async () => {
+    await inFrame(
+      async ({ panel, run }) => {
+        await wrap(run.start({ title: 'A post' }))
+        panel.openTrace()
+        const view = panel.trace()
+
+        expect(view?.context).toBe('render · run #219 · 0.8s')
+        expect(view?.errorClass).toBe('ImageRenderError')
+        expect(view?.errorMessage.map((segment) => segment.text).join('')).toBe(
+          'Unsupported colour profile in the inlined asset.',
+        )
+        expect(view?.frames).toEqual([
+          { fn: 'imageOut.raster', file: 'imageOut.ts', line: 184 },
+          { fn: 'render.invoke', file: 'flow.ts', line: 41 },
+        ])
+      },
+      () => failedHarness(REPORT_WITH_FRAMES),
+    )
+  })
+
+  /**
+   * The honesty rule, asserted as an absence: the design's `input` (`markdown · 1.4 kb`) and
+   * `runtime` (`0.9.2 · node 20.11`) rows have no wire field, so they are missing rather than
+   * plausible. The `node` row survives because both halves — the id the error names and that node's
+   * `kind` — are in the document.
+   */
+  it('renders only the meta row the wire can fill', async () => {
+    await inFrame(
+      async ({ panel, run }) => {
+        await wrap(run.start({ title: 'A post' }))
+        panel.openTrace()
+
+        expect(panel.trace()?.meta).toEqual([
+          { label: 'node', value: 'render · transform', tone: 'lifted' },
+        ])
+      },
+      () => failedHarness(REPORT_WITH_FRAMES),
+    )
+  })
+
+  /**
+   * The trimmed-frame count is real — `server/stackFrames.ts` counts it and `runWire.ts` sends it —
+   * but the frames behind it never leave the server, so it arrives as the design's own static
+   * read-out rather than as `3C`'s accent link.
+   */
+  it('states the trimmed frames as a read-out, and omits the line when none were trimmed', async () => {
+    await inFrame(
+      async ({ panel, run }) => {
+        await wrap(run.start({ title: 'A post' }))
+        panel.openTrace()
+        expect(panel.trace()?.hiddenFrames).toBe('↳ 6 frames hidden')
+      },
+      () => failedHarness(REPORT_WITH_FRAMES),
+    )
+
+    await inFrame(
+      async ({ panel, run }) => {
+        await wrap(run.start({ title: 'A post' }))
+        panel.openTrace()
+        // A payload with no `frames` array produces no stack at all, so no list and no read-out.
+        expect(panel.trace()?.hiddenFrames).toBeUndefined()
+        expect(panel.trace()?.frames).toEqual([])
+      },
+      () => failedHarness(FAILED_REPORT),
+    )
+  })
+
+  it('copies the trace, holds Copied, and refuses a second press while it stands', async () => {
+    const writeText = vi.fn(async (_text: string) => {})
+    vi.stubGlobal('navigator', { clipboard: { writeText } })
+    try {
+      await inFrame(
+        async ({ panel, run }) => {
+          await wrap(run.start({ title: 'A post' }))
+          panel.openTrace()
+          expect(panel.trace()?.copied).toBe(false)
+
+          panel.copyTrace()
+          await flush()
+          expect(panel.trace()?.copied).toBe(true)
+          expect(writeText).toHaveBeenCalledTimes(1)
+          const written = String(writeText.mock.calls[0]?.[0])
+          expect(written).toContain(
+            'ImageRenderError: Unsupported colour profile in the inlined asset.',
+          )
+          expect(written).toContain('at imageOut.raster (imageOut.ts:184)')
+
+          // `3A` §2.5: a press is refused while `Copied` still stands.
+          panel.copyTrace()
+          await flush()
+          expect(writeText).toHaveBeenCalledTimes(1)
+        },
+        () => failedHarness(REPORT_WITH_FRAMES),
+      )
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('closes on dismiss and forgets the copy confirmation with it', async () => {
+    const writeText = vi.fn(async (_text: string) => {})
+    vi.stubGlobal('navigator', { clipboard: { writeText } })
+    try {
+      await inFrame(
+        async ({ panel, run }) => {
+          await wrap(run.start({ title: 'A post' }))
+          panel.openTrace()
+          panel.copyTrace()
+          await flush()
+          expect(panel.trace()?.copied).toBe(true)
+
+          panel.closeTrace()
+          expect(panel.trace()).toBeUndefined()
+          panel.openTrace()
+          expect(panel.trace()?.copied).toBe(false)
+        },
+        () => failedHarness(REPORT_WITH_FRAMES),
+      )
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('retries the failed node through the run model and closes itself', async () => {
+    await inFrame(
+      async ({ panel, run }) => {
+        await wrap(run.start({ title: 'A post' }))
+        panel.openTrace()
+
+        panel.retryTraceNode()
+        expect(panel.traceOpen()).toBe(false)
+        expect(run.retry()).toEqual({
+          nodeId: 'render',
+          errorName: 'ImageRenderError',
+          message: 'Unsupported colour profile in the inlined asset.',
+        })
+      },
+      () => failedHarness(REPORT_WITH_FRAMES),
+    )
+  })
+})

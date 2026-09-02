@@ -485,6 +485,7 @@ function canvasWorld(): CanvasWorld {
       retryNode: action((_target: RetryState) => {}, 'test.retryNode'),
       extension: atom<FlowUiDescriptor | undefined>(undefined, 'test.extension'),
       openOutput: action((_nodeId: string) => {}, 'test.openOutput'),
+      openTrace: action(() => {}, 'test.openTrace'),
     },
     'test.canvas',
   )

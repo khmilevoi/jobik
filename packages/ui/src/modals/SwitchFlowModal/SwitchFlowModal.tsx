@@ -184,6 +184,23 @@ export const SwitchFlowModal = reatomComponent(function SwitchFlowModal() {
   })()
 
   const exit = useModalExit(view)
+
+  /**
+   * `4A`'s one explicit ordering — *"200 / 120 ms, and the 240 ms screen change starts only after
+   * it closes"* — lands here, and this callback is the whole of it. `useModalExit` drops the held
+   * frame and `flowSwitch.switchExited` commits whatever answer was parked when the card was
+   * dismissed; a dismissal that parked nothing finds nothing and the action returns.
+   *
+   * `useWrap` returns one stable function for the life of the component and reads the latest
+   * closure through a ref, which is what this has to be: `ModalShell`'s exit effect lists
+   * `onExited` in its dependencies, and an inline arrow would restart the departure's timer on
+   * every render that happened while it was playing.
+   */
+  const onExited = useWrap(() => {
+    exit?.onExited()
+    flowSwitch.switchExited()
+  }, 'SwitchFlowModal.exited')
+
   if (exit === undefined) return null
 
   const { body, targetFlowName, currentFlowName, saving } = exit.view
@@ -251,7 +268,7 @@ export const SwitchFlowModal = reatomComponent(function SwitchFlowModal() {
       actions={actions}
       onDismiss={stay}
       leaving={exit.leaving}
-      onExited={exit.onExited}
+      onExited={onExited}
     >
       <div className={s.titleRow}>
         {mark}

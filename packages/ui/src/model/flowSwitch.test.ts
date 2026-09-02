@@ -386,7 +386,10 @@ describe('switching flows', () => {
         expect(h.save.state().kind).toBe('conflict')
         expect(h.model.pendingFlowId()).toBe('pokedex')
 
-        h.model.switchTo('pokedex')
+        // `commitSwitch`, not `switchTo`: the subject here is the transition — every `reset`, then
+        // `flows.selectFlow` — and `switchTo` would park it behind the dialog's exit, which is
+        // `4A`'s ordering and has its own cases at the end of this file.
+        h.model.commitSwitch('pokedex')
 
         expect(h.flows.flowId()).toBe('pokedex')
         expect(h.draft.draft()).toBeUndefined()
@@ -423,6 +426,9 @@ describe('switching flows', () => {
 
       h.model.requestFlow('pokedex')
       h.model.switchToPending()
+      // The dialog leaves first; `switchExited` is what a mounted `SwitchFlowModal` reports when
+      // the card's departure has played out. See the `4A` block at the end of this file.
+      h.model.switchExited()
       await wrap(until(() => h.flows.descriptor()?.id === 'pokedex', 'the second flow'))
 
       expect(h.draft.dirty()).toBe(false)
@@ -464,7 +470,8 @@ describe('switching flows', () => {
       async (h) => {
         await wrap(startRun(h))
 
-        h.model.switchTo('pokedex')
+        // The transition itself; the dialog's exit is not what this case is about.
+        h.model.commitSwitch('pokedex')
         expect(h.run.running()).toBe(false)
         expect(h.run.session()).toBeUndefined()
 
@@ -612,7 +619,7 @@ describe('3F — switching away from a run in flight', () => {
     })
   })
 
-  it('`Switch and keep running` switches at once and cancels nothing', async () => {
+  it('`Switch and keep running` dismisses the dialog and cancels nothing', async () => {
     const cancelRun = vi.fn(async () => true)
     const { client, release } = midRunClient({ cancelRun } as Partial<JobikClient>)
     await inFrame(client, async (h) => {
@@ -621,8 +628,15 @@ describe('3F — switching away from a run in flight', () => {
 
       h.model.switchToPending()
 
-      expect(h.flows.flowId()).toBe('pokedex')
+      // `4A`: the dialog goes first and the flow change waits for its 120 ms departure to end.
       expect(h.model.body()).toBeUndefined()
+      expect(h.model.closingFlowId()).toBe('pokedex')
+      expect(h.flows.flowId()).toBe('publication')
+
+      h.model.switchExited()
+
+      expect(h.flows.flowId()).toBe('pokedex')
+      expect(h.model.closingFlowId()).toBeUndefined()
       expect(h.run.running()).toBe(false)
       expect(cancelRun).not.toHaveBeenCalled()
       release()
@@ -639,12 +653,18 @@ describe('3F — switching away from a run in flight', () => {
 
       h.model.cancelAndSwitch()
 
+      // The cancel is NOT deferred with the switch: `4A` rule 04 — a transition never delays a
+      // result — and stopping the run on the server is the result. Only the flow change waits.
+      expect(cancelRun).toHaveBeenCalledWith('tok')
+      expect(h.model.body()).toBeUndefined()
+      expect(h.flows.flowId()).toBe('publication')
+
+      h.model.switchExited()
+
       // The token is the one the run was accepted with — the cancel is aimed at the run being left,
       // not at whatever `runToken` holds once the switch has cleared it.
-      expect(cancelRun).toHaveBeenCalledWith('tok')
       expect(h.flows.flowId()).toBe('pokedex')
       expect(h.run.runToken()).toBeUndefined()
-      expect(h.model.body()).toBeUndefined()
       release()
     })
   })
@@ -688,13 +708,17 @@ describe('3F — switching away from an unsaved draft', () => {
     })
   })
 
-  it('`Discard changes` leaves the draft behind and switches at once', async () => {
+  it('`Discard changes` leaves the draft behind and switches once the dialog has gone', async () => {
     const save = vi.fn(async () => ({ revision: 'rev-2' }))
     await inFrame(twoFlowClient({ save }), async (h) => {
       dirty(h)
       h.model.requestFlow('pokedex')
 
       h.model.switchToPending()
+      expect(h.model.body()).toBeUndefined()
+      expect(h.flows.flowId()).toBe('publication')
+
+      h.model.switchExited()
 
       expect(h.flows.flowId()).toBe('pokedex')
       expect(save).not.toHaveBeenCalled()
@@ -842,5 +866,74 @@ describe('the question that answers itself', () => {
         release()
       },
     )
+  })
+})
+
+/**
+ * F-M10 — `4A`'s one explicit ordering: *"Switch-flow modal — 200 / 120 ms, and the 240 ms screen
+ * change starts only after it closes."*
+ *
+ * The dismissal and the transition used to be one synchronous body, so the dialog vanished and the
+ * canvas swapped in the same frame. They are two moments now, and what separates them is the
+ * dialog's own exit rather than a timer — `SwitchFlowModal` calls `switchExited` from
+ * `ModalShell`'s `onExited`, which fires when the card's measured `animation-duration` has elapsed
+ * and *immediately* when that duration is zero, which is what `prefers-reduced-motion` and jsdom
+ * both produce.
+ */
+describe('4A — the switch waits for the dialog to leave, and never for anything else', () => {
+  it('commits at once when no dialog was ever asked for', async () => {
+    await inFrame(twoFlowClient(), async (h) => {
+      // Nothing at risk, so `requestFlow` goes straight through: there is no card to wait for and
+      // parking the target would strand the switch.
+      h.model.requestFlow('pokedex')
+
+      expect(h.model.closingFlowId()).toBeUndefined()
+      expect(h.flows.flowId()).toBe('pokedex')
+    })
+  })
+
+  it('is a no-op if the exit is announced with nothing parked', async () => {
+    await inFrame(twoFlowClient(), async (h) => {
+      h.model.switchExited()
+      expect(h.flows.flowId()).toBe('publication')
+    })
+  })
+
+  /** `esc` during the departure must not undo a decision the user has already made. */
+  it('ignores a dismissal that arrives while the card is already leaving', async () => {
+    await inFrame(twoFlowClient(), async (h) => {
+      h.draft.moveNode({ nodeId: 'start1', position: { x: 64, y: -24 } })
+      h.model.requestFlow('pokedex')
+      h.model.switchToPending()
+
+      h.model.stay()
+      expect(h.model.closingFlowId()).toBe('pokedex')
+
+      h.model.switchExited()
+      expect(h.flows.flowId()).toBe('pokedex')
+    })
+  })
+
+  /**
+   * The other half: a second question opened inside the exit window and then dismissed must not
+   * commit the first, abandoned answer on its own way out.
+   */
+  it('drops a parked target when a fresh question is dismissed', async () => {
+    await inFrame(twoFlowClient(), async (h) => {
+      h.draft.moveNode({ nodeId: 'start1', position: { x: 64, y: -24 } })
+      h.model.requestFlow('pokedex')
+      h.model.switchToPending()
+      expect(h.model.closingFlowId()).toBe('pokedex')
+
+      // The draft is still dirty — nothing has been reset yet — so the dialog opens again.
+      h.model.requestFlow('pokedex')
+      expect(h.model.body()).toBeDefined()
+
+      h.model.stay()
+      h.model.switchExited()
+
+      expect(h.flows.flowId()).toBe('publication')
+      expect(h.model.closingFlowId()).toBeUndefined()
+    })
   })
 })

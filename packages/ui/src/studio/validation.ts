@@ -46,7 +46,7 @@ export function toValidationFindings(args: {
  * marking is the node id, which the payload does name separately. Splitting on the first occurrence
  * keeps the sentence verbatim: it is the server's own words either way, never re-humanised.
  */
-function toProse(message: string, nodeId: string | undefined): readonly ProseSegment[] {
+export function toProse(message: string, nodeId: string | undefined): readonly ProseSegment[] {
   if (nodeId === undefined) return [{ text: message }]
   const at = message.indexOf(nodeId)
   if (at < 0) return [{ text: message }]

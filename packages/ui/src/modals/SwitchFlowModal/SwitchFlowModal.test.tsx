@@ -399,3 +399,60 @@ describe('SwitchFlowModal — run in progress', () => {
     expect(kept.model.flows.flowId()).toBe('digest')
   })
 })
+
+/**
+ * F-M10 — `4A`: *"Switch-flow modal — 200 / 120 ms, and the 240 ms screen change starts only after
+ * it closes."*
+ *
+ * The two cases below are the two runtimes this has to be right in, and they are different
+ * runtimes rather than two spellings of one:
+ *
+ *  * **jsdom applies no stylesheet, so the card's `animation-duration` computes to zero** — the
+ *    same value `prefers-reduced-motion` produces in a browser. `ModalShell` measures it and calls
+ *    `onExited` in the same effect, so the switch lands inside the press with nothing deferred and
+ *    nothing to deadlock on. Every other case in this file already depends on that, silently; this
+ *    one says so.
+ *  * **a real browser holds the card for 120 ms**, which is reproduced by reporting a duration and
+ *    then firing the `animationend` the card would fire. The flow must not change until then.
+ */
+describe('4A — the screen change waits for the card to finish leaving', () => {
+  it('commits inside the press when the exit is instantaneous', async () => {
+    const world = await mountUnsaved()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Discard changes' }))
+
+    expect(world.model.flows.flowId()).toBe('digest')
+    expect(world.model.flowSwitch.closingFlowId()).toBeUndefined()
+    expect(screen.queryByTestId('switch-flow-modal')).toBeNull()
+  })
+
+  it('holds the flow change until the departure ends when one is actually playing', async () => {
+    const world = await mountUnsaved()
+    const dialog = screen.getByTestId('switch-flow-modal')
+    const card = dialog.firstElementChild as HTMLElement
+
+    // What a browser reports for the leaving card, and what jsdom never will: `ModalShell` reads
+    // this off the element rather than assuming a number, so stating it here is the whole stub.
+    const computed = globalThis.getComputedStyle.bind(globalThis)
+    vi.spyOn(globalThis, 'getComputedStyle').mockImplementation((element, pseudo) =>
+      element === card
+        ? ({ animationDuration: '120ms' } as CSSStyleDeclaration)
+        : computed(element as Element, pseudo),
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Discard changes' }))
+
+    // The answer is recorded and the dialog is on its way out — and the flow has not moved.
+    expect(world.model.flowSwitch.body()).toBeUndefined()
+    expect(world.model.flowSwitch.closingFlowId()).toBe('digest')
+    expect(world.model.flows.flowId()).toBe('publication')
+    expect(screen.getByTestId('switch-flow-modal')).toHaveAttribute('data-phase', 'leaving')
+
+    await act(async () => {
+      fireEvent.animationEnd(card)
+    })
+
+    expect(world.model.flows.flowId()).toBe('digest')
+    expect(world.model.flowSwitch.closingFlowId()).toBeUndefined()
+  })
+})

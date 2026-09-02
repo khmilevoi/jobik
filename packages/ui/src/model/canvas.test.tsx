@@ -235,6 +235,8 @@ interface World {
   /** What `retryNode` and `open` were called with — the two actions the overlays hand out. */
   readonly retried: RetryState[]
   readonly opened: string[]
+  /** Every `View trace` press. `openTrace` takes no argument, so the count is the whole record. */
+  readonly tracesOpened: { count: number }
   /** Puts a fresh, all-queued session on the canvas, the way `run.start` does. */
   readonly seed: (nodeIds: readonly string[]) => void
   readonly emit: (event: RunStreamEvent) => void
@@ -262,12 +264,16 @@ function createWorld(
 
   const retried: RetryState[] = []
   const opened: string[] = []
+  const tracesOpened = { count: 0 }
   const retryNode = action((target: RetryState) => {
     retried.push(target)
   }, 'test.retryNode')
   const openOutput = action((nodeId: string) => {
     opened.push(nodeId)
   }, 'test.openOutput')
+  const openTrace = action(() => {
+    tracesOpened.count += 1
+  }, 'test.openTrace')
 
   const deps: StudioDeps = {
     client: {
@@ -288,6 +294,7 @@ function createWorld(
       retryNode,
       extension,
       openOutput,
+      openTrace,
     },
     'studio.canvas',
   )
@@ -313,6 +320,7 @@ function createWorld(
     extension,
     retried,
     opened,
+    tracesOpened,
     seed: (nodeIds) => {
       session.set(createRunSession({ startId: 'start1', nodeIds, startedAt: 1000 }))
     },
@@ -494,6 +502,27 @@ describe('`3B` — retrying a failed node', () => {
     world.seed(['start1', 'render'])
     await flush()
   }
+
+  /**
+   * F-M2. `View trace` used to be handed no handler at all, so `3C`'s Stack trace dialog had no
+   * render site and one of the four modals could not be seen in the running app. It reaches
+   * `RunPanelModel.openTrace`, which takes no argument: the dialog draws the run's failure, and the
+   * card offering the action *is* that failure's card.
+   */
+  it('gives the failed card a View trace that opens the stack trace dialog', async () => {
+    await inFrame(async (world) => {
+      world.seed(['start1', 'render'])
+      world.emit({ type: 'run-settled', report: FAILED_REPORT })
+      await flush()
+
+      const failure = overlayOf(world, 'render')?.detail
+      if (failure?.kind !== 'failed') throw new Error('the failed run produced no failed detail')
+      expect(world.tracesOpened.count).toBe(0)
+
+      failure.onViewTrace?.()
+      expect(world.tracesOpened.count).toBe(1)
+    }, createWorld)
+  })
 
   it('starts a run and puts the card into the retrying state', async () => {
     await inFrame(async (world) => {

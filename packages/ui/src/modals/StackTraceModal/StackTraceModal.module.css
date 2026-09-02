@@ -103,6 +103,11 @@
   padding-top: 6px;
 }
 
+/*
+ * §4.2's trimmed-frame line. It keeps the artboard's accent tone and drops its `cursor:pointer` and
+ * hover, because the frames it counts are not on the wire and it is a read-out rather than a link —
+ * see `StackTraceView.hiddenFrames`.
+ */
 .disclosure {
   padding: 0;
   border: none;
@@ -110,11 +115,6 @@
   font-family: var(--jbk-font-mono);
   font-size: var(--jbk-size-10-5);
   color: var(--jbk-accent);
-  cursor: pointer;
-}
-
-.disclosure:hover {
-  color: var(--jbk-accent-hover);
 }
 
 /*

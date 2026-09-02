@@ -20,15 +20,17 @@ import type {
   WireRunReportPayload,
 } from '#client/index.js'
 import { JobikServerError } from '#client/index.js'
-import type { SwitchFlowBody, ValidationFinding } from '#modals/index.js'
+import type { StackTraceView, SwitchFlowBody, ValidationFinding } from '#modals/index.js'
 import type { FlowUiDescriptor } from '#output/index.js'
 import type { CopyState, DownloadState, ValidateState } from '#primitives/index.js'
 import type {
+  RunErrorDetail,
   RunInputDraft,
   RunInputDraftValue,
   RunInputIssue,
   RunInputPresentation,
   RunPanelState,
+  RunStack,
 } from '#run/index.js'
 import type {
   RunDockMetaTone,
@@ -598,8 +600,8 @@ export interface OutputModel {
  * undefined>; document: Computed<FlowDocument | undefined>; selectedNodeId: Atom<string |
  * undefined>; problems: ValidationModel['problems']; viewedSession: RunModel['viewedSession'];
  * running: Atom<boolean>; retry: Atom<RetryState | undefined>; retryNode: RunModel['retryNode'];
- * extension: ExtensionModel['descriptor']; openOutput: OutputModel['open'] }, name: string):
- * CanvasModel`
+ * extension: ExtensionModel['descriptor']; openOutput: OutputModel['open']; openTrace:
+ * RunPanelModel['openTrace'] }, name: string): CanvasModel`
  *
  * **`nodes` and `edges` are keyed on the model INPUTS, never on the previous output.** `FlowCanvas`
  * re-syncs its internal React Flow state whenever either array's identity changes, so rebuilding
@@ -665,6 +667,37 @@ export interface RunPanelModel {
   readonly meta: Computed<{ readonly text: string; readonly tone: RunDockMetaTone } | undefined>
   /** `2A`: once a run settles the header's left half becomes `● Completed` or `● Run failed`. */
   readonly dockStatus: Computed<RunDockStatus | undefined>
+  /**
+   * The failed card's error block and its `3C` stack, from whichever surface carried the failure.
+   *
+   * Public because two surfaces read it: {@link RunPanelModel.state}'s failed branch, and
+   * {@link RunPanelModel.trace}. One derivation, so the panel and the dialog cannot disagree about
+   * which surface carried the failure.
+   */
+  readonly failedDetail: Computed<
+    { readonly error: RunErrorDetail; readonly stack: RunStack | undefined } | undefined
+  >
+  /** Whether `3C`'s Stack trace dialog stands. Nothing but the two actions below writes it. */
+  readonly traceOpen: Atom<boolean>
+  /**
+   * Everything that dialog draws, or `undefined` when it is shut — the guard `StackTraceModal`
+   * reads before anything else, so a closed dialog subscribes to this and to nothing underneath it.
+   *
+   * It is narrower than the artboard on purpose: the `input` and `runtime` meta rows have no wire
+   * field and are absent rather than filled, and the trimmed-frame count is a read-out rather than
+   * `3C`'s disclosure link because the frames it counts never leave the server.
+   */
+  readonly trace: Computed<StackTraceView | undefined>
+  /** `View trace` on the failed node card. A run with no failure to show opens nothing. */
+  readonly openTrace: Action<[], void>
+  /** `esc`, the `×` and a backdrop click. Cancels the copy hold along with the dialog. */
+  readonly closeTrace: Action<[], void>
+  /** The header control: `3A` §4.1's copy script, held for `copiedHoldMs`. */
+  readonly copyTrace: Action<[], void>
+  /** The footer ghost: the same text `copyTrace` writes, through an anchor click. */
+  readonly saveTrace: Action<[], void>
+  /** The footer's destructive primary — the failed card's own `run.retryNode`, on the same target. */
+  readonly retryTraceNode: Action<[], void>
 }
 
 /**
@@ -695,10 +728,27 @@ export interface FlowSwitchModel {
    * would carry a primary that does nothing at all.
    */
   readonly body: Computed<SwitchFlowBody | undefined>
+  /**
+   * The target held between the dialog's dismissal and the end of its `120 ms` departure.
+   * `undefined` is "no switch is waiting on an exit".
+   */
+  readonly closingFlowId: Atom<string | undefined>
   /** What a sidebar flow row calls. Opens the dialog when the switch would lose something. */
   readonly requestFlow: Action<[flowId: string], void>
-  /** The transition itself: every `reset`, then `flows.selectFlow`. */
+  /**
+   * The transition as every caller asks for it, and where `4A`'s ordering is applied: *"the 240 ms
+   * screen change starts only after it closes"*. A switch no dialog is standing in front of commits
+   * at once; one that is parks on {@link FlowSwitchModel.closingFlowId} and commits on
+   * {@link FlowSwitchModel.switchExited}.
+   */
   readonly switchTo: Action<[flowId: string], void>
+  /** The transition itself: every `reset`, then `flows.selectFlow`. No sequencing, no guard. */
+  readonly commitSwitch: Action<[flowId: string], void>
+  /**
+   * What `SwitchFlowModal` calls from `ModalShell`'s `onExited`. It fires for every dismissal, so a
+   * dismissal that parked no target finds none and does nothing.
+   */
+  readonly switchExited: Action<[], void>
   readonly stay: Action<[], void>
   /** `Switch and keep running` and `Discard changes`: one behaviour, two labels for what it costs. */
   readonly switchToPending: Action<[], void>
@@ -734,7 +784,7 @@ export interface ShortcutsModel {
  *
  * ## Wiring order
  *
- * `flows → draft → save → inputs → validation → extension → run → output → canvas → runPanel →
+ * `flows → draft → save → inputs → validation → extension → run → output → runPanel → canvas →
  * flowSwitch → shortcuts`. Each factory's `input` names only units declared above it, with two
  * deliberate exceptions.
  *

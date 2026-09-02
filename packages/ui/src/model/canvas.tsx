@@ -20,6 +20,7 @@ import type {
   OutputModel,
   RetryState,
   RunModel,
+  RunPanelModel,
   StudioDeps,
   ValidationModel,
 } from './types.js'
@@ -199,6 +200,7 @@ export function reatomCanvas(
     retryNode: RunModel['retryNode']
     extension: ExtensionModel['descriptor']
     openOutput: OutputModel['open']
+    openTrace: RunPanelModel['openTrace']
   },
   name: string,
 ): CanvasOverlaysModel {
@@ -212,6 +214,7 @@ export function reatomCanvas(
    */
   const retryNode = bind(input.retryNode)
   const openOutput = bind(input.openOutput)
+  const openTrace = bind(input.openTrace)
 
   /**
    * The session's node map, on its own. A `node-log` or `run-accepted` line replaces the session
@@ -366,15 +369,17 @@ export function reatomCanvas(
       }
 
       // `Node states` failed: the two footer actions. `Retry node` re-runs the flow, because that
-      // is the only re-execution the engine has. `View trace` has nowhere to go yet: nothing
-      // assembles `StackTraceModal`'s props, so the button is left without a handler rather than
-      // given one that lies.
+      // is the only re-execution the engine has. `View trace` opens `3C`'s Stack trace dialog on
+      // the run's failure — `RunPanelModel.trace` assembles it from `failedDetail`, which is the
+      // same projection the run panel's own failed card reads, so the card and the dialog cannot
+      // name two different errors.
       if (base.detail?.kind === 'failed') {
         const failure = base.detail
         return {
           ...base,
           detail: {
             ...failure,
+            onViewTrace: () => openTrace(),
             onRetry: () =>
               retryNode({ nodeId, errorName: failure.errorName, message: failure.message }),
           },

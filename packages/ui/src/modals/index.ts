@@ -40,7 +40,7 @@ export { ProseText } from './ProseText/ProseText.js'
 export type {
   StackTraceMetaEntry,
   StackTraceMetaTone,
-  StackTraceModalProps,
+  StackTraceView,
 } from './StackTraceModal/StackTraceModal.js'
 export { StackTraceModal } from './StackTraceModal/StackTraceModal.js'
 export type { SwitchFlowBody } from './SwitchFlowModal/SwitchFlowModal.js'
