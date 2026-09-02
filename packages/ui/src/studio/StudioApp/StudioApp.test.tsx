@@ -732,6 +732,65 @@ describe('the collapsed layout', () => {
 // viewer` artboard (design lines 484–491) draws `Preview | Raw | Logs`, the source field, and
 // `Copy all` / `Download` — no close control of its own, so `Escape` is what this plan adds.
 describe('the output viewer', () => {
+  /** Mounts, runs `start1` to a settled report, and touches the dock in no way at all. */
+  async function runToSettled() {
+    mount(
+      stubClient({
+        startRun: async () =>
+          streamOf([
+            { type: 'run-accepted', runToken: 'tok' },
+            {
+              type: 'run-started',
+              runNumber: 219,
+              flowName: 'publication',
+              startId: 'start1',
+              nodeCount: 2,
+            },
+            { type: 'run-settled', report: REPORT },
+          ]),
+      }),
+    )
+
+    await waitFor(() => expect(screen.getByTestId('run-input-title')).toBeInTheDocument())
+    await userEvent.type(screen.getByTestId('run-input-title'), 'A post')
+    await userEvent.click(screen.getByTestId('run-start-button'))
+    await waitFor(() =>
+      expect(
+        within(screen.getByTestId('node-card-render')).getByTestId('node-output-inspect'),
+      ).toBeInTheDocument(),
+    )
+  }
+
+  /**
+   * G4. `2A`'s subtitle is *"output dock is dismissable (× or esc)"*, and dismissable implies
+   * restorable — the strip is the restore. It used to be mounted only after a manual collapse, so
+   * a settled run's output was reachable from a card's `inspect` link and from nowhere else.
+   */
+  it('raises 2A’s closed strip once a run settles, without opening the dock', async () => {
+    await runToSettled()
+
+    expect(screen.getByTestId('output-dock-strip')).toBeInTheDocument()
+    expect(screen.getByTestId('output-dock-summary').textContent).toContain('run #219')
+    // Not an auto-open: `DEFERRED.md` keeps the dock a deliberate act.
+    expect(screen.queryByTestId('output-dock')).toBeNull()
+  })
+
+  it('opens the dock from the strip’s own Show output', async () => {
+    await runToSettled()
+    await userEvent.click(screen.getByTestId('output-dock-show'))
+
+    await waitFor(() => expect(screen.getByTestId('output-dock')).toBeInTheDocument())
+    expect(screen.queryByTestId('output-dock-strip')).toBeNull()
+  })
+
+  it('draws no strip before anything has run', async () => {
+    mount(stubClient({}))
+    await waitFor(() => expect(screen.getByTestId('studio-sidebar')).toBeInTheDocument())
+
+    expect(screen.queryByTestId('output-dock-strip')).toBeNull()
+    expect(screen.queryByTestId('output-dock')).toBeNull()
+  })
+
   async function openViewer() {
     mount(
       stubClient({

@@ -553,6 +553,19 @@ export interface RunModel {
 export interface OutputModel {
   readonly viewerNodeId: Atom<string | undefined>
   readonly openViewerNode: Computed<WireNodeReportPayload | undefined>
+  /**
+   * The node the dock is about in **either** of its two states — the opened one while there is
+   * one, and otherwise the node a settled run leaves for `2A`'s closed strip to name. It is what a
+   * shell mounts the dock on, so the strip and the dock are one element and `4A`'s 180ms height
+   * has a from-value; mounting them separately makes the transition dead.
+   */
+  readonly dockNode: Computed<WireNodeReportPayload | undefined>
+  /**
+   * Whether the dock draws at full height rather than as the 34px strip. A dock that is about a
+   * node only because a run settled has never been opened, so a settled run raises the strip and
+   * never the dock — opening stays the deliberate act `DEFERRED.md` records.
+   */
+  readonly expanded: Computed<boolean>
   /** `2A`'s two mono strings, both read off the report and the descriptor, never fabricated. */
   readonly dockStrings: Computed<{ readonly context: string; readonly summary: string } | undefined>
   readonly logs: Computed<readonly { readonly time: string; readonly message: string }[]>
@@ -565,7 +578,11 @@ export interface OutputModel {
    */
   readonly collapsed: Atom<boolean>
   readonly open: Action<[nodeId: string], void>
-  /** `Show output` on the collapsed strip — the dock at full height again, same node. */
+  /**
+   * `Show output` on the collapsed strip — the dock at full height again, same node. From a strip
+   * a settled run raised on its own it is also what adopts that run's node, so the button is the
+   * route into the output rather than a restore of something only `inspect` could have opened.
+   */
   readonly expand: Action<[], void>
   /** The dock's `×` and `esc`: put it away as `2A`'s strip, keeping what it is about. */
   readonly collapse: Action<[], void>

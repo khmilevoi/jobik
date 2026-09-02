@@ -141,6 +141,8 @@ function createWorld(): World {
   const unsubscribes = [
     output.viewerNodeId.subscribe(() => {}),
     output.openViewerNode.subscribe(() => {}),
+    output.dockNode.subscribe(() => {}),
+    output.expanded.subscribe(() => {}),
     output.dockStrings.subscribe(() => {}),
     output.logs.subscribe(() => {}),
     output.copyState.subscribe((cell) => copyCells.push(cell)),
@@ -289,7 +291,103 @@ describe('the output viewer', () => {
 
       expect(output.viewerNodeId()).toBeUndefined()
       expect(output.openViewerNode()).toBeUndefined()
+      // The dock is no longer open — but the run it was about is still settled, so `2A`'s closed
+      // strip stays, which is what makes the dismiss restorable rather than final.
+      expect(output.expanded()).toBe(false)
+      expect(output.dockNode()?.nodeId).toBe('render')
+    })
+  })
+})
+
+/**
+ * G4 — `2A` draws a **closed** output dock: a mono `Output` label and a `Show output` button, on a
+ * settled page. Until this, the strip existed only after a manual collapse, so the single route
+ * into the output was a settled card's `inspect` link and a user who did not know about it had
+ * none at all.
+ */
+describe('the closed strip a settled run raises on its own', () => {
+  it('names the run’s asset node without anything having been opened', async () => {
+    await withOutput(async ({ output }) => {
+      expect(output.viewerNodeId()).toBeUndefined()
+      expect(output.dockNode()?.nodeId).toBe('render')
+      expect(output.dockStrings()?.summary).toContain('run #219')
+    })
+  })
+
+  it('stays closed — a run settling is not an open', async () => {
+    await withOutput(async ({ output }) => {
+      expect(output.expanded()).toBe(false)
+    })
+  })
+
+  it('adopts that node on Show output, which is the route into the viewer', async () => {
+    await withOutput(async ({ output }) => {
+      output.expand()
+
+      expect(output.viewerNodeId()).toBe('render')
+      expect(output.expanded()).toBe(true)
+      expect(output.openViewerNode()?.assets.image?.id).toBe('asset-1')
+    })
+  })
+
+  it('draws no strip before a run has settled', async () => {
+    await withOutput(async ({ output, viewedSession }) => {
+      viewedSession.set(undefined)
+
+      expect(output.dockNode()).toBeUndefined()
       expect(output.dockStrings()).toBeUndefined()
+    })
+  })
+
+  /**
+   * A report whose nodes produced neither an asset nor an output can be summarised only by
+   * inventing something, and the honesty rule forbids that. No node, no strip.
+   */
+  it('draws no strip for a run that produced nothing to show', async () => {
+    await withOutput(async ({ output, viewedSession }) => {
+      viewedSession.set(
+        sessionOf({
+          ...REPORT,
+          nodes: [
+            { nodeId: 'start1', status: 'ok', elapsedMs: 10, output: {}, assets: {}, error: null },
+          ],
+        }),
+      )
+
+      expect(output.dockNode()).toBeUndefined()
+      // And `Show output` has nothing to answer, so it opens nothing.
+      output.expand()
+      expect(output.viewerNodeId()).toBeUndefined()
+    })
+  })
+
+  it('falls back to the last node with a plain output when no node produced an asset', async () => {
+    await withOutput(async ({ output, viewedSession }) => {
+      viewedSession.set(
+        sessionOf({
+          ...REPORT,
+          nodes: [
+            {
+              nodeId: 'start1',
+              status: 'ok',
+              elapsedMs: 10,
+              output: { title: 't' },
+              assets: {},
+              error: null,
+            },
+            {
+              nodeId: 'publish',
+              status: 'ok',
+              elapsedMs: 40,
+              output: { url: 'https://example.test/p/1' },
+              assets: {},
+              error: null,
+            },
+          ],
+        }),
+      )
+
+      expect(output.dockNode()?.nodeId).toBe('publish')
     })
   })
 })
@@ -406,9 +504,23 @@ describe('`2A` — the dock’s two mono strings', () => {
     })
   })
 
-  it('has no strings at all while the viewer is closed', async () => {
-    await withOutput(async ({ output }) => {
+  /**
+   * G4 changed what "closed" means here, and deliberately: `2A`'s closed strip prints a summary of
+   * its own, so a dock nobody has opened still names the run it is about. What has no strings is a
+   * page with no settled run behind it.
+   */
+  it('has no strings at all until a run has settled', async () => {
+    await withOutput(async ({ output, viewedSession }) => {
+      viewedSession.set(undefined)
+
       expect(output.dockStrings()).toBeUndefined()
+    })
+  })
+
+  it('summarises the strip’s own node while the dock is closed', async () => {
+    await withOutput(async ({ output }) => {
+      expect(output.viewerNodeId()).toBeUndefined()
+      expect(output.dockStrings()?.summary).toBe('render.image · 1 file · run #219')
     })
   })
 })

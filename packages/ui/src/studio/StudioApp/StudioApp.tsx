@@ -106,7 +106,11 @@ const StudioAppBody = reatomComponent(function StudioAppBody(props: StudioAppBod
   const runs = run.history()
   const activeRunId = run.activeRunId()
   const viewedReport = run.viewedReport()
-  const viewerNode = output.openViewerNode()
+  // G4: the dock is mounted on `dockNode`, not on the opened node. `2A` draws a closed strip on a
+  // settled page, and until this read the strip existed only after a manual collapse — so the only
+  // route into the output was a card's `inspect` link. `expanded` is what keeps that from becoming
+  // an auto-open: a run settling raises the strip, and opening stays the user's own act.
+  const dockNode = output.dockNode()
   const dockStrings = output.dockStrings()
   // `runPanel.state` is deliberately NOT read here: it carries the run's elapsed, so it changes ten
   // times a second for the length of a run, and reading it would put the canvas and the sidebar
@@ -214,11 +218,11 @@ const StudioAppBody = reatomComponent(function StudioAppBody(props: StudioAppBod
           onSelectStart={selectStart}
         />
       </div>
-      {viewerNode === undefined ? null : (
+      {dockNode === undefined ? null : (
         <OutputDock
-          open={!output.collapsed()}
-          nodeId={viewerNode.nodeId}
-          output={{ ...(viewerNode.output ?? {}), ...viewerNode.assets }}
+          open={output.expanded()}
+          nodeId={dockNode.nodeId}
+          output={{ ...(dockNode.output ?? {}), ...dockNode.assets }}
           {...(uiDescriptor === undefined ? {} : { descriptor: uiDescriptor })}
           assetUrl={assetUrl}
           {...(dockStrings === undefined ? {} : dockStrings)}

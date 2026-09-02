@@ -135,6 +135,52 @@ export function reatomOutput(
   }, `${name}.openViewerNode`)
 
   /**
+   * The node `2A`'s **closed** strip is about, on a page whose dock has never been opened.
+   *
+   * `2A`'s subtitle is *"output dock is dismissable (× or esc)"*, and dismissable implies
+   * restorable: the artboard draws a closed state — a mono `Output` label and a `Show output`
+   * button — as a strip at the bottom of the canvas column. Until now that strip existed only
+   * *after* a manual collapse, because the whole dock was mounted on {@link viewerNodeId} and
+   * nothing but a settled card's `inspect` ever wrote it. So a run finished, its output was
+   * reachable from exactly one link inside one card, and a user who did not know about that link
+   * had no route into the viewer at all.
+   *
+   * This is the missing half, and it is a **derivation of the report, not a second stored node**:
+   * a settled run that produced something has a node the strip can name, and `Show output` adopts
+   * it. It is deliberately *not* an auto-open — `DEFERRED.md` records that the dock opens from a
+   * card's `inspect` and from nothing else, and {@link OutputModel.expanded} keeps that true.
+   *
+   * Which node: the **last** one that produced an asset, since that is what the artboard's own
+   * strip summarises (`render.image · 3 files · run #221`), falling back to the last one that
+   * produced a non-empty output. A node that produced neither — failed, skipped, or simply silent
+   * — can be summarised only by inventing something, so it is passed over, and a report with no
+   * such node draws no strip rather than an empty one.
+   */
+  const restorableNode = computed<WireNodeReportPayload | undefined>(() => {
+    const report = viewedReport()
+    if (report === undefined) return undefined
+    let withAsset: WireNodeReportPayload | undefined
+    let withOutput: WireNodeReportPayload | undefined
+    for (const node of report.nodes) {
+      if (Object.keys(node.assets).length > 0) withAsset = node
+      else if (node.output !== null && Object.keys(node.output).length > 0) withOutput = node
+    }
+    return withAsset ?? withOutput
+  }, `${name}.restorableNode`)
+
+  /**
+   * What the dock draws, open or collapsed — the opened node while there is one, the restorable
+   * node otherwise. One computed rather than two reads at the call site, because the surface is one
+   * element in both states: `OutputDock` swaps its own class, and a shell that mounted the strip
+   * and the dock separately would give the browser a new box to lay out instead of a height to
+   * ease, and `4A`'s 180ms would be declared, mounted and dead.
+   */
+  const dockNode = computed<WireNodeReportPayload | undefined>(
+    () => openViewerNode() ?? restorableNode(),
+    `${name}.dockNode`,
+  )
+
+  /**
    * `2A`'s two mono strings — `render.image · Buffer[3] · run #221` open, and
    * `render.image · 3 files · run #221` collapsed.
    *
@@ -144,7 +190,7 @@ export function reatomOutput(
    */
   const dockStrings = computed<{ readonly context: string; readonly summary: string } | undefined>(
     () => {
-      const node = openViewerNode()
+      const node = dockNode()
       if (node === undefined) return undefined
       const report = viewedReport()
       const fields = Object.keys(node.assets)
@@ -192,12 +238,33 @@ export function reatomOutput(
    */
   const collapsed = atom(false, `${name}.collapsed`)
 
+  /**
+   * Whether the dock is at full height — and the reason `collapsed` alone is not the answer.
+   *
+   * A dock that is *about* a node only because a run settled has never been opened, so it draws
+   * the strip: opening stays the deliberate act `DEFERRED.md` records, and nothing about a run
+   * finishing takes the canvas' space away from the user. `collapsed` keeps meaning what it meant
+   * — the dock's own dismiss — and it is the second half of this, not the whole of it.
+   */
+  const expanded = computed(() => viewerNodeId() !== undefined && !collapsed(), `${name}.expanded`)
+
   const open = action((nodeId: string) => {
     viewerNodeId.set(nodeId)
     collapsed.set(false)
   }, `${name}.open`)
 
+  /**
+   * `Show output`. From a dock the user put away it is `collapsed.set(false)` and nothing else;
+   * from the strip a settled run raised on its own it is also the moment the viewer adopts
+   * {@link restorableNode}, which is what makes the button the route into the output that `2A`
+   * draws it as. A settled run with nothing to show has no strip, so there is no press to answer.
+   */
   const expand = action(() => {
+    if (viewerNodeId() === undefined) {
+      const node = restorableNode()
+      if (node === undefined) return
+      viewerNodeId.set(node.nodeId)
+    }
     collapsed.set(false)
   }, `${name}.expand`)
 
@@ -320,6 +387,8 @@ export function reatomOutput(
   return {
     viewerNodeId,
     openViewerNode,
+    dockNode,
+    expanded,
     dockStrings,
     logs,
     collapsed,

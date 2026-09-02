@@ -170,6 +170,8 @@ function stubOutput(name: string) {
       () => undefined,
       `${name}.openViewerNode`,
     ),
+    dockNode: computed<WireNodeReportPayload | undefined>(() => undefined, `${name}.dockNode`),
+    expanded: computed(() => viewerNodeId() !== undefined && !collapsed(), `${name}.expanded`),
     dockStrings: computed<{ readonly context: string; readonly summary: string } | undefined>(
       () => undefined,
       `${name}.dockStrings`,
