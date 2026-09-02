@@ -82,7 +82,15 @@ export type RunOutputField =
       /** The mono meta line. Defaults to `formatAssetMeta(asset)`; the artboard reads
        *  `png · 1024² · 412 kb`, whose dimensions no descriptor carries. */
       readonly meta?: string
-      /** The 54px thumbnail. Omitted renders the striped placeholder. */
+      /**
+       * The resolved bytes URL for the 54px thumbnail — `client.assetUrl(asset)`.
+       *
+       * Absent falls through to {@link thumbnail}, and then to the striped placeholder, which is
+       * `ImageFrame`'s own rule for the same situation: a descriptor is not an image until
+       * something turns its `id` into a URL, and the panel never invents one.
+       */
+      readonly src?: string
+      /** The 54px thumbnail, when a caller wants to draw it itself. `src` wins over it. */
       readonly thumbnail?: ReactNode
       readonly onOpen?: () => void
     }

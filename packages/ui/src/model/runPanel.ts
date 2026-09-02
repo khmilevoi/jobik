@@ -1,13 +1,15 @@
 import type { Computed } from '@reatom/core'
-import { action, atom, computed, sleep, withAbort, wrap } from '@reatom/core'
-import type { SafeFlowDescriptorPayload } from '#client/index.js'
+import { action, atom, bind, computed, sleep, withAbort, wrap } from '@reatom/core'
+import type { SafeFlowDescriptorPayload, WireRunReportPayload } from '#client/index.js'
 import type { StackTraceMetaEntry, StackTraceView } from '#modals/index.js'
+import { groupDigits, resolveTypedValueTone } from '#output/index.js'
 import { ACTION_TIMINGS } from '#primitives/index.js'
 import type {
   RunErrorDetail,
   RunInputForm,
   RunLog,
   RunNodeTiming,
+  RunOutputField,
   RunPanelState,
   RunStack,
   RunStackFrame,
@@ -27,7 +29,14 @@ import type { RunSession } from '#studio/runSession.js'
 import { completedNodeCount } from '#studio/runSession.js'
 import { toProse } from '#studio/validation.js'
 import { detached } from './reatom.js'
-import type { InputsModel, RunModel, RunPanelModel, StudioDeps, ValidationModel } from './types.js'
+import type {
+  InputsModel,
+  OutputModel,
+  RunModel,
+  RunPanelModel,
+  StudioDeps,
+  ValidationModel,
+} from './types.js'
 
 /**
  * The dock's body and its one header.
@@ -95,6 +104,92 @@ const NO_PROGRESS = { completedNodes: 0, totalNodes: 0, progress: 0 }
 
 const NO_FRAMES: readonly RunStackFrame[] = []
 const NO_META: readonly StackTraceMetaEntry[] = []
+const NO_OUTPUTS: readonly RunOutputField[] = []
+
+/**
+ * R8 — `Run panel — states`' completed `Outputs` group, built from the report and from nothing else.
+ *
+ * ## What the artboard lists, and what it does not
+ *
+ * The card draws three rows for run `#221` — `image`, `caption`, `url` — while its own `Log` block
+ * one artboard over records a fourth field on the same run: `start1 → emit title, markdown`. So
+ * the group is **every node's output except the entry point's**, and that exclusion is the
+ * artboard's, not an invention: a start node's "output" is the run's input, and `2A` already draws
+ * those two fields as the editable form directly above this section. Listing them again would
+ * print the same two values twice in one panel.
+ *
+ * ## What is filled, and what is left out
+ *
+ * * **`field`** — the output field's own name, from the report.
+ * * **`asset`** — the `AssetDescriptor` the server put in place of the bytes. The view's default
+ *   meta line is `formatAssetMeta`, which is `png · 412 kb`. The artboard's own line is
+ *   `png · 1024² · 412 kb`; **the dimensions are not filled**, because `AssetDescriptor` carries
+ *   `type`, `mime`, `bytes` and `id` and nothing else (`DEFERRED.md`: no dimensions, no colour
+ *   profile, no checksum). No zero, no placeholder — the cell is simply two parts wide.
+ * * **`src`** — `client.assetUrl(descriptor)`, the same URL the output dock's own image reads. Real.
+ * * **`Open`** — opens the output dock on the node that produced the field, which is the one
+ *   affordance the artboard's button can honestly mean here.
+ * * **the typed rows** — every non-asset field, with `resolveTypedValueTone` deciding the accent
+ *   `url` well from the muted text one. That is the output viewer's own rule, reused rather than
+ *   restated, so `cdn.jobik.dev/…` reads the same in both surfaces. `number`/`opaque` have no well
+ *   of their own on this card, so they take the text one, and a number is grouped by `groupDigits`
+ *   exactly as `TypedValueGrid` groups it.
+ *
+ * A field whose value is neither a string nor a number is passed over rather than stringified:
+ * the artboard has one-line and one-paragraph wells and no shape for an object, and `Open` on the
+ * node beside it reaches the viewer that does.
+ */
+function toCompletedOutputs(args: {
+  report: WireRunReportPayload
+  entryNodeId: string
+  assetUrl: (asset: WireRunReportPayload['nodes'][number]['assets'][string]) => string
+  openOutput: (nodeId: string) => void
+}): readonly RunOutputField[] {
+  const nodes = args.report.nodes.filter((node) => node.nodeId !== args.entryNodeId)
+
+  // A field name is unique across the whole run in every showcase flow, and the artboard prints
+  // bare names. Two nodes really can declare the same one, though, and two rows both reading
+  // `url` would be a lie about which node produced which — so a collision, and only a collision,
+  // qualifies both with the node that owns them.
+  const counts = new Map<string, number>()
+  for (const node of nodes) {
+    for (const field of new Set([...Object.keys(node.assets), ...Object.keys(node.output ?? {})])) {
+      counts.set(field, (counts.get(field) ?? 0) + 1)
+    }
+  }
+  const label = (nodeId: string, field: string): string =>
+    (counts.get(field) ?? 0) > 1 ? `${nodeId}.${field}` : field
+
+  const fields: RunOutputField[] = []
+  for (const node of nodes) {
+    // `assets` is read as the authority rather than `output`, even though `serialiseNodeOutput`
+    // writes the descriptor into both: `output` is `null` for a node that produced nothing JSON
+    // could carry, and the bytes it produced are still on `assets`.
+    for (const [field, asset] of Object.entries(node.assets)) {
+      fields.push({
+        kind: 'asset',
+        field: label(node.nodeId, field),
+        asset,
+        src: args.assetUrl(asset),
+        onOpen: () => args.openOutput(node.nodeId),
+      })
+    }
+    for (const [field, value] of Object.entries(node.output ?? {})) {
+      if (node.assets[field] !== undefined) continue
+      if (typeof value === 'number') {
+        fields.push({ kind: 'text', field: label(node.nodeId, field), value: groupDigits(value) })
+        continue
+      }
+      if (typeof value !== 'string') continue
+      fields.push({
+        kind: resolveTypedValueTone(value) === 'url' ? 'url' : 'text',
+        field: label(node.nodeId, field),
+        value,
+      })
+    }
+  }
+  return fields
+}
 
 /** `3C` Modal C's header line — `render · run #220 · 0.8s`. An unnamed node drops its own segment. */
 function traceContext(nodeId: string, runNumber: number, elapsed: string): string {
@@ -170,21 +265,29 @@ function copyRunLog(session: RunSession): void {
 }
 
 /**
- * `_deps` is on the signature and unused: every sub-model factory takes the same three arguments so
- * `reatomStudio` wires them all the same way. This one is a pure projection of the models it is
- * handed and reaches nothing outside them.
+ * `deps` is read for one thing only — `client.assetUrl`, which turns R8's `AssetDescriptor` into the
+ * URL its thumbnail loads. Everything else here is a pure projection of the models this factory is
+ * handed. It performs no request of its own; `assetUrl` composes a path and does not fetch.
  */
 export function reatomRunPanel(
-  _deps: StudioDeps,
+  deps: StudioDeps,
   input: {
     descriptor: Computed<SafeFlowDescriptorPayload | undefined>
     inputs: InputsModel
     run: RunModel
     blocked: ValidationModel['blocked']
+    /** R8's `Open`: the same transition a settled card's `inspect` names, never a second one. */
+    openOutput: OutputModel['open']
   },
   name: string,
 ): RunPanelModel {
   const { descriptor, inputs, run, blocked } = input
+
+  /**
+   * RTM-A04: `onOpen` rides inside model data and is invoked later by a React `onClick`, which runs
+   * outside every frame. The frame is attached here, once, exactly as `model/canvas.tsx` does it.
+   */
+  const openOutput = bind(input.openOutput)
 
   /**
    * Declaration order, which is what the panel lists node timings in — not the traversal order the
@@ -321,12 +424,23 @@ export function reatomRunPanel(
 
   /**
    * The failed card's error block and its `3C` stack, from whichever surface carried the failure:
-   * the run's own `failure`, then the report's error, then a failed node's. Nothing here re-tags or
+   * a failed node's error, then the run's own `failure`, then the report's. Nothing here re-tags or
    * re-humanises what arrived.
    *
    * **It is public because `3C`'s Stack trace dialog is the second reader.** `state`'s failed
    * branch is one; {@link trace} is the other, and both want the same pair rather than two
    * derivations that could disagree about which surface carried the failure.
+   *
+   * ## R9 — the two halves must come from the SAME payload
+   *
+   * This used to search `failure`, then `report.error`, then any node carrying an error, while
+   * `toRunErrorDetail` — the other half of the very same object — searches a **failed** node
+   * first and only then the run-level pair. The two orders are opposites, so a session that has
+   * both (R27's cancel-request failure beside a node that really broke) rendered one error's name
+   * and message over another error's frames, in the panel and in `3C` alike. The predicate below
+   * is `toRunErrorDetail`'s, restated so the pair cannot disagree: the same `status === 'failed'`
+   * filter, which is also what keeps a *skipped* node's `UpstreamFailedError` — a real payload,
+   * carried by every downstream node of a failure — from being read as the failure itself.
    */
   const failedDetail = computed<
     { readonly error: RunErrorDetail; readonly stack: RunStack | undefined } | undefined
@@ -334,9 +448,10 @@ export function reatomRunPanel(
     const failed = _failedSession()
     if (failed === undefined) return undefined
     const payload =
+      [...failed.nodes.values()].find((node) => node.status === 'failed' && node.error !== null)
+        ?.error ??
       failed.failure ??
       failed.report?.error ??
-      [...failed.nodes.values()].find((node) => node.error !== null)?.error ??
       undefined
     return {
       error: toRunErrorDetail(failed),
@@ -359,6 +474,25 @@ export function reatomRunPanel(
     const session = _completedSession()
     return session === undefined ? NO_TAIL : toRunLog(session)
   }, `${name}._completedLog`)
+
+  /**
+   * R8's `Outputs` group, over the completed session's own report.
+   *
+   * Its own computed rather than a branch of `state`, for this file's standing reason: a report
+   * lands once and nothing afterwards touches it, so the rows are built once per settled run and
+   * come back at the same identity for every later read.
+   */
+  const _completedOutputs = computed<readonly RunOutputField[]>(() => {
+    const report = _completedSession()?.report
+    const entryNodeId = inputs.startId()
+    if (report === undefined || entryNodeId === undefined) return NO_OUTPUTS
+    return toCompletedOutputs({
+      report,
+      entryNodeId,
+      assetUrl: (asset) => deps.client.assetUrl(asset),
+      openOutput,
+    })
+  }, `${name}._completedOutputs`)
 
   /** `Studio — default`'s `Last run` block — whatever run is on screen, current start or not. */
   const _lastRun = computed<RunSummary | undefined>(() => {
@@ -436,11 +570,23 @@ export function reatomRunPanel(
 
     if (kind === 'completed') {
       const form = _inputForm()
-      // `2A`, the newest artboard, draws the completed panel as: node timings, the inputs still
-      // shown and still editable, `Re-run start1 ⌘↵`, then `Log` / `tail`. The run's OUTPUTS are
-      // not here — they are in the bottom output dock, which the canvas's `inspect` opens. So
-      // `outputs` is deliberately not passed: passing it would draw the older `Run panel — states`
-      // section as well and the panel would say everything twice.
+      const outputs = _completedOutputs()
+      // R8. Both completed artboards are drawn here, in the order `RunCompletedView` fixes: `2A`'s
+      // timings, editable inputs, `Re-run start1 ⌘↵` and `Log` / `tail`, with `Run panel — states`'
+      // `Outputs` group between the inputs and the primary.
+      //
+      // The two artboards are not in conflict about the *data*, only about where it is reachable
+      // from. `2A` is the newer, and it draws this panel beside an OPEN output dock — a page on
+      // which the run's outputs are already on screen in full. `Run panel — states` draws the same
+      // run's 320px dock standing alone, with no output dock anywhere, and there the panel is the
+      // only place the outputs exist at all. The Studio spends most of its time in the second
+      // situation: `model/output.ts` opens the dock from a settled card's `inspect` and from
+      // nothing else, so a user who has not found that link has, until now, finished a run and
+      // been shown its timings and no result. That is the gap R8 recorded twice.
+      //
+      // The cost is that a page with the dock open states the fields in both places. That is what
+      // the older artboard's own card does, and it is the smaller error of the two: a value
+      // repeated is worse than a value that cannot be found.
       return {
         kind: 'completed',
         runNumber: _runNumber(),
@@ -448,6 +594,7 @@ export function reatomRunPanel(
         nodes: _completedNodes(),
         entryNodeId,
         ...(form === undefined ? {} : { inputs: form }),
+        ...(outputs.length === 0 ? {} : { outputs }),
         log: _completedLog(),
         onRerun: run.runFromDraft,
       }

@@ -27,8 +27,12 @@ function OutputRow(props: { readonly output: RunOutputField }) {
     return (
       <div className={s.assetRow}>
         <div data-testid={`run-output-thumb-${output.field}`} className={s.thumb}>
-          {output.thumbnail ?? (
-            <StripePlaceholder height={runPanelMetrics.thumbnailSize} radius={radii.small} />
+          {output.src === undefined ? (
+            (output.thumbnail ?? (
+              <StripePlaceholder height={runPanelMetrics.thumbnailSize} radius={radii.small} />
+            ))
+          ) : (
+            <img alt={output.field} src={output.src} className={s.thumbImage} />
           )}
         </div>
         <div className={s.assetText}>
@@ -78,11 +82,13 @@ export interface RunCompletedViewProps {
  * start1 ⌘↵`, a divider, and the `Log` / `tail` tail.
  *
  * `Run panel — states`' completed card (lines 836–864) is the older half of the evidence and puts
- * the run's outputs here instead. `2A` moves them to the bottom output dock, so `outputs` is
- * optional: a Studio that has not mounted that dock keeps its outputs reachable, and one that has
- * simply stops passing them. When they are passed, the `Outputs` section sits between the inputs
- * and the primary, which is the one order `07-copy.md` §8 states for a completed panel carrying
- * both.
+ * the run's outputs here as well. R8: the Studio now passes them — `model/runPanel.ts`'s completed
+ * branch says why, and the short version is that `2A` draws this panel beside an *open* output dock
+ * while the standalone card draws it with no dock anywhere, which is where the Studio spends most
+ * of its time. `outputs` stays optional all the same: a run that produced nothing but its own input
+ * draws no section and no divider, rather than an empty heading. When they are passed, the
+ * `Outputs` section sits between the inputs and the primary, which is the one order `07-copy.md` §8
+ * states for a completed panel carrying both.
  *
  * The card's `Completed` header is `RunStateHeader`'s, not this view's.
  */

@@ -144,12 +144,23 @@ describe('the Studio over the publication example', () => {
     await userEvent.type(screen.getByTestId('run-input-markdown'), publicationSampleInput.markdown)
     await userEvent.click(screen.getByTestId('run-start-button'))
 
-    // `2A`'s completed panel ends at `Re-run start1` and the `Log` block; the run's outputs are
-    // in the bottom output dock, not here.
+    // R8 — `Run panel — states`' completed `Outputs` group, over a REAL run of the flow the
+    // artboard draws. The three rows are the artboard's own three, and they are the three the
+    // flow really produces: `imageOut` emits `image` and `caption`, `httpSink` emits `url`. The
+    // start node's `title` and `markdown` are the run's INPUT, drawn as the editable form above,
+    // and are deliberately not listed again.
     await waitFor(() => expect(screen.getByTestId('run-rerun-button')).toBeInTheDocument(), {
       timeout: 30_000,
     })
-    expect(screen.queryByTestId('run-outputs-label')).toBeNull()
+    expect(screen.getByTestId('run-outputs-label')).toHaveTextContent('Outputs')
+    expect(screen.getByTestId('run-output-name-image')).toHaveTextContent('image')
+    // The meta line is `formatAssetMeta`'s two true parts. The artboard's `1024²` is a dimension
+    // no `AssetDescriptor` carries, so it is absent rather than invented.
+    expect(screen.getByTestId('run-output-meta-image').textContent).toMatch(/^png · \d/)
+    expect(screen.getByTestId('run-output-well-caption')).toBeInTheDocument()
+    expect(screen.getByTestId('run-output-well-url')).toBeInTheDocument()
+    expect(screen.queryByTestId('run-output-name-title')).toBeNull()
+    expect(screen.queryByTestId('run-output-name-markdown')).toBeNull()
     // Every node settled ok.
     expect(screen.getByTestId('run-timing-value-publish').textContent).toMatch(/s$/)
 

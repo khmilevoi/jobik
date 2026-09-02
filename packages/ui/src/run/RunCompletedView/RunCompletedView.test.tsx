@@ -52,6 +52,30 @@ describe('RunCompletedView', () => {
     expect(screen.getByTestId('run-output-open-image')).toBeInTheDocument()
   })
 
+  it('loads the resolved asset URL into the thumbnail, and shows the placeholder without one', () => {
+    render(
+      <RunCompletedView
+        state={state({
+          outputs: [
+            {
+              kind: 'asset',
+              field: 'image',
+              asset: { type: 'Buffer', mime: 'image/png', bytes: 421888, id: 'asset-1' },
+              src: '/api/assets/asset-1',
+            },
+          ],
+        })}
+      />,
+    )
+    const image = screen.getByAltText('image')
+    expect(image.getAttribute('src')).toBe('/api/assets/asset-1')
+
+    cleanup()
+    render(<RunCompletedView state={state()} />)
+    expect(screen.queryByAltText('image')).toBeNull()
+    expect(screen.getByTestId('run-output-thumb-image')).toBeInTheDocument()
+  })
+
   it('falls back to the descriptor when no meta line is supplied', () => {
     render(
       <RunCompletedView

@@ -20,6 +20,14 @@
   border-radius: var(--jbk-radius-small);
 }
 
+/* The resolved bytes inside the 54px thumb. `ImageFrame`'s `.image` rule, at this scale. */
+.thumbImage {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .assetText {
   display: flex;
   flex-direction: column;

@@ -198,14 +198,17 @@ describe('running from the panel', () => {
     await userEvent.click(screen.getByTestId('run-start-button'))
 
     // `2A`'s completed panel: node timings, the inputs still editable, `Re-run start1`, then the
-    // `Log` block. The run's OUTPUTS are deliberately NOT here — they live in the bottom output
-    // dock, which the settled card's `inspect` opens.
+    // `Log` block — with `Run panel — states`' `Outputs` group between the inputs and the primary.
+    // R8: the group is drawn from the report, and `model/runPanel.ts`'s completed branch says why
+    // both artboards are honoured rather than one. `start1`'s own output is the run's input and is
+    // not listed twice; `render`'s asset is.
     await waitFor(() => expect(screen.getByTestId('run-rerun-button')).toBeInTheDocument())
     expect(screen.getByTestId('run-log-label')).toHaveTextContent('Log')
     expect(screen.getByTestId('run-log-follow')).toHaveTextContent('tail')
     expect(screen.getByTestId('run-input-title')).toBeInTheDocument()
-    expect(screen.queryByTestId('run-outputs-label')).toBeNull()
-    expect(screen.queryByTestId('run-output-name-image')).toBeNull()
+    expect(screen.getByTestId('run-outputs-label')).toHaveTextContent('Outputs')
+    expect(screen.getByTestId('run-output-name-image')).toHaveTextContent('image')
+    expect(screen.queryByTestId('run-output-name-title')).toBeNull()
     // R30: `RunDock` already draws the dock's one header; `Studio`'s `runPanel` must be `RunPanel`
     // (no header, no card frame), never the standalone `RunPanelCard` — which would stack a second
     // header and a fixed-size card inside the dock.
