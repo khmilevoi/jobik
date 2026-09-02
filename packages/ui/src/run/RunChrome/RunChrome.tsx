@@ -105,11 +105,15 @@ export const RunAction = reatomComponent(function RunAction(props: RunActionProp
 export type RunDotShape = 'round' | 'hollow' | 'square'
 
 /**
- * The three fills a dot can carry. `ok` and `failed` are `statusColors`; `cached` is the `Node
+ * The four fills a dot can carry. `ok` and `failed` are `statusColors`; `cached` is the `Node
  * states` card's `#4a5157` (design 747), which together with the `cached · 0.0s` label is the
  * whole of what distinguishes a cached node from a freshly computed one.
+ *
+ * `cancelled` is R7's, and the only one no artboard draws: a run the user stopped takes the muted
+ * text tone — the same one `RunToast` has always given its cancelled dot — because it is a choice
+ * rather than a fault.
  */
-export type RunDotTone = 'ok' | 'failed' | 'cached'
+export type RunDotTone = 'ok' | 'failed' | 'cached' | 'cancelled'
 
 export interface RunStatusDotProps {
   readonly shape: RunDotShape
@@ -134,6 +138,7 @@ const dotTones = {
   ok: s.toneOk,
   failed: s.toneFailed,
   cached: s.toneCached,
+  cancelled: s.toneCancelled,
 } satisfies Record<RunDotTone, string>
 
 export const RunStatusDot = reatomComponent(function RunStatusDot(props: RunStatusDotProps) {

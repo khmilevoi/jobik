@@ -16,8 +16,15 @@ export type RunDockMetaTone = 'normal' | 'failed'
  * point on the left while a run streams and moves only the right slot, so a spinner in the docked
  * header would state something no Studio artboard does. The standalone `Running` card is
  * `run/RunStateHeader`'s.
+ *
+ * **`cancelled` is here because the engine settles three ways and this header used to name two
+ * (R7).** No artboard draws it — the design speaks about cancelling in exactly one place, `3C`'s
+ * Cancel run dialog, and that dialog treats it as a deliberate act rather than a fault. So the
+ * treatment is the one the dialog implies and `RunToast` already uses: the muted text tone, the
+ * word `cancelled`, and none of the failed header's warm wash. Saying `Run failed` over a
+ * `RunCancelledError` was the app contradicting itself inside one header.
  */
-export type RunDockStatus = 'completed' | 'failed'
+export type RunDockStatus = 'completed' | 'failed' | 'cancelled'
 
 export interface RunDockProps {
   readonly entryNodeId: string
@@ -59,11 +66,13 @@ const metaTone = {
 const statusTitle = {
   completed: 'Completed',
   failed: 'Run failed',
+  cancelled: 'Run cancelled',
 } satisfies Record<RunDockStatus, string>
 
 const statusDotTone = {
   completed: s.statusDotOk,
   failed: s.statusDotFailed,
+  cancelled: s.statusDotCancelled,
 } satisfies Record<RunDockStatus, string>
 
 /**

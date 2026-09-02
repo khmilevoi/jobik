@@ -122,6 +122,23 @@ describe('RunDock — the run state', () => {
     expect(screen.queryByRole('button', { name: 'Collapse run panel' })).toBeNull()
   })
 
+  /**
+   * R7 — the header the acceptance pass caught saying `Run failed` over a `RunCancelledError`.
+   * No artboard draws this state; the word and the muted dot are `RunDockStatus`' recorded call.
+   */
+  it('heads a cancelled run `Run cancelled`, not `Run failed`', () => {
+    render(
+      <RunDock
+        entryNodeId="start1"
+        onCollapse={() => {}}
+        runStatus="cancelled"
+        runMeta="#4 · 0.5s"
+      />,
+    )
+    expect(screen.getByTestId('studio-dock-status').textContent).toBe('Run cancelled')
+    expect(screen.getByTestId('studio-dock-status-dot')).toBeInTheDocument()
+  })
+
   it('drops the chevron for a state that arrived without a run number', () => {
     render(<RunDock entryNodeId="start1" onCollapse={() => {}} runStatus="completed" />)
     expect(screen.queryByTestId('studio-dock-run-meta')).toBeNull()

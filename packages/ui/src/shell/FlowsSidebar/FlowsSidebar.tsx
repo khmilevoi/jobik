@@ -36,14 +36,19 @@ export interface InventoryEntry {
 /**
  * A row of `2A`'s `Run history` section: `#221 2.4s`, `#220 failed`, `#219 2.4s`.
  *
- * A failed run replaces its duration with the word `failed`; a run whose duration is not known
- * shows nothing rather than a synthesised number.
+ * A run that did not finish replaces its duration with its outcome word; a run whose duration is
+ * not known shows nothing rather than a synthesised number.
+ *
+ * **`cancelled` is a third status because the engine settles three (R7).** `2A` draws two, and no
+ * artboard draws a cancelled row at all — but a run the user stopped is not a run that failed, and
+ * printing `failed` for it is the app misreporting its own history. See {@link runMetaWord} for the
+ * treatment and why it is the muted one.
  */
 export interface RunHistoryEntry {
   readonly id: string
   /** `#221` — already `#`-prefixed, exactly as the design writes it. */
   readonly label: string
-  readonly status: 'ok' | 'failed'
+  readonly status: 'ok' | 'failed' | 'cancelled'
   /** e.g. `2.4s`. */
   readonly elapsed?: string
 }
@@ -95,6 +100,30 @@ const dotTone = {
   cached: s.dotCached,
   ok: s.dotOk,
 } satisfies Record<SidebarNodeDotTone, string>
+
+/**
+ * What a row prints where `2A` prints `2.4s`, per outcome — `undefined` meaning *the run's own
+ * duration*, which is the only cell the design actually draws a number in.
+ *
+ * R7's decision, recorded here because no artboard makes it: a cancelled run is drawn in the
+ * muted text tone rather than the error one. `3C`'s Cancel run dialog is the only place the design
+ * speaks about cancelling and it frames it as something the user chose, and `RunToast` — which has
+ * printed `Run #4 cancelled` correctly all along — already gives that outcome the muted dot rather
+ * than a status colour. Reusing the failed tone here would say `this went wrong` in colour while
+ * the word beside it said otherwise.
+ */
+const runMetaWord = {
+  ok: undefined,
+  failed: 'failed',
+  cancelled: 'cancelled',
+} satisfies Record<RunHistoryEntry['status'], string | undefined>
+
+/** Spelled out, not indexed by a computed key — see `cssModuleUsage.test.ts`. */
+const runMetaTone = {
+  ok: s.runMetaPast,
+  failed: s.runMetaFailed,
+  cancelled: s.runMetaCancelled,
+} satisfies Record<RunHistoryEntry['status'], string>
 
 /**
  * A `reatomComponent` with an unchanged prop API. `flows`, `nodes`, `inventory` and `runs` all have
@@ -228,13 +257,12 @@ export const FlowsSidebar = reatomComponent(function FlowsSidebar(props: FlowsSi
             <div className={s.list}>
               {runs.map((run, index) => {
                 const selected = run.id === props.selectedRunId
-                const failed = run.status === 'failed'
                 // F-C5: the history is newest-first, so the head is the row a settling run just
                 // added — the one row the prototype animates. See `.runRowLatest`.
                 const latest = index === 0
-                // `failed` replaces the duration; a run with neither shows no meta at all rather
-                // than a number the wire never carried.
-                const meta = failed ? 'failed' : run.elapsed
+                // The outcome word replaces the duration; a run with neither shows no meta at all
+                // rather than a number the wire never carried.
+                const meta = runMetaWord[run.status] ?? run.elapsed
                 return (
                   <button
                     key={run.id}
@@ -257,7 +285,12 @@ export const FlowsSidebar = reatomComponent(function FlowsSidebar(props: FlowsSi
                         data-testid={`studio-run-meta-${run.id}`}
                         className={cx(
                           s.runMeta,
-                          failed ? s.runMetaFailed : selected ? s.runMetaCurrent : s.runMetaPast,
+                          // A finished run's own duration is the only cell selection recolours;
+                          // an outcome word carries its outcome's tone whether the row is picked
+                          // or not, because that is what the word is there to say.
+                          run.status === 'ok' && selected
+                            ? s.runMetaCurrent
+                            : runMetaTone[run.status],
                         )}
                       >
                         {meta}

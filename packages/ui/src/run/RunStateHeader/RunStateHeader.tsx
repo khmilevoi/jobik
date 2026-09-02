@@ -39,6 +39,17 @@ const titleByKind = {
 } satisfies Record<RunPanelKind, string>
 
 /**
+ * R7 — the one word `titleByKind` cannot say, because it is not a fifth `kind`.
+ *
+ * `RunFailedState.cancelled` splits the failed card in two: the body is identical, and the header
+ * is not. A cancelled run drops the error wash and the failed dot with it — no artboard draws this
+ * state, and `3C`'s Cancel run dialog is the design's only statement about cancelling, which
+ * frames it as something the user chose. `Run failed` over a `RunCancelledError` was the header
+ * contradicting the error well two rows below it.
+ */
+const CANCELLED_TITLE = 'Run cancelled'
+
+/**
  * The 38px header of the `Run panel — states` cards: `Running` (lines 772–778), `Run failed` on the
  * error wash (796–802), `Completed` (831–837), and `Run start1` for the idle card
  * (`Studio — default`, 590–594).
@@ -56,7 +67,8 @@ const titleByKind = {
  */
 export const RunStateHeader = reatomComponent(function RunStateHeader(props: RunStateHeaderProps) {
   const { state } = props
-  const failed = state.kind === 'failed'
+  const cancelled = state.kind === 'failed' && state.cancelled === true
+  const failed = state.kind === 'failed' && !cancelled
 
   const leading =
     state.kind === 'running' ? (
@@ -65,7 +77,7 @@ export const RunStateHeader = reatomComponent(function RunStateHeader(props: Run
       <RunStatusDot
         data-testid="run-state-header-dot"
         shape="square"
-        tone={failed ? 'failed' : 'ok'}
+        tone={cancelled ? 'cancelled' : failed ? 'failed' : 'ok'}
       />
     )
 
@@ -79,12 +91,12 @@ export const RunStateHeader = reatomComponent(function RunStateHeader(props: Run
   return (
     <div
       data-testid="run-state-header"
-      className={cx(s.header, headerByKind[state.kind], props.className)}
+      className={cx(s.header, cancelled ? undefined : headerByKind[state.kind], props.className)}
     >
       <div className={s.leading}>
         {leading}
         <div data-testid="run-state-header-title" className={s.title}>
-          {titleByKind[state.kind]}
+          {cancelled ? CANCELLED_TITLE : titleByKind[state.kind]}
         </div>
         {state.kind !== 'idle' ? null : (
           <div data-testid="run-state-header-entry" className={s.entry}>

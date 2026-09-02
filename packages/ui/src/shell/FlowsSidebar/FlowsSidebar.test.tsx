@@ -92,6 +92,24 @@ describe('FlowsSidebar — run history', () => {
     expect(onSelectRun).toHaveBeenCalledWith('220')
   })
 
+  /**
+   * R7 — the row the acceptance pass caught reading `failed` for a run the user had cancelled,
+   * beside a toast that said `cancelled` for the same report.
+   */
+  it('says `cancelled` for a cancelled run rather than `failed`', () => {
+    render(
+      <FlowsSidebar
+        flows={flows}
+        activeFlowId="publication"
+        nodes={nodes}
+        inventory={inventory}
+        runs={[{ id: '4', label: '#4', status: 'cancelled' }]}
+        onCollapse={() => {}}
+      />,
+    )
+    expect(screen.getByTestId('studio-run-meta-4')).toHaveTextContent('cancelled')
+  })
+
   it('shows no duration for a run that carries none rather than inventing one', () => {
     render(
       <FlowsSidebar

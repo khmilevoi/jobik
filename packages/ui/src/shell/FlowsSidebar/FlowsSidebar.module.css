@@ -297,3 +297,11 @@
 .runMetaFailed {
   color: var(--jbk-status-failed);
 }
+
+/*
+ * R7 — a cancelled run. `RunToast`'s own cancelled dot reads the same token: cancelling is a
+ * deliberate act, so it is drawn in the muted text tone and never in a status colour.
+ */
+.runMetaCancelled {
+  color: var(--jbk-text-muted);
+}

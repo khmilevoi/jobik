@@ -118,3 +118,8 @@
 .toneCached {
   --jbk-run-dot-color: var(--jbk-kind-dot-cached);
 }
+
+/* R7 — a cancelled run, in the muted text tone `RunToast` gives the same outcome. */
+.toneCancelled {
+  --jbk-run-dot-color: var(--jbk-text-muted);
+}

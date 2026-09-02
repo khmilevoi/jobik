@@ -237,6 +237,23 @@ export function reatomRunPanel(
     `${name}._failedSession`,
   )
 
+  /**
+   * R7 — the failed card, but for a run the user stopped rather than one that broke.
+   *
+   * `WireRunReportPayload.status` is `'ok' | 'failed' | 'cancelled'` and `model/toast.ts` has read
+   * the third arm all along; the panel and the history row collapsed it into `failed`, so the same
+   * run said `cancelled` in the toast and `failed` in the two surfaces beside it. Nothing new is
+   * asked of the wire here — this is the report the card is already drawing, read one field wider.
+   *
+   * A session carrying `failure` is excluded: that is a `run-failed` line or a cancel *request*
+   * that itself failed (R27), neither of which is a run that cancelled cleanly.
+   */
+  const _cancelled = computed<boolean>(() => {
+    const failed = _failedSession()
+    if (failed === undefined) return false
+    return failed.failure === undefined && failed.report?.status === 'cancelled'
+  }, `${name}._cancelled`)
+
   const _completedSession = computed<RunSession | undefined>(
     () => (_kind() === 'completed' ? _settled() : undefined),
     `${name}._completedSession`,
@@ -407,6 +424,7 @@ export function reatomRunPanel(
         runNumber: _runNumber(),
         elapsed: _settledElapsed(),
         error: detail.error,
+        ...(_cancelled() ? { cancelled: true } : {}),
         nodes: _failedNodes(),
         entryNodeId,
         ...(detail.stack === undefined ? {} : { stack: detail.stack }),
@@ -479,7 +497,8 @@ export function reatomRunPanel(
       if (kind === 'running') return { text: formatRunMeta(_runNumber()), tone: 'normal' }
       return {
         text: formatRunMeta(_runNumber(), _settledElapsed()),
-        tone: kind === 'failed' ? 'failed' : 'normal',
+        // R7: the failed meta tone is an error colour, and a cancelled run is not an error.
+        tone: kind === 'failed' && !_cancelled() ? 'failed' : 'normal',
       }
     },
     `${name}.meta`,
@@ -509,7 +528,9 @@ export function reatomRunPanel(
   const dockStatus = computed<RunDockStatus | undefined>(() => {
     const kind = _kind()
     if (kind === 'completed') return 'completed'
-    if (kind === 'failed') return 'failed'
+    // R7 — the docked header is the surface the acceptance pass measured saying `Run failed` over
+    // a `RunCancelledError`. `RunDock` owns the word and the tone; this says which of the three.
+    if (kind === 'failed') return _cancelled() ? 'cancelled' : 'failed'
     return undefined
   }, `${name}.dockStatus`)
 

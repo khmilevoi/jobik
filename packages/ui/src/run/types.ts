@@ -189,6 +189,16 @@ export type RunFailedState = {
    *  own — `Re-run` is the whole label. */
   readonly entryNodeId?: string
   readonly error: RunErrorDetail
+  /**
+   * R7 — the run settled because the user cancelled it, not because it broke.
+   *
+   * It is a flag on this state rather than a fifth `kind` because the *body* is unchanged: a
+   * cancelled run has an error payload (`RunCancelledError`), node timings, a log to copy and a
+   * `Re-run`, which is exactly this card. Only the header's word and tone differ, and that is the
+   * whole of what the flag moves — see `RunStateHeader` and `shell/RunDock`'s `RunDockStatus`.
+   * Absent means failed, which is what every caller that never cancels a run already says.
+   */
+  readonly cancelled?: boolean
   readonly nodes: readonly RunNodeTiming[]
   readonly stack?: RunStack
   /**

@@ -163,6 +163,17 @@ const FAILED_REPORT = {
   ],
 } as unknown as WireRunReportPayload
 
+/**
+ * R7's fixture — a run the user cancelled. `RunCancelledError` is what the engine settles it with,
+ * and `status` is the report's own third arm, which `model/toast.ts` has read all along.
+ */
+const CANCELLED_REPORT = {
+  ...REPORT,
+  status: 'cancelled' as const,
+  elapsedMs: 500,
+  error: { _tag: 'RunCancelledError', message: 'The run was cancelled' },
+} as unknown as WireRunReportPayload
+
 /** F02's fixture: a start whose one field the empty draft cannot satisfy. */
 const CONSTRAINED_DESCRIPTOR = {
   ...DESCRIPTOR,
@@ -715,6 +726,37 @@ describe('running from the panel', () => {
               streamOf([
                 { type: 'run-accepted', runToken: 'tok' },
                 { type: 'run-settled', report: FAILED_REPORT },
+              ]),
+          }),
+        ),
+    )
+  })
+
+  /**
+   * R7 — the same settled card, for a run the user stopped rather than one that broke.
+   *
+   * The acceptance pass measured this run saying `Run #4 cancelled` in the toast, `#4 failed` in
+   * the history row and `Run failed` in this header, all at once. The report has carried the third
+   * status all along; the panel is what collapsed it.
+   */
+  it('reports a cancelled run as cancelled, and not in the failed tone', async () => {
+    await inFrame(
+      async ({ panel, run }) => {
+        await wrap(run.start({ title: 'A post' }))
+
+        const state = failedOf(panel.state())
+        expect(state.cancelled).toBe(true)
+        expect(state.error.name).toBe('RunCancelledError')
+        expect(panel.dockStatus()).toBe('cancelled')
+        expect(panel.meta()).toEqual({ text: '#219 · 0.5s', tone: 'normal' })
+      },
+      () =>
+        makeHarness(
+          stubClient({
+            startRun: async () =>
+              streamOf([
+                { type: 'run-accepted', runToken: 'tok' },
+                { type: 'run-settled', report: CANCELLED_REPORT },
               ]),
           }),
         ),

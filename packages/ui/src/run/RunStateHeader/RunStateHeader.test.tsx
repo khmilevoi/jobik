@@ -63,6 +63,21 @@ describe('RunStateHeader', () => {
   })
 
   /**
+   * R7 — the same card, for a run the user stopped. `RunFailedState.cancelled` moves the word and
+   * the dot and nothing else: the body below is still the error well, the timings and `Re-run`.
+   */
+  it('names a cancelled run `Run cancelled` and drops the failed wash with it', () => {
+    render(<RunStateHeader state={FAILED} entryNodeId="start1" />)
+    const failedChrome = screen.getByTestId('run-state-header').className
+    cleanup()
+
+    render(<RunStateHeader state={{ ...FAILED, cancelled: true }} entryNodeId="start1" />)
+    expect(screen.getByTestId('run-state-header-title').textContent).toBe('Run cancelled')
+    expect(screen.getByTestId('run-state-header-meta').textContent).toBe('#220 · 0.8s')
+    expect(screen.getByTestId('run-state-header').className).not.toBe(failedChrome)
+  })
+
+  /**
    * The four-state table is the whole of what separates a failed header from a settled one now
    * that its wash lives in `RunStateHeader.module.css`, so the branch itself is asserted here. The
    * three states the artboards draw alike must stay alike, and `failed` must not join them.

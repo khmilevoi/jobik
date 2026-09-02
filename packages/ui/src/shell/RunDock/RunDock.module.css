@@ -65,6 +65,11 @@
   background: var(--jbk-status-failed);
 }
 
+/* R7 — the muted tone `RunToast` gives the same outcome. See `RunDockStatus`. */
+.statusDotCancelled {
+  background: var(--jbk-text-muted);
+}
+
 /* `Run panel — states` failed (799): `Run failed` is one step warmer than `Completed`. */
 .titleFailed {
   color: var(--jbk-shell-failed-title);
