@@ -346,6 +346,35 @@ describe('switching flows', () => {
     })
   })
 
+  /**
+   * `everLoaded` is the counterpart to the test above, and exists because that clearing is right for
+   * the descriptor and wrong for the listing. `flows()` names no node and no file, so a consumer
+   * that gates it on `descriptor` empties the whole `Flows` section on every switch — and `3E` note
+   * 04's blocked list is a list, drawn at 45%, so there has to be something left to dim.
+   *
+   * The latch is what makes it "held back once" rather than "held back every time": it is read on
+   * every render of the shell, so a switch samples a `true` it already carries rather than the
+   * `descriptor() !== undefined` underneath it.
+   */
+  it('latches everLoaded on the first descriptor and holds it across a switch', async () => {
+    await context.start(async () => {
+      const model = reatomFlows(deps(twoFlowClient()), 'studio.flows')
+      const off = connect(model)
+      expect(model.everLoaded()).toBe(false)
+
+      await wrap(until(() => model.descriptor() !== undefined, 'the first flow'))
+      expect(model.everLoaded()).toBe(true)
+
+      model.selectFlow('pokedex')
+
+      // The descriptor is gone for the length of the load; the listing is not.
+      expect(model.descriptor()).toBeUndefined()
+      expect(model.everLoaded()).toBe(true)
+      expect(model.flows()).toHaveLength(2)
+      off()
+    })
+  })
+
   it('does not let the previous flow’s load land on the flow that replaced it', async () => {
     let resolveFirst: (value: LoadedFlowPayload) => void = () => {}
     const firstGate = new Promise<LoadedFlowPayload>((resolve) => {

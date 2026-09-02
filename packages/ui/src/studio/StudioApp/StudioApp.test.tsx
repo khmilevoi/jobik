@@ -1307,6 +1307,41 @@ describe('switching the active flow', () => {
     expect(screen.queryByTestId('switch-flow-modal')).toBeNull()
   })
 
+  /**
+   * `3E` note 04's blocked list is a list — its `Disabled` column draws the `digest` row and its
+   * count at 45%, not an empty container. `flowsBlocked` is raised for exactly the window this
+   * test holds open, so if the rows are gone the artboard's one blocked state has nothing left to
+   * draw and the user loses the listing on every switch rather than only the row being switched to.
+   */
+  it('keeps every flow row on screen, blocked, while the switch is in flight', async () => {
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    mount(
+      twoFlowClient({
+        loadFlow: async (id: string) => {
+          if (id === 'pokedex') await gate
+          return id === 'pokedex'
+            ? { descriptor: POKEDEX_DESCRIPTOR, document: POKEDEX_DOCUMENT, revision: 'rev-p1' }
+            : { descriptor: DESCRIPTOR, document: DOCUMENT, revision: 'rev-1' }
+        },
+      }),
+    )
+    await waitFor(() => expect(screen.getByTestId('studio-flow-row-pokedex')).toBeInTheDocument())
+
+    await userEvent.click(screen.getByTestId('studio-flow-row-pokedex'))
+    await waitFor(() => expect(screen.getByTestId('studio-flow-row-pokedex')).toBeDisabled())
+
+    // Mid-switch: both rows are still listed, and both answer nothing.
+    expect(screen.getByTestId('studio-flow-row-publication')).toBeInTheDocument()
+    expect(screen.getByTestId('studio-flow-row-publication')).toBeDisabled()
+
+    release()
+    await waitFor(() => expect(screen.getByTestId('studio-top-bar')).toHaveTextContent('pokedex'))
+    expect(screen.getByTestId('studio-flow-row-pokedex')).toBeEnabled()
+  })
+
   it('drops the previous flow run history, output dock and validation strip', async () => {
     mount(
       twoFlowClient({
