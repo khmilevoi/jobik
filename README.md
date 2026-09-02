@@ -91,16 +91,61 @@ pnpm turbo run lint typecheck test build   # the gate; also `pnpm check`
 
 Tests live beside their subject as `*.test.ts(x)`. There is no separate test tree.
 
+## Local install — these packages are not published
+
+Both packages are marked `private`, so `changeset publish` and `npm publish` refuse them by design.
+They are consumed as local tarballs instead: `pnpm pack` applies each manifest's
+`publishConfig.exports`, so the tarball resolves to `dist` the way a registry install would, while
+the in-workspace `exports` keep pointing at `src`.
+
+```sh
+pnpm pack:local   # turbo run build, then both tarballs into .local-packages/ (gitignored)
+```
+
+In the consuming project, point at the tarballs by absolute path. `@jobik/ui`'s own dependency on
+`@jobik/core` is written into its tarball as the plain version `0.1.0`, which no registry can serve,
+so an `overrides` entry has to redirect it to the same file:
+
+```json
+{
+  "dependencies": {
+    "@jobik/core": "file:/abs/path/to/jobik/.local-packages/jobik-core-0.1.0.tgz",
+    "@jobik/ui": "file:/abs/path/to/jobik/.local-packages/jobik-ui-0.1.0.tgz"
+  },
+  "pnpm": {
+    "overrides": {
+      "@jobik/core": "file:/abs/path/to/jobik/.local-packages/jobik-core-0.1.0.tgz"
+    }
+  }
+}
+```
+
+`react`, `react-dom` and `zod` stay the consumer's own dependencies — they are peers here.
+Re-run `pnpm pack:local` after a change, then `pnpm install --force` in the consumer to pick the new
+tarball up.
+
+Note that `pnpm link` and a `file:` pointing at a *directory* both resolve to a symlink, which lands
+on the in-workspace `exports` — `./src/index.ts` — and plain Node cannot load those. Use the
+tarballs.
+
 ## Status
 
 Both packages are at `0.1.0`. Authoring, the flow document, graph validation, execution, the Studio
 components and the whole HTTP surface are implemented and tested.
 
-**There is no way to launch the Studio yet** — from this repository or from the published package.
-`vite build` writes the bundle to `packages/ui/dist/studio`, but no route serves it and no `dev`
-script or `bin` starts the API server. What exists is the API: `@jobik/ui/server` exports
-`loadJobikConfig`, `startJobikServer` and `jobikAllRoutes`, which is enough to stand a server up
-from a script of your own. Do not expect a `pnpm dev`.
+The Studio launches. `jobikStudioAssetRoutes` serves the prebuilt browser bundle from
+`packages/ui/dist/studio` beside the API on one origin, and `@jobik/ui`'s `bin` — `jobik-studio` —
+is the entry point a consumer runs. In this repository the same server runs straight from the
+TypeScript sources:
+
+```sh
+pnpm --filter @jobik/examples run build:client   # the browser bundle, once
+pnpm --filter @jobik/examples run dev:server     # bundle + API on http://127.0.0.1:4318
+```
+
+`dev:client` beside it (`pnpm --filter @jobik/examples run dev:client`) gives the browser bundle
+hot reload while `dev:server` keeps serving the API. The configuration both read is
+`examples/showcase/jobik.config.ts`.
 
 The run event stream also carries no per-node progress: a consumer following a run learns how far
 the whole run has come, not how far any single node has.
