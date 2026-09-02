@@ -61,8 +61,8 @@ export interface FlowsSidebarProps {
   readonly selectedNodeId?: string
   /**
    * Points the run panel at another of the flow's declared starts — the same move a click on a
-   * start card on the canvas makes. Reachable only from the `Start` section, which itself only
-   * draws once the flow declares more than one start; see that section's own comment.
+   * start card on the canvas makes. Reachable only from the `Start` section, which draws for
+   * every flow that declares at least one start; see that section's own comment.
    */
   readonly onSelectStart?: (nodeId: string) => void
   /** The flow's node definitions. Read-only reference in v1 — nodes cannot be added from it. */
@@ -102,6 +102,8 @@ export const FlowsSidebar = reatomComponent(function FlowsSidebar(props: FlowsSi
   const onSelectFlow = props.onSelectFlow
   const onSelectStart = props.onSelectStart
   const startNodes = props.nodes.filter((node) => node.kind === 'start')
+  // A start already has its own row in the `Start` section below, so it never repeats here.
+  const listNodes = props.nodes.filter((node) => node.kind !== 'start')
 
   return (
     <div data-testid="studio-sidebar" className={s.sidebar}>
@@ -135,12 +137,11 @@ export const FlowsSidebar = reatomComponent(function FlowsSidebar(props: FlowsSi
 
         {/*
           The flow's declared starts, ahead of the full node list — clicking one moves the run
-          panel's entry point, exactly as clicking a start card on the canvas does. Drawn only
-          past the first: a single-start flow already names its one start in the row below, and
-          every artboard shows exactly that flow, so this section would draw a single redundant
-          row for every flow the design was checked against.
+          panel's entry point, exactly as clicking a start card on the canvas does. A start never
+          appears twice: `listNodes` below excludes every `kind: 'start'` node, so this section is
+          the only place a start row is drawn, single-start flows included.
         */}
-        {startNodes.length <= 1 ? null : (
+        {startNodes.length === 0 ? null : (
           <>
             <SectionLabel className={s.groupLabel}>Start</SectionLabel>
             <div className={s.list}>
@@ -169,7 +170,7 @@ export const FlowsSidebar = reatomComponent(function FlowsSidebar(props: FlowsSi
           Nodes in {activeFlow?.name ?? props.activeFlowId}
         </SectionLabel>
         <div className={s.list}>
-          {props.nodes.map((node) => {
+          {listNodes.map((node) => {
             const selected = node.id === props.selectedNodeId
             return (
               <div

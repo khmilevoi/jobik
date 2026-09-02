@@ -144,7 +144,7 @@ describe('the loaded Studio', () => {
     await waitFor(() =>
       expect(screen.getByTestId('studio-flow-row-publication')).toBeInTheDocument(),
     )
-    expect(screen.getByTestId('studio-node-row-start1')).toBeInTheDocument()
+    expect(screen.getByTestId('studio-start-row-start1')).toBeInTheDocument()
     expect(screen.getByTestId('studio-node-row-render')).toBeInTheDocument()
     expect(screen.getByTestId('studio-inventory-row-imageOut')).toBeInTheDocument()
   })
@@ -1236,7 +1236,7 @@ describe('switching the active flow', () => {
 
     await waitFor(() => expect(screen.getByTestId('studio-top-bar')).toHaveTextContent('pokedex'))
     // The graph really changed: the previous flow's nodes are gone and this one's are listed.
-    expect(await screen.findByTestId('studio-node-row-byName')).toBeInTheDocument()
+    expect(await screen.findByTestId('studio-start-row-byName')).toBeInTheDocument()
     expect(screen.queryByTestId('studio-node-row-render')).toBeNull()
     // `3F` guards a switch that would lose something; a clean draft and no run loses nothing, so
     // the common case never sees a dialog.
@@ -1312,7 +1312,7 @@ describe('switching the active flow', () => {
     expect(screen.queryByTestId('studio-running-chip')).toBeNull()
 
     release()
-    await waitFor(() => expect(screen.getByTestId('studio-node-row-byName')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByTestId('studio-start-row-byName')).toBeInTheDocument())
 
     // The stream ran to its terminal line and none of it reached the new flow's panel.
     expect(screen.queryByTestId('studio-run-row-219')).toBeNull()
@@ -1548,11 +1548,13 @@ describe('3F — switching away from an unsaved draft', () => {
 })
 
 describe('choosing a start', () => {
-  it('draws no Start section in the sidebar for the single-start flow every artboard draws', async () => {
+  it('lists the single start in the sidebar too, out of the node list below', async () => {
     mount(twoFlowClient())
     await waitFor(() => expect(screen.getByTestId('run-start-button')).toBeInTheDocument())
 
-    expect(screen.queryByText('Start')).not.toBeInTheDocument()
+    expect(screen.getByText('Start')).toBeInTheDocument()
+    expect(screen.getByTestId('studio-start-row-start1')).toBeInTheDocument()
+    expect(screen.queryByTestId('studio-node-row-start1')).not.toBeInTheDocument()
   })
 
   it('lists every declared start in the sidebar once there is more than one, and re-seeds the inputs on a change', async () => {

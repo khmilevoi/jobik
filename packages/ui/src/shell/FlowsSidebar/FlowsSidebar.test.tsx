@@ -110,8 +110,9 @@ describe('FlowsSidebar — run history', () => {
 
 /**
  * The `Start` section: every declared start, ahead of the full node list, clickable to move the
- * run panel's entry point. Drawn only once the flow declares more than one — a single-start flow
- * already names its one start in the node list below, so this section would draw one redundant row.
+ * run panel's entry point. Drawn for every flow that declares at least one start — a start never
+ * appears in the node list below, single-start flows included, so it would otherwise vanish rather
+ * than merely duplicate.
  */
 describe('FlowsSidebar — start nodes', () => {
   const twoStarts = [
@@ -120,9 +121,11 @@ describe('FlowsSidebar — start nodes', () => {
     { id: 'render', kind: 'transform', dot: 'neutral' as const },
   ]
 
-  it('draws nothing for the single-start flow every artboard shows', () => {
+  it('lists the single start too, out of the node list below', () => {
     renderSidebar()
-    expect(screen.queryByText('Start')).not.toBeInTheDocument()
+    expect(screen.getByText('Start')).toBeInTheDocument()
+    expect(screen.getByTestId('studio-start-row-start1')).toBeInTheDocument()
+    expect(screen.queryByTestId('studio-node-row-start1')).not.toBeInTheDocument()
   })
 
   it('lists every declared start once there is more than one, marking the selected one', () => {
@@ -209,22 +212,21 @@ describe('FlowsSidebar', () => {
         flows={flows}
         activeFlowId="publication"
         nodes={[
-          { id: 'start1', kind: 'start', dot: 'ok' },
-          { id: 'render', kind: 'transform', dot: 'start' },
+          { id: 'render', kind: 'transform', dot: 'ok' },
+          { id: 'publish', kind: 'sink', dot: 'start' },
         ]}
         selectedNodeId="render"
         inventory={inventory}
         onCollapse={() => {}}
       />,
     )
-    expect(screen.getByTestId('studio-node-dot-start1')).toBeInTheDocument()
     expect(screen.getByTestId('studio-node-dot-render')).toBeInTheDocument()
+    expect(screen.getByTestId('studio-node-dot-publish')).toBeInTheDocument()
   })
 
-  it('lists every node with its kind and dot, marking the selected one', () => {
+  it('lists every node with its kind and dot, marking the selected one, starts excluded', () => {
     renderSidebar()
-    expect(screen.getByTestId('studio-node-row-start1')).toHaveTextContent('start1start')
-    expect(screen.getByTestId('studio-node-dot-start1')).toBeInTheDocument()
+    expect(screen.queryByTestId('studio-node-row-start1')).not.toBeInTheDocument()
     expect(screen.getByTestId('studio-node-row-render')).toHaveTextContent('rendertransform')
     expect(screen.getByTestId('studio-node-dot-render')).toBeInTheDocument()
   })
@@ -242,13 +244,15 @@ describe('FlowsSidebar', () => {
    * panel offers is: collapse, plus one button per flow, and nothing else — the node rows and the
    * inventory rows are still inert, which is what the old test was really protecting.
    */
-  it('offers collapse and one button per flow, and no other interaction', () => {
+  it('offers collapse, one button per flow, one per start, and no other interaction', () => {
     renderSidebar()
-    expect(screen.getAllByRole('button')).toHaveLength(1 + flows.length)
+    // Collapse, one row per flow, and one row for the fixture's single start.
+    expect(screen.getAllByRole('button')).toHaveLength(1 + flows.length + 1)
     for (const flow of flows) {
       expect(screen.getByTestId(`studio-flow-row-${flow.id}`).tagName).toBe('BUTTON')
     }
-    expect(screen.getByTestId('studio-node-row-start1').tagName).not.toBe('BUTTON')
+    expect(screen.getByTestId('studio-start-row-start1').tagName).toBe('BUTTON')
+    expect(screen.getByTestId('studio-node-row-render').tagName).not.toBe('BUTTON')
     expect(screen.getByTestId('studio-inventory-row-markdown').tagName).not.toBe('BUTTON')
   })
 

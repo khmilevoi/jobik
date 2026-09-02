@@ -223,6 +223,13 @@ export interface FlowsModel {
   /** `loaded` narrowed to the descriptor. `undefined` while loading and on a failed load. */
   readonly descriptor: Computed<SafeFlowDescriptorPayload | undefined>
   /**
+   * `true` from the render `descriptor` first lands onward, and never reverts. `flows()` depends on
+   * no one flow's document, so a consumer reads this to decide whether it may show `flows()` yet —
+   * held back on the very first mount, exactly like `descriptor`, `nodes` and `inventory`, but never
+   * held back again on a later switch the way those three still are.
+   */
+  readonly everLoaded: Atom<boolean>
+  /**
    * `## UI and persistence`'s other half of the conflict offer: take what is on disk.
    *
    * It resolves a **document** conflict, and the draft is the whole of what it discards. The typed

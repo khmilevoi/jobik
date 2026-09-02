@@ -135,9 +135,20 @@ const StudioAppBody = reatomComponent(function StudioAppBody(props: StudioAppBod
   const requestSave = useAction(save.save)
 
   /**
-   * `flows`, the node rows and the inventory are held back until the descriptor has landed too.
-   * Discovery and load are two units (R5), so the listing and the id settle ahead of `descriptor`,
-   * and naming the flow before its own document has resolved would flash a half-loaded shell.
+   * The node rows and the inventory are held back until the descriptor has landed. Discovery and
+   * load are two units (R5), so the listing and the id settle ahead of `descriptor`, and naming a
+   * flow's nodes before its own document has resolved would flash the previous flow's graph under
+   * the new flow's name.
+   *
+   * `flows` used to be held back the same way, which was wrong in a different direction: `flowId`
+   * (and so `flows.flows()`, which seeds it — see `model/flows.ts`) always settles a full
+   * `GET /api/flows/:id` round trip ahead of `descriptor`, so gating `flows` on `descriptor` blanked
+   * the sidebar's whole `Flows` section — every row, not just the switching flow's — for the length
+   * of every switch. `flows.flows()` names no node and no file, so nothing about it depends on which
+   * flow's document has resolved; only the very first reveal has to wait, so the initial mount does
+   * not flash the list before the rest of the shell is ready. `flows.everLoaded` (RTM-S02: a model
+   * derivation, not component state) latches true the render `descriptor` first lands and never
+   * reverts, which is the difference between "held back once" and "held back every time".
    *
    * They are memoised because this component re-renders on every stream frame that moves anything
    * it reads, and none of the three has anything to do with a run. It no longer re-renders on the
@@ -145,14 +156,16 @@ const StudioAppBody = reatomComponent(function StudioAppBody(props: StudioAppBod
    * moves is the chip. `runMeta` prints an elapsed too, but a settled one — the report's own number,
    * which lands once.
    */
+  const flowsReady = descriptor !== undefined || flows.everLoaded()
+
   const flowList = flows.flows()
   const sidebar = useMemo(
     () => ({
-      flows: descriptor === undefined ? [] : toFlowSummaries(flowList),
+      flows: flowsReady ? toFlowSummaries(flowList) : [],
       nodes: descriptor === undefined ? [] : toFlowNodeSummaries(descriptor),
       inventory: descriptor === undefined ? [] : toInventory(descriptor),
     }),
-    [descriptor, flowList],
+    [flowsReady, descriptor, flowList],
   )
 
   const assetUrl = useMemo(
@@ -231,7 +244,7 @@ const StudioAppBody = reatomComponent(function StudioAppBody(props: StudioAppBod
       <Studio
         {...(props.accent === undefined ? {} : { accent: props.accent })}
         flows={sidebar.flows}
-        {...(descriptor !== undefined && flowId !== undefined ? { activeFlowId: flowId } : {})}
+        {...(flowsReady && flowId !== undefined ? { activeFlowId: flowId } : {})}
         onSelectFlow={requestFlow}
         {...(descriptor === undefined ? {} : { flowFile: descriptor.sourceFile })}
         dirty={draft.dirty()}
