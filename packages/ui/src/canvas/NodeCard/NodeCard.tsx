@@ -1,5 +1,6 @@
 import { reatomComponent } from '@reatom/react'
 import type { Node, NodeProps } from '@xyflow/react'
+import type { ReactNode } from 'react'
 import { resolveCardChrome, resolveCardWidth } from '#canvas/cardChrome.js'
 import { fieldHandleId } from '#canvas/fields.js'
 import { NodeCardHeader } from '#canvas/NodeCardHeader/NodeCardHeader.js'
@@ -7,7 +8,12 @@ import { NodeFieldRow } from '#canvas/NodeFieldRow/NodeFieldRow.js'
 import { NodeOutputSlot } from '#canvas/NodeOutputSlot/NodeOutputSlot.js'
 import { NodeStateBody } from '#canvas/NodeStateBody/NodeStateBody.js'
 import { applyNodeOverlay } from '#canvas/overlay.js'
-import type { HandleDirection, NodeCardData, NodeFieldSpec } from '#canvas/types.js'
+import type {
+  HandleDirection,
+  NodeCardData,
+  NodeFieldSpec,
+  NodeOutputSlotSpec,
+} from '#canvas/types.js'
 import { cx, type StyleWithVars } from '#cx.js'
 import { useStudioModel } from '#model/context.js'
 import { SectionLabel } from '#primitives/index.js'
@@ -17,6 +23,13 @@ import s from './NodeCard.module.css'
 export interface NodeCardProps {
   readonly data: NodeCardData
 }
+
+/**
+ * What a running node puts in its reserved region — the shimmering well of
+ * `Studio — run in progress` (design 1768), and nothing else. Module-level so the object identity
+ * is stable across renders.
+ */
+const SKELETON_SLOT: NodeOutputSlotSpec = { skeleton: true }
 
 /** `0.62` -> `'62%'`, without the floating-point tail `0.62 * 100` leaves behind. */
 function progressWidth(progress: number): string {
@@ -96,6 +109,53 @@ export const NodeCard = reatomComponent(function NodeCard(props: NodeCardProps) 
       ? undefined
       : { '--jbk-node-progress': progressWidth(data.progress) }
 
+  /**
+   * `4A` Node state, the box half: *"Colour is the only thing that moves — border, dot and glow
+   * ease together while the node keeps its exact box, so a running graph never reflows."*
+   *
+   * A card on the canvas therefore reserves ONE region for everything a run has to show, always in
+   * the same place — between the input and output sections, where `Studio — run in progress`
+   * (design 1768) and `Studio — default` (design 1417) both put the well — and always at the same
+   * height. `queued`, `running` and `ok` fill it with different content and measure the same, so a
+   * result arriving moves nothing.
+   *
+   * The three fillings are all the design's own. `ok` is the settled slot the model builds.
+   * `running` is the shimmering well the run-in-progress artboard draws in exactly that place, with
+   * no label: the pulsing `rasterising 1024×1024` beside it is node-specific data nothing on the
+   * wire carries, and inventing it is what `DECISIONS.md` D8 forbids. `queued` is the `Waiting on …`
+   * block, which the `Node states` tile draws — here it sits in the reserved region rather than
+   * below the outputs, because a state may change what fills the box and not where the box is.
+   *
+   * A card with NO field sections is a `Node states` catalogue tile rather than a node on a graph:
+   * it has no slot position to reserve, nothing around it to reflow, and the artboard draws its
+   * five cards at five different heights on purpose. Those keep the old layout exactly.
+   */
+  const hasSections = inputs.length > 0 || outputs.length > 0
+  const runRegion = ((): ReactNode | undefined => {
+    if (!hasSections) return undefined
+    if (data.outputSlot !== undefined) {
+      return <NodeOutputSlot slot={data.outputSlot} captionColor={captionColor} />
+    }
+    if (data.detail?.kind === 'queued') {
+      return <NodeStateBody detail={data.detail} captionColor={captionColor} />
+    }
+    if (data.state === 'running') {
+      return <NodeOutputSlot slot={SKELETON_SLOT} captionColor={captionColor} />
+    }
+    return undefined
+  })()
+
+  /**
+   * The body that still sits BELOW the output section. The failed treatment stays there and stays
+   * unreserved: it is a terminal state whose error well and two actions have to size to their own
+   * content, and the `Node states` artboard draws that card taller than the rest on purpose. Every
+   * other body has moved into the reserved region above, so it is not drawn twice.
+   */
+  const detailBelow =
+    data.detail === undefined || (runRegion !== undefined && data.detail.kind !== 'failed')
+      ? undefined
+      : data.detail
+
   return (
     <div
       data-testid={`node-card-${data.id}`}
@@ -129,8 +189,14 @@ export const NodeCard = reatomComponent(function NodeCard(props: NodeCardProps) 
         />
       )}
 
-      {data.outputSlot === undefined ? null : (
-        <NodeOutputSlot slot={data.outputSlot} captionColor={captionColor} />
+      {runRegion === undefined ? (
+        data.outputSlot === undefined ? null : (
+          <NodeOutputSlot slot={data.outputSlot} captionColor={captionColor} />
+        )
+      ) : (
+        <div data-testid="node-run-region" className={s.runRegion}>
+          {runRegion}
+        </div>
       )}
 
       {outputs.length === 0 ? null : (
@@ -144,8 +210,8 @@ export const NodeCard = reatomComponent(function NodeCard(props: NodeCardProps) 
         />
       )}
 
-      {data.detail === undefined ? null : (
-        <NodeStateBody detail={data.detail} captionColor={captionColor} />
+      {detailBelow === undefined ? null : (
+        <NodeStateBody detail={detailBelow} captionColor={captionColor} />
       )}
 
       {inputs.length === 0 && outputs.length === 0 ? null : (

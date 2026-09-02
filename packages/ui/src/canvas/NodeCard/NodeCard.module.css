@@ -63,6 +63,23 @@
   background: var(--jbk-accent);
 }
 
+/*
+ * `4A` Node state: *"the node keeps its exact box, so a running graph never reflows."*
+ *
+ * One region, one height, in the inline slot's own position. Whatever the run has to show goes in
+ * here — the queued waiting block, the running skeleton well, the settled output — so `queued`,
+ * `running` and `ok` measure the same and a result arriving moves no edge. The height is the slot's
+ * own footprint (gutter, well, gutter), which is what both `Studio — run in progress` and
+ * `Studio — default` draw in that place.
+ *
+ * `overflow: hidden` is what makes it a reservation rather than a suggestion: a taller body is
+ * clipped instead of pushing the card, so no content a flow supplies can reintroduce the reflow.
+ */
+.runRegion {
+  height: var(--jbk-canvas-run-region-height);
+  overflow: hidden;
+}
+
 .footer {
   height: var(--jbk-layout-card-footer-height);
 }

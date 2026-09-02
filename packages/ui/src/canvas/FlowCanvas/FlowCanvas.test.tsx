@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import type { ReactElement } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { canvasColors } from '#canvas/canvasTokens.js'
@@ -374,5 +374,54 @@ describe('FlowCanvas — the 240ms flow switch', () => {
     mountCanvas(<FlowCanvas nodes={nodes} edges={edges} startNodeId="start1" />)
     await screen.findByTestId('flow-graph')
     expect(graph()).not.toHaveAttribute('data-entering')
+  })
+
+  /**
+   * The departure. `4A`'s own tile (design 177-183) stacks two absolutely-positioned layers and
+   * cross-fades them at once, so the canvas keeps the graph it is leaving on screen for the length
+   * of the change instead of dropping it in the same tick the new one mounts.
+   *
+   * What matters behaviourally — and what these cases pin — is that the ghost appears only on a
+   * genuine switch, carries the OUTGOING graph rather than the incoming one, and is always
+   * released. jsdom applies no stylesheet, so the measured exit is `0` there and the release is
+   * immediate; that is exactly the `prefers-reduced-motion` path, where nothing may be stranded.
+   */
+  it('keeps the outgoing graph on screen for its exit, then releases it', async () => {
+    const other: FlowCanvasNode[] = [
+      { id: 'lookup', position: { x: 0, y: 0 }, data: { id: 'lookup', state: 'idle' } },
+    ]
+    const { rerender } = mountCanvas(
+      <FlowCanvas nodes={nodes} edges={edges} startNodeId="start1" flowId="publication" />,
+    )
+    await waitFor(() => expect(graph()).not.toHaveAttribute('data-entering'))
+    expect(screen.queryByTestId('flow-graph-ghost')).toBeNull()
+
+    rerender(<FlowCanvas nodes={other} edges={[]} flowId="pokedex" />)
+
+    // The graph the user was looking at is still drawn — and it is the OLD one, while the live
+    // layer already carries the new document. Nothing waited for it.
+    const ghost = screen.getByTestId('flow-graph-ghost')
+    expect(within(ghost).getByTestId('node-card-render')).toBeInTheDocument()
+    expect(ghost).toHaveAttribute('aria-hidden', 'true')
+    expect(within(graph()).getByTestId('node-card-lookup')).toBeInTheDocument()
+
+    await waitFor(() => expect(screen.queryByTestId('flow-graph-ghost')).toBeNull())
+  })
+
+  it('leaves no ghost behind on a rebuilt array, which is not a screen change', async () => {
+    const { rerender } = mountCanvas(
+      <FlowCanvas nodes={nodes} edges={edges} startNodeId="start1" flowId="publication" />,
+    )
+    await waitFor(() => expect(graph()).not.toHaveAttribute('data-entering'))
+
+    rerender(
+      <FlowCanvas
+        nodes={[...nodes]}
+        edges={[...edges]}
+        startNodeId="start1"
+        flowId="publication"
+      />,
+    )
+    expect(screen.queryByTestId('flow-graph-ghost')).toBeNull()
   })
 })

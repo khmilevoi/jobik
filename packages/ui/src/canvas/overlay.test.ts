@@ -83,4 +83,39 @@ describe('applyNodeOverlay', () => {
     expect(decorated.detail).toEqual({ kind: 'queued', waitingOn: 'render.image' })
     expect(decorated.outputSlot).toEqual({ source: 'imageOut' })
   })
+
+  /**
+   * `4A` Node state: *"the node keeps its exact box, so a running graph never reflows."* The width
+   * is the half of the box a run could change without touching a stylesheet — `resolveCardWidth`
+   * answers 316 for any card carrying an inline slot — so it is resolved from the structure and
+   * pinned here, and these are the three cases that would otherwise move a node.
+   */
+  describe('the pinned width', () => {
+    it('keeps a plain card at its structural width when the run adds an output slot', () => {
+      expect(
+        applyNodeOverlay(CARD, { state: 'ok', outputSlot: { source: 'imageOut' } }),
+      ).toMatchObject({ width: 236 })
+    })
+
+    it('reports the same width in every state a run puts one node through', () => {
+      const widths = [
+        applyNodeOverlay(CARD, { state: 'queued', detail: { kind: 'queued', waitingOn: 'x.y' } }),
+        applyNodeOverlay(CARD, RUNNING),
+        applyNodeOverlay(CARD, { state: 'ok', outputSlot: { source: 'imageOut' } }),
+      ].map((card) => card.width)
+      expect(new Set(widths).size).toBe(1)
+    })
+
+    it('leaves a card AUTHORED with a slot at the artboard’s 316 — a node kind, not a state', () => {
+      const authored: NodeCardData = { ...CARD, outputSlot: { source: 'imageOut' } }
+      expect(applyNodeOverlay(authored, RUNNING)).toMatchObject({ width: 316 })
+    })
+
+    it('never overrides a width the caller stated outright', () => {
+      const stated: NodeCardData = { ...CARD, width: 264 }
+      expect(applyNodeOverlay(stated, { state: 'ok', outputSlot: {} })).toMatchObject({
+        width: 264,
+      })
+    })
+  })
 })

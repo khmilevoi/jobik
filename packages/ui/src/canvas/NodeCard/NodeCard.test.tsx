@@ -570,3 +570,92 @@ describe('NodeCard — reading its own overlay', () => {
     expect(renders.get('publish') ?? 0).toBe(0)
   })
 })
+
+/**
+ * `4A` Node state — *"Colour is the only thing that moves — border, dot and glow ease together
+ * while the node keeps its exact box, so a running graph never reflows."*
+ *
+ * The height half of that promise is structural, not stylistic: a card on a graph reserves ONE
+ * region for whatever the run has to show and fills it differently per state, instead of mounting
+ * and unmounting the blocks that carry it. So what is asserted here is which element exists in
+ * which state — the region's own size is the stylesheet's, and `.runRegion` is what fixes it.
+ *
+ * `.design/raw/demo.dc.html:566-586` is the tiebreaker behind this: the prototype steps one node
+ * through `queued -> running -> ok/failed` on a `700 + i*200` ms cadence and its card body is
+ * identical in all four — `width: n.w` is the node's own, never the state's, and only `border`,
+ * `glow`, `headBg`, `dot` and the status text are state-derived.
+ */
+describe('NodeCard — the reserved run region', () => {
+  const withSections = (data: Partial<NodeCardData>): NodeCardData => ({
+    id: 'render',
+    state: 'idle',
+    inputs: [{ name: 'title', annotation: 'string' }],
+    outputs: [{ name: 'image', annotation: 'Buffer' }],
+    ...data,
+  })
+
+  it('reserves the region in every state a run puts one node through', () => {
+    const cases: readonly NodeCardData[] = [
+      withSections({ state: 'queued', detail: { kind: 'queued', waitingOn: 'render.image' } }),
+      withSections({ state: 'running', progress: 0.62 }),
+      withSections({ state: 'ok', outputSlot: { source: 'imageOut' } }),
+    ]
+    for (const data of cases) {
+      const { unmount } = mountCard(<NodeCard data={data} />)
+      expect(screen.getByTestId('node-run-region')).toBeInTheDocument()
+      unmount()
+    }
+  })
+
+  it('gives a running node the artboard’s shimmering well, and no invented label', () => {
+    mountCard(<NodeCard data={withSections({ state: 'running', progress: 0.62 })} />)
+    const region = screen.getByTestId('node-run-region')
+    expect(within(region).getByTestId('node-output-media')).toBeInTheDocument()
+    expect(within(region).queryByTestId('node-output-skeleton-label')).toBeNull()
+  })
+
+  it('puts the queued block inside the region rather than below the outputs', () => {
+    mountCard(
+      <NodeCard
+        data={withSections({
+          state: 'queued',
+          detail: { kind: 'queued', waitingOn: 'render.image' },
+        })}
+      />,
+    )
+    const region = screen.getByTestId('node-run-region')
+    expect(within(region).getByTestId('node-state-queued')).toBeInTheDocument()
+    expect(screen.getAllByTestId('node-state-queued')).toHaveLength(1)
+  })
+
+  it('leaves the failed body unreserved — it has to size to its own error well', () => {
+    mountCard(
+      <NodeCard
+        data={withSections({
+          state: 'failed',
+          detail: { kind: 'failed', errorName: 'ImageRenderError', message: 'bad profile' },
+        })}
+      />,
+    )
+    expect(screen.queryByTestId('node-run-region')).toBeNull()
+    expect(screen.getByTestId('node-state-failed')).toBeInTheDocument()
+  })
+
+  it('reserves nothing on an idle card, or on a Node states tile with no field sections', () => {
+    const { unmount } = mountCard(<NodeCard data={withSections({ state: 'idle' })} />)
+    expect(screen.queryByTestId('node-run-region')).toBeNull()
+    unmount()
+
+    mountPlain(
+      <NodeCard
+        data={{
+          id: 'publish',
+          state: 'queued',
+          detail: { kind: 'queued', waitingOn: 'render.image' },
+        }}
+      />,
+    )
+    expect(screen.queryByTestId('node-run-region')).toBeNull()
+    expect(screen.getByTestId('node-state-queued')).toBeInTheDocument()
+  })
+})

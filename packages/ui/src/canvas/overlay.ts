@@ -1,4 +1,5 @@
 import type { NodeOverlay } from '#studio/graphModel.js'
+import { resolveCardWidth } from './cardChrome.js'
 import type { NodeCardData, NodeFieldSpec } from './types.js'
 
 /**
@@ -28,6 +29,19 @@ export function applyNodeOverlay(
   if (overlay === undefined) return data
   return {
     ...data,
+    /**
+     * `4A` Node state: *"the node keeps its exact box, so a running graph never reflows."*
+     *
+     * The width is resolved from the STRUCTURAL card — the one a document describes — and pinned
+     * before the overlay is folded in, so an `outputSlot` a run adds can never widen the node.
+     * Without this the settled card jumped 236 -> 316 on the frame its result arrived, dragging
+     * every edge attached to it, which is the reflow the artboard forbids.
+     *
+     * `resolveCardWidth` still reads `outputSlot` for a card that was AUTHORED with one — the
+     * `Node states` tiles, and any caller that hands the slot over itself. Different node kinds may
+     * legitimately differ in size; one node changing state may not.
+     */
+    width: resolveCardWidth(data),
     state: overlay.state,
     ...(data.inputs === undefined
       ? {}

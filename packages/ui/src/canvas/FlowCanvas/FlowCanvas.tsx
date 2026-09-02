@@ -7,6 +7,7 @@ import {
   type NodeChange,
   Position,
   ReactFlow,
+  type Viewport,
 } from '@xyflow/react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { canvasColors, canvasMetrics } from '#canvas/canvasTokens.js'
@@ -133,6 +134,28 @@ export function toReactFlowEdges(
   })
 }
 
+/** The graph the canvas has just left, kept alive only for the length of its exit. */
+interface GraphGhost {
+  readonly key: string
+  readonly nodes: JobikFlowNode[]
+  readonly edges: FieldEdgeType[]
+  readonly viewport: Viewport
+}
+
+/**
+ * How long the ghost may linger, read off its own computed style rather than assumed.
+ *
+ * `prefers-reduced-motion` zeroes `--jbk-motion-duration-screen`, and an environment with no
+ * stylesheet at all — jsdom, and so every test in this package — reports nothing; both answer `0`,
+ * so the ghost is dropped on the next tick instead of hanging around invisibly. This is the same
+ * measurement `ModalShell` makes for the 120 ms overlay exit.
+ */
+function exitDurationMs(element: Element): number {
+  const declared = globalThis.getComputedStyle?.(element).transitionDuration ?? ''
+  const seconds = Number.parseFloat(declared)
+  return Number.isFinite(seconds) ? seconds * 1000 : 0
+}
+
 /**
  * The graph canvas. Positions live here while a drag is in flight, because React Flow needs to
  * move the node; everything else is props. `onNodeLayoutChange` and `onConnectFields` report the
@@ -184,6 +207,76 @@ export const FlowCanvas = reatomComponent(function FlowCanvas(props: FlowCanvasP
     }
   }, [flowId])
 
+  /**
+   * `4A` Flow switch, the other half: *"The outgoing graph fades and drifts 8 px up, the incoming
+   * one arrives from 8 px down."* The artboard's own tile (design 177-183) draws them as two
+   * absolutely-positioned layers cross-fading at once, and that is what this is.
+   *
+   * An exit presupposes the departing graph is still on screen, and the canvas is handed one
+   * document at a time — so the props the last commit rendered are kept in {@link shown} and
+   * replayed as a ghost layer for the length of the change. The ghost takes no pointer events and
+   * is out of the accessibility tree; the live layer mounts and becomes interactive on the same
+   * frame it always did.
+   *
+   * **Rule 04 — *"a transition never delays a result"* — is why nothing here gates the switch.**
+   * The new graph is not waiting on the old one to finish leaving; the ghost is a picture that
+   * nothing else reads, dropped by a timer that cannot outlive the component.
+   */
+  const [ghost, setGhost] = useState<GraphGhost | null>(null)
+  const [ghostLeaving, setGhostLeaving] = useState(false)
+  const ghostElement = useRef<HTMLDivElement | null>(null)
+  const viewport = useRef<Viewport>({ x: 0, y: 0, zoom: 1 })
+  /** What the props said at the last commit — the graph a switch is leaving behind. */
+  const shown = useRef<{
+    readonly flowId: string | undefined
+    readonly nodes: readonly FlowCanvasNode[]
+    readonly edges: readonly FlowCanvasEdge[]
+    readonly startNodeId: string | undefined
+    readonly selectedNodeId: string | undefined
+    readonly shape: EdgeShape
+  } | null>(null)
+
+  useEffect(() => {
+    if (flowId === undefined) return
+    const previous = shown.current
+    if (previous === null || previous.flowId === flowId) return
+    setGhost({
+      key: `${previous.flowId ?? ''}->${flowId}`,
+      nodes: toReactFlowNodes(
+        previous.nodes,
+        previous.edges,
+        previous.startNodeId,
+        previous.selectedNodeId,
+      ),
+      edges: toReactFlowEdges(previous.edges, previous.startNodeId, previous.shape),
+      viewport: viewport.current,
+    })
+    setGhostLeaving(false)
+  }, [flowId])
+
+  /**
+   * Two frames to release it, for the reason the entrance needs two — the layer has to be painted
+   * at rest before the class that moves it goes on — then one timer to drop it. The timer is what
+   * keeps a ghost from being stranded when no transition ever fires: `prefers-reduced-motion` and
+   * jsdom both measure `0`, so the layer leaves on the next tick rather than waiting for a
+   * `transitionend` that is never coming.
+   */
+  useEffect(() => {
+    if (ghost === null) return
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => setGhostLeaving(true))
+    })
+    const element = ghostElement.current
+    const timer = globalThis.setTimeout(
+      () => setGhost(null),
+      element === null ? 0 : exitDurationMs(element),
+    )
+    return () => {
+      cancelAnimationFrame(frame)
+      globalThis.clearTimeout(timer)
+    }
+  }, [ghost])
+
   const [rfNodes, setRfNodes] = useState<JobikFlowNode[]>(() =>
     toReactFlowNodes(nodes, edges, startNodeId, selectedNodeId),
   )
@@ -207,6 +300,17 @@ export const FlowCanvas = reatomComponent(function FlowCanvas(props: FlowCanvasP
     () => toReactFlowEdges(edges, startNodeId, shape),
     [edges, startNodeId, shape],
   )
+
+  // Declared after the ghost effect on purpose: on the commit that changes `flowId`, that effect
+  // reads this ref while it still holds the graph the user was looking at, and this one replaces it
+  // afterwards. No dependency list, because every commit is a candidate for the next ghost.
+  useEffect(() => {
+    shown.current = { flowId, nodes, edges, startNodeId, selectedNodeId, shape }
+  })
+
+  const onMove = useCallback((_event: unknown, next: Viewport) => {
+    viewport.current = next
+  }, [])
 
   const onNodesChange = useCallback((changes: NodeChange<JobikFlowNode>[]) => {
     setRfNodes((current) => applyNodeChanges(changes, current))
@@ -238,6 +342,34 @@ export const FlowCanvas = reatomComponent(function FlowCanvas(props: FlowCanvasP
 
   return (
     <div data-testid="flow-canvas" className={s.canvas} style={props.style}>
+      {ghost === null ? null : (
+        <div
+          key={ghost.key}
+          ref={ghostElement}
+          data-testid="flow-graph-ghost"
+          aria-hidden="true"
+          className={cx(s.graph, s.ghost, ghostLeaving && s.ghostLeaving)}
+        >
+          <ReactFlow
+            nodes={ghost.nodes}
+            edges={ghost.edges}
+            nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
+            defaultViewport={ghost.viewport}
+            nodesDraggable={false}
+            nodesConnectable={false}
+            elementsSelectable={false}
+            panOnDrag={false}
+            zoomOnScroll={false}
+            zoomOnPinch={false}
+            zoomOnDoubleClick={false}
+            preventScrolling={false}
+            deleteKeyCode={null}
+            proOptions={{ hideAttribution: true }}
+            className={s.flow}
+          />
+        </div>
+      )}
       <div
         data-testid="flow-graph"
         data-entering={entering ? 'true' : undefined}
@@ -252,6 +384,7 @@ export const FlowCanvas = reatomComponent(function FlowCanvas(props: FlowCanvasP
           onNodeDragStop={onNodeDragStop}
           onNodeClick={onNodeClick}
           onConnect={onConnect}
+          onMove={onMove}
           connectionLineStyle={{
             stroke: accent.cssVar,
             strokeWidth: canvasMetrics.edgeStrokeWidth,

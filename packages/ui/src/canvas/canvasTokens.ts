@@ -128,6 +128,16 @@ export const canvasMetrics = {
    *  plain. */
   nodeWidth: { start: 230, withSlot: 316, plain: 236 },
 
+  /**
+   * `4A` Node state: *"the node keeps its exact box, so a running graph never reflows."* The card
+   * reserves this much for whatever the run has to show — the queued waiting block, the running
+   * skeleton well, the settled output — so the three states measure the same. It is the inline
+   * output slot's own footprint: `outputSlotGutter` twice plus `outputSlotHeight`, which is what
+   * `Studio — run in progress` (design 1768) and `Studio — default` (design 1417) both draw, one
+   * shimmering and one settled, at identical geometry.
+   */
+  runRegionHeight: 200,
+
   outputSlotGutter: 10,
   outputSlotHeight: 180,
   outputSlotMediaHeight: 140,

@@ -19,13 +19,14 @@
  * canvas at all, so it cannot move; `.canvas` keeps the shell surface, so nothing behind the graph
  * fades with it.
  *
- * Only the arrival is drawn. The outgoing half needs both graphs on screen at once, and the canvas
- * is handed one document at a time — so this is the visible half of the artboard's two, and the one
- * the prototype spends the 240 ms on.
+ * Both halves are drawn. The artboard's own tile stacks two absolutely-positioned layers and
+ * cross-fades them at once, so `.ghost` is the departing graph — the props the last commit
+ * rendered, replayed over the arriving one and dropped when its 240 ms is up.
  *
  * `.graphEntering` carries `transition: none` deliberately: it is the prototype's own one frame of
  * suppressed transition on entry, and without it the layer would ease INTO the offset it is
- * supposed to arrive FROM.
+ * supposed to arrive FROM. `.ghost` mounts at rest for the same reason and `.ghostLeaving` is what
+ * releases it — the transition it eases on is `.graph`'s, which it also carries.
  */
 .graph {
   width: 100%;
@@ -41,6 +42,23 @@
   opacity: 0;
   transform: translateY(8px);
   transition: none;
+}
+
+/*
+ * The graph on its way out. It sits over the arriving one — a screen change is a cross-fade, not a
+ * hand-off — and takes no pointer events, so the new graph is interactive from its first frame and
+ * rule 04's *"a transition never delays a result"* holds.
+ */
+.ghost {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.ghostLeaving {
+  opacity: 0;
+  transform: translateY(-8px);
 }
 
 .flow {
