@@ -225,7 +225,14 @@ export const motion = {
   /** `4A`/demo: a log line or run-history row arriving, lifting 3px as it fades in. */
   lineIn: 'jline 140ms cubic-bezier(.2,.8,.25,1)',
 
-  /** `4A` pointer: hover, press, focus ring. Zero, and deliberately so — a 140ms hover reads as lag. */
+  /**
+   * `4A`'s own tile (`.design/raw/studio.dc.html:51,71`): `0 · pointer · hover · press · focus
+   * ring`, the first of the six named durations. Rule 01 spells out what the zero means — *no*
+   * transition and *no* keyframe for hover/press/focus, not a very short one — so this token is
+   * read by no stylesheet, and that is correct rather than dead: it states that the scale starts
+   * at zero, the same way `durationScreen` states where it ends. Keep it even though nothing
+   * consumes it.
+   */
   durationPointer: '0ms',
   /** `4A` swap: a label or icon changing inside one control. */
   durationSwap: '90ms',

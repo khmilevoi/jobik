@@ -44,6 +44,9 @@ packages/ui/src/
   output/         output viewer, the `2A` OutputDock, `defineFlowUi`, value formatting
   modals/         artboard `3C`: ModalShell plus Validation, Download, StackTrace, CancelRun
   client/         JobikClient, NDJSON stream decoding, wire types
+  model/          the Reatom state layer, no React: run, flows, output, toast, validation,
+                  flow-switch, canvas overlays, save, shortcuts, draft, extension — one factory per
+                  sub-model, `types.ts` the contract, `studio.ts` composes them
   studio/         StudioApp/Studio, session hooks, run presenter, extension loader,
                   plus `main.tsx` + `index.html` — the Vite entry for the bundled Studio
   server/         `@jobik/ui/server`: config, discovery, flowService, httpServer, routes,

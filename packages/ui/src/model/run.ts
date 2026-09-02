@@ -209,6 +209,14 @@ export function reatomRun(
    * another flow destroyed this one's `Runs` group and returning never brought it back. Keying by
    * flow keeps the reason that clear existed — a row of flow `#1` must never appear under flow
    * `#2`'s name — while costing nothing on the way back.
+   *
+   * Nothing trims a flow's list, and it grows by one `RunSession` — node map, full log, the whole
+   * report — per settled run for the life of the tab. `2A`'s `Run history` mockup
+   * (`.design/raw/studio.dc.html:955-968`) draws three rows, but that is the run count the pictured
+   * scenario happens to have, not a stated cap: no artboard, and no entry in
+   * `.design/reports/DECISIONS.md`, fixes a maximum the sidebar should show. Capping it is
+   * therefore an operator decision, considered here and deliberately not made up — not an
+   * oversight.
    */
   const archives = atom<ReadonlyMap<string, readonly RunSession[]>>(new Map(), `${name}.archives`)
 
