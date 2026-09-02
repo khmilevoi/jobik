@@ -40,3 +40,7 @@ export { problemCountLabel, ProblemsStrip } from './ProblemsStrip/ProblemsStrip.
 export type { StatusStripProps } from './StatusStrip/StatusStrip.js'
 export { checkedAgo, StatusStrip } from './StatusStrip/StatusStrip.js'
 export type { TopBarValidateState } from './TopBar/TopBar.js'
+
+// --- design sync: `4A` coverage, F-C13 (the toast a settled run raises) ---
+export { RunToast } from './RunToast/RunToast.js'
+export { shellMetrics } from './shellTokens.js'

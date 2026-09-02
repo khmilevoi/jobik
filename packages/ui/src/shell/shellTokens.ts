@@ -34,9 +34,40 @@ export const shellColors = {
    */
   activeFlowRowHover: '#16181a',
 
+  /**
+   * F-C13 — the toast, transcribed from the demo prototype (`.design/raw/demo.dc.html:318`), which
+   * is the only place the design draws one. `4A`'s coverage grid fixes its motion and no artboard
+   * of `Jobik Studio.dc.html` draws the surface, so these three are the prototype's own values and
+   * are marked as such: a later artboard supersedes them, and nothing else in the package reads
+   * them meanwhile.
+   */
+  toastSurface: '#101214',
+  toastBorder: '#24282c',
+  /**
+   * The design's **only** shadow. Every artboard is flat, which is why no `tokens.ts` group holds
+   * one; the prototype lifts the toast off the canvas it floats over, and that lift is the whole
+   * reason a toast can sit on an unrelated surface without a container. It stays here rather than
+   * in `tokens.ts` for the rule this file states above — one directory reads it.
+   */
+  toastShadow: '0 12px 30px rgba(0,0,0,.5)',
+
   // `3D` §3D.3's `No issues` and its warning code used to be spelled here as well. Both were read
   // by a second directory — `primitives` and `modals` respectively — so they were folded into
   // `statusColors.okLabel` and `statusColors.warningTag`, and `shell/*.module.css` now reads
   // `--jbk-status-ok-label` and `--jbk-status-warning-tag`. That is the rule this file follows:
   // a value one directory reads lives here, a value two directories read lives in `tokens.ts`.
+} as const
+
+/**
+ * The shell's own measurements — one, so far.
+ *
+ * `border-radius` is one of the three closed sets a `*.module.css` may not spell literally, and
+ * `tokens.ts`'s `radii` has no 6px step because no artboard draws one. The prototype's toast does
+ * (`demo.dc.html:318`), so it is transcribed here rather than added to the shared ramp: minting a
+ * global step for a surface the design file itself does not draw would put a value in `tokens.ts`
+ * that nothing else can point at.
+ */
+export const shellMetrics = {
+  /** `demo.dc.html:318` — `border-radius:6px` on the toast. */
+  toastRadius: 6,
 } as const

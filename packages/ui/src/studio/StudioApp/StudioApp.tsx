@@ -10,7 +10,7 @@ import { reatomStudio, StudioModelProvider, useStudioModel } from '#model/index.
 import { detached } from '#model/reatom.js'
 import { OutputDock } from '#output/index.js'
 import { RunPanel } from '#run/index.js'
-import { ProblemsStrip, StatusStrip } from '#shell/index.js'
+import { ProblemsStrip, RunToast, StatusStrip } from '#shell/index.js'
 import type { ExternalModules } from '#studio/extensionLoader.js'
 import { toFlowNodeSummaries, toFlowSummaries, toInventory } from '#studio/graphModel.js'
 import { RunningChip, SaveConflictChip, SaveErrorChip } from '#studio/RunningChip/RunningChip.js'
@@ -347,6 +347,14 @@ const StudioAppBody = reatomComponent(function StudioAppBody(props: StudioAppBod
         the descriptor underneath it.
       */}
       <StackTraceModal />
+      {/*
+        F-C13. `4A`'s coverage grid names a toast and no artboard of the Studio draws one; the demo
+        prototype does, and raises it as a run settles. Mounted unconditionally and beside the
+        dialogs for the same reason they are: it reads `toast.message` for itself and renders
+        nothing until a run has actually finished, so a page with no toast on it subscribes to one
+        atom and reaches neither the archive nor a report.
+      */}
+      <RunToast />
     </>
   )
 }, 'StudioAppBody')

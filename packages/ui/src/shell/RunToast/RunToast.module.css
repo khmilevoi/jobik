@@ -1,0 +1,61 @@
+/*
+ * F-C13 — the toast, `demo.dc.html:318-321` for the box and `4A` for the motion.
+ *
+ * `4A`: *"Toasts and errors — 140 ms in, 120 ms out, no slide; they appear where they will stay."*
+ * One property moves, and it is `opacity`. The prototype's 4px lift is deliberately absent — it is
+ * a slide, and the newer artboard forbids it.
+ */
+.toast {
+  position: fixed;
+  left: 20px;
+  bottom: 20px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: var(--jbk-shell-toast-radius);
+  background: var(--jbk-shell-toast-surface);
+  border: 1px solid var(--jbk-shell-toast-border);
+  box-shadow: var(--jbk-shell-toast-shadow);
+  font-family: var(--jbk-font-ui);
+  /*
+   * It answers no pointer: the prototype gives it `pointer-events:none`, and a surface that leaves
+   * on its own has nothing to click. It must not eat a click meant for the canvas beneath it.
+   */
+  pointer-events: none;
+  opacity: 0;
+  /* Leaving, at `4A`'s exit duration on the exit curve. `.visible` overrides both for arriving. */
+  transition: opacity var(--jbk-motion-duration-exit) var(--jbk-motion-ease-exit);
+}
+
+/* Arriving: 140ms, and `4A` puts an opacity-only fade on `linear` rather than on the settle curve. */
+.visible {
+  opacity: 1;
+  transition: opacity var(--jbk-motion-duration-state) var(--jbk-motion-ease-linear);
+}
+
+.dot {
+  width: 5px;
+  height: 5px;
+  border-radius: var(--jbk-radius-round);
+}
+
+.dotOk {
+  background: var(--jbk-status-ok);
+}
+
+.dotFailed {
+  background: var(--jbk-status-failed);
+}
+
+/* `demo.dc.html:751` — a cancelled run's dot is the muted text tone, not a status colour. */
+.dotMute {
+  background: var(--jbk-text-muted);
+}
+
+.text {
+  font-size: var(--jbk-size-12);
+  color: var(--jbk-text-active-identifier);
+}

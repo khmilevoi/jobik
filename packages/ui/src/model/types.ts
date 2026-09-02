@@ -836,6 +836,32 @@ export interface StudioModel {
   readonly runPanel: RunPanelModel
   readonly flowSwitch: FlowSwitchModel
   readonly shortcuts: ShortcutsModel
+  readonly toast: ToastModel
+}
+
+/** The dot's three tones — the outcomes a settled report actually distinguishes. */
+export type ToastTone = 'ok' | 'failed' | 'mute'
+
+export interface ToastMessage {
+  /** `Run #221 finished in 2.4s`. Every part of it is read off the report. */
+  readonly text: string
+  readonly tone: ToastTone
+}
+
+/**
+ * F-C13 — the surface `4A`'s coverage grid names and no artboard of the Studio draws.
+ *
+ * `reatomToast(deps: StudioDeps, input: { archive: RunModel['archive'] }, name: string): ToastModel`
+ *
+ * Two units, because the exit is 120ms long and the element has to still be there while it plays:
+ * {@link ToastModel.message} is what the surface mounts on, {@link ToastModel.visible} is the
+ * opacity it fades between. A message with `visible` false is a toast on its way out.
+ */
+export interface ToastModel {
+  readonly message: Atom<ToastMessage | undefined>
+  readonly visible: Atom<boolean>
+  /** Takes the toast away now — the surface's own dismissal, and what a flow switch calls. */
+  readonly dismiss: Action<[], void>
 }
 
 /** Every slot of {@link StudioModel} except `deps` — the twelve the wiring task fills, by name. */

@@ -20,4 +20,12 @@
 
   /* shellColors — `3E`, the selected flow row under the pointer */
   --jbk-shell-active-flow-row-hover: #16181a;
+
+  /* shellColors — F-C13, the toast the demo prototype draws (demo.dc.html:318) */
+  --jbk-shell-toast-surface: #101214;
+  --jbk-shell-toast-border: #24282c;
+  --jbk-shell-toast-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+
+  /* shellMetrics */
+  --jbk-shell-toast-radius: 6px;
 }

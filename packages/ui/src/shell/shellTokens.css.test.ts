@@ -2,7 +2,7 @@ import * as fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { shellColors } from './shellTokens.js'
+import { shellColors, shellMetrics } from './shellTokens.js'
 
 /**
  * The parity gate between `shellTokens.ts` and `shellTokens.css`, modelled on
@@ -32,6 +32,12 @@ function expectedProperties(): Map<string, string> {
   const expected = new Map<string, string>()
   for (const [key, value] of Object.entries(shellColors)) {
     expected.set(`--jbk-shell-${kebab(key)}`, value)
+  }
+  // `shellMetrics` shares no key with `shellColors`, so both sit under one flat `--jbk-shell-*`
+  // prefix, exactly as `output/outputTokens.css.test.ts` does with its own pair. Every metric here
+  // is a pixel length.
+  for (const [key, value] of Object.entries(shellMetrics)) {
+    expected.set(`--jbk-shell-${kebab(key)}`, `${value}px`)
   }
   return expected
 }

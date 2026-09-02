@@ -10,6 +10,7 @@ import { reatomRun } from './run.js'
 import { reatomRunPanel } from './runPanel.js'
 import { reatomSave } from './save.js'
 import { reatomShortcuts } from './shortcuts.js'
+import { reatomToast } from './toast.js'
 import type { StudioDeps, StudioModel } from './types.js'
 import { reatomValidation } from './validation.js'
 
@@ -163,6 +164,11 @@ export function reatomStudio(deps: StudioDeps, name = 'studio'): StudioModel {
 
   const shortcuts = reatomShortcuts(deps, { run, save, validation, output }, `${name}.shortcuts`)
 
+  // F-C13. The archive is the only input a toast needs: a run joins it exactly once, as it
+  // settles, carrying the report that says which of `ok | failed | cancelled` happened and how
+  // long it took. Nothing else in the model has to know a toast exists.
+  const toast = reatomToast(deps, { archive: run.archive }, `${name}.toast`)
+
   return {
     deps,
     flows,
@@ -177,5 +183,6 @@ export function reatomStudio(deps: StudioDeps, name = 'studio'): StudioModel {
     runPanel,
     flowSwitch,
     shortcuts,
+    toast,
   }
 }
