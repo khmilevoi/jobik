@@ -1,10 +1,10 @@
-import { reatomComponent } from '@reatom/react'
+import { reatomComponent, useWrap } from '@reatom/react'
 import { Button, SectionLabel } from '#primitives/index.js'
 import { formatLastRunMeta } from '#run/format.js'
 import { RunDivider, type RunDotTone, RunStatusDot, RunWell } from '#run/RunChrome/RunChrome.js'
 import { RunInputControl } from '#run/RunInputControl/RunInputControl.js'
 import { RunNodeTimings } from '#run/RunNodeList/RunNodeList.js'
-import type { RunIdleState, RunSummary } from '#run/types.js'
+import type { RunIdleState, RunInputDraftValue, RunSummary } from '#run/types.js'
 import { validateRunInputs } from '#run/validate.js'
 import s from './RunIdleView.module.css'
 
@@ -45,7 +45,13 @@ export const RunIdleView = reatomComponent(function RunIdleView(props: RunIdleVi
   const lastRun = state.lastRun
   const issues = state.issues ?? []
 
-  const run = () => {
+  // RTM-C02: these reach a Reatom action from a raw DOM event, so each is wrapped into the
+  // model's frame — see StackTraceModal.tsx's own copy of the same pattern.
+  const onDraftChange = useWrap((field: string, value: RunInputDraftValue) => {
+    state.onDraftChange?.(field, value)
+  }, 'RunIdleView.onDraftChange')
+
+  const run = useWrap(() => {
     const values = validateRunInputs({
       input: state.input,
       fields: state.descriptor.fields,
@@ -56,7 +62,7 @@ export const RunIdleView = reatomComponent(function RunIdleView(props: RunIdleVi
       return
     }
     state.onRun?.(values)
-  }
+  }, 'RunIdleView.run')
 
   return (
     <>
@@ -70,7 +76,7 @@ export const RunIdleView = reatomComponent(function RunIdleView(props: RunIdleVi
           field={field}
           value={state.draft[field.field] ?? ''}
           presentation={state.presentation?.[field.field]}
-          onChange={state.onDraftChange}
+          onChange={onDraftChange}
         />
       ))}
 

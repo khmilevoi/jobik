@@ -1,4 +1,4 @@
-import { reatomComponent } from '@reatom/react'
+import { reatomComponent, useWrap } from '@reatom/react'
 import type { StyleWithVars } from '#cx.js'
 import { SectionLabel } from '#primitives/index.js'
 import { formatNodesComplete } from '#run/format.js'
@@ -51,6 +51,12 @@ export const RunRunningView = reatomComponent(function RunRunningView(props: Run
   const card = props.variant === 'card'
   const fill: StyleWithVars = { '--jbk-run-progress': progressWidth(state.progress) }
 
+  // RTM-C02: reaches a Reatom action from a raw DOM event, so it is wrapped into the model's
+  // frame — see StackTraceModal.tsx's own copy of the same pattern.
+  const onCancel = useWrap(() => {
+    state.onCancel?.()
+  }, 'RunRunningView.onCancel')
+
   return (
     <>
       <div className={s.progress}>
@@ -96,7 +102,7 @@ export const RunRunningView = reatomComponent(function RunRunningView(props: Run
         </RunWell>
       )}
 
-      <RunAction data-testid="run-cancel-button" hint="esc" weight={500} onClick={state.onCancel}>
+      <RunAction data-testid="run-cancel-button" hint="esc" weight={500} onClick={onCancel}>
         Cancel run
       </RunAction>
     </>

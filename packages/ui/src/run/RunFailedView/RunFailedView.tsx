@@ -1,10 +1,10 @@
-import { reatomComponent } from '@reatom/react'
+import { reatomComponent, useWrap } from '@reatom/react'
 import { Button } from '#primitives/index.js'
 import { formatHiddenFrames, formatStackFrame } from '#run/format.js'
 import { RunAction, RunWell } from '#run/RunChrome/RunChrome.js'
 import { RunInputControl } from '#run/RunInputControl/RunInputControl.js'
 import { RunNodeTimings } from '#run/RunNodeList/RunNodeList.js'
-import type { RunFailedState } from '#run/types.js'
+import type { RunFailedState, RunInputDraftValue } from '#run/types.js'
 import s from './RunFailedView.module.css'
 
 export interface RunFailedViewProps {
@@ -27,6 +27,20 @@ export const RunFailedView = reatomComponent(function RunFailedView(props: RunFa
   const stack = state.stack
   const hidden = stack === undefined ? undefined : formatHiddenFrames(stack.hiddenFrames)
   const inputs = state.inputs
+
+  // RTM-C02: these reach a Reatom action from a raw DOM event, so each is wrapped into the
+  // model's frame — see StackTraceModal.tsx's own copy of the same pattern.
+  const onDraftChange = useWrap((field: string, value: RunInputDraftValue) => {
+    inputs?.onDraftChange?.(field, value)
+  }, 'RunFailedView.onDraftChange')
+
+  const onCopyLog = useWrap(() => {
+    state.onCopyLog?.()
+  }, 'RunFailedView.onCopyLog')
+
+  const onRerun = useWrap(() => {
+    state.onRerun?.()
+  }, 'RunFailedView.onRerun')
 
   return (
     <>
@@ -73,18 +87,18 @@ export const RunFailedView = reatomComponent(function RunFailedView(props: RunFa
           field={field}
           value={inputs.draft[field.field] ?? ''}
           presentation={inputs.presentation?.[field.field]}
-          onChange={inputs.onDraftChange}
+          onChange={onDraftChange}
         />
       ))}
 
       <div className={s.actions}>
         <div className={s.action}>
-          <RunAction data-testid="run-copy-log" onClick={state.onCopyLog}>
+          <RunAction data-testid="run-copy-log" onClick={onCopyLog}>
             Copy log
           </RunAction>
         </div>
         <div className={s.action}>
-          <Button variant="accent" size="lg" data-testid="run-rerun" onClick={state.onRerun}>
+          <Button variant="accent" size="lg" data-testid="run-rerun" onClick={onRerun}>
             Re-run
           </Button>
         </div>
