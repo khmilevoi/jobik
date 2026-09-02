@@ -26,24 +26,10 @@
 }
 
 /*
- * The same 38px bar `PanelHeader` draws, without its chevron button: design 586–593 shows no
- * collapse control in a dock that carries a run number, and `PanelHeader` always draws one.
- * Everything else — height, divider, layout — is the same header.
- */
-.header {
-  height: var(--jbk-layout-panel-header-height);
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 14px;
-  border-bottom: 1px solid var(--jbk-border-panel-header-divider);
-}
-
-/*
  * `Run panel — states` failed (796): the failed header alone is tinted, and the tint cascades to
  * the title. The three colours come from `shellTokens.css`, which duplicates `run/`'s so the dock
- * never needs a run-panel stylesheet on the page to draw a failed run.
+ * never needs a run-panel stylesheet on the page to draw a failed run. Merged onto `PanelHeader`'s
+ * own `.header` box via its `className` prop — see `RunDock.tsx`.
  */
 .headerFailed {
   background: var(--jbk-shell-failed-header-wash);

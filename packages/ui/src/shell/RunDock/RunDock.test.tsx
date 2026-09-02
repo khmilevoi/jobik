@@ -1,6 +1,5 @@
 import { cleanup, render, screen } from '@testing-library/react'
-import { userEvent } from '@testing-library/user-event'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { RunDock } from './RunDock.js'
 
 afterEach(cleanup)
@@ -21,12 +20,10 @@ describe('RunDock', () => {
     expect(screen.getByText('start1')).toBeInTheDocument()
   })
 
-  it('collapses to the right', async () => {
-    const onCollapse = vi.fn()
-    const { container } = render(<RunDock entryNodeId="start1" onCollapse={onCollapse} />)
-    expect(container.querySelector('path')).toHaveAttribute('d', 'M3.5 1 7 4.5 3.5 8')
-    await userEvent.click(screen.getByRole('button', { name: 'Collapse run panel' }))
-    expect(onCollapse).toHaveBeenCalledTimes(1)
+  /** The collapse control moved to `TopBar` — the dock draws no button of its own any more. */
+  it('draws no collapse control of its own', () => {
+    render(<RunDock entryNodeId="start1" onCollapse={() => {}} />)
+    expect(screen.queryByRole('button')).toBeNull()
   })
 
   it('gives the body what P11 builds inside it', () => {
@@ -50,17 +47,16 @@ describe('RunDock', () => {
  * after it.
  */
 describe('RunDock — the run number', () => {
-  it('keeps the chevron while idle', () => {
+  it('shows Run and the entry id with no run meta while idle', () => {
     render(<RunDock entryNodeId="start1" onCollapse={() => {}} />)
-    expect(screen.getByRole('button', { name: 'Collapse run panel' })).toBeInTheDocument()
+    expect(screen.getByTestId('studio-dock-header').textContent).toContain('start1')
     expect(screen.queryByTestId('studio-dock-run-meta')).toBeNull()
   })
 
-  it('replaces the chevron with the run number during a run', () => {
+  it('adds the run number beside the title during a run', () => {
     render(<RunDock entryNodeId="start1" onCollapse={() => {}} runMeta="#219" />)
     const header = screen.getByTestId('studio-dock-header')
     expect(header.textContent).toContain('start1')
-    expect(screen.queryByRole('button', { name: 'Collapse run panel' })).toBeNull()
     expect(screen.getByTestId('studio-dock-run-meta').textContent).toBe('#219')
   })
 

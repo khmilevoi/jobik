@@ -1,7 +1,14 @@
 import { reatomComponent } from '@reatom/react'
 import type { ReactNode } from 'react'
 import { cx } from '#cx.js'
-import { Badge, Button, ValidateButton } from '#primitives/index.js'
+import {
+  Badge,
+  Button,
+  IconButton,
+  PanelLeftIcon,
+  PanelRightIcon,
+  ValidateButton,
+} from '#primitives/index.js'
 import s from './TopBar.module.css'
 
 /**
@@ -15,10 +22,10 @@ export type TopBarValidateState =
 export interface TopBarProps {
   readonly flowName: string
   /**
-   * The mono file badge, e.g. `flow.ts`. Hidden while the bar is compact, and **absent when no
-   * file name is known** — the badge is dropped rather than filled with a guess. Every artboard
-   * that draws it draws a real name; none draws an empty badge, and `panels collapsed` is the
-   * design's own picture of the bar with no badge at all.
+   * The mono file badge, e.g. `flow.ts`. Hidden while the bar is compact (a run streaming), and
+   * **absent when no file name is known** — the badge is dropped rather than filled with a guess.
+   * Collapsing a panel does not touch it: the identity row stays put regardless of which panels
+   * are open, so collapsing one is never the reason a user loses track of which flow they're in.
    */
   readonly flowFile?: string
   readonly dirty: boolean
@@ -28,17 +35,23 @@ export interface TopBarProps {
    * The run affordance, present while the run dock is **open**.
    *
    * `2A` is the newer reading and it draws the `Run start1` + accent `Run` pill in the bar with the
-   * dock expanded, beside the `flow.ts` badge and `Saved`. That is why this is a slot of its own
-   * rather than `dockedRight`: a docked panel control means the panel is gone and the bar goes
-   * compact, whereas this one only tightens the bar's gap to `14px`.
+   * dock expanded, beside the `flow.ts` badge and `Saved`. This is a slot of its own rather than a
+   * docked panel control: it only tightens the bar's gap to `14px`, it does not send the bar
+   * compact.
    */
   readonly runControl?: ReactNode
   /** The running pill — spinner, `Running start1`, elapsed, `Cancel`. `studio/RunningChip` fills it. */
   readonly runningChip?: ReactNode
-  /** The docked `Flows & nodes` control, present only while the left panel is collapsed. */
-  readonly dockedLeft?: ReactNode
-  /** The docked `Run <entry>` control, present only while the right dock is collapsed. */
-  readonly dockedRight?: ReactNode
+  /**
+   * Whether the left "Flows & nodes" panel is collapsed. Drives only the left toggle button's
+   * icon state and accessible name — collapsing a panel does not change anything else the bar
+   * draws, which is the point of the toggle living here rather than inside the panel itself.
+   */
+  readonly leftCollapsed: boolean
+  readonly onToggleLeft: () => void
+  /** Whether the right run panel is collapsed. See `leftCollapsed`. */
+  readonly rightCollapsed: boolean
+  readonly onToggleRight: () => void
   /**
    * `3D` — the Validate control's cell. Absent is `idle`, which is what every artboard but `3D`
    * draws.
@@ -55,11 +68,18 @@ export interface TopBarProps {
  * state, the validate cell, the run pill — is a value `Studio` was handed, and `Studio` is the
  * artboard's shell: it renders with fixture defaults, no model and no provider at all, which is
  * what `Studio.test.tsx` drives. A child that required a `StudioModelProvider` would end that.
+ *
+ * The left and right panel toggle buttons live here now, not in each panel's own header — see
+ * `PanelHeader`'s doc comment for why. They are permanent slots of the bar, always rendered
+ * regardless of collapse state (the Demo prototype draws one button that toggles, never a second
+ * "collapsed" pill in its place).
  */
 export const TopBar = reatomComponent(function TopBar(props: TopBarProps) {
-  const { dockedLeft, dockedRight, runControl, runningChip, running = false } = props
+  const { runControl, runningChip, leftCollapsed, rightCollapsed, running = false } = props
   const validate: TopBarValidateState = props.validate ?? { state: 'idle' }
-  const compact = dockedLeft !== undefined || dockedRight !== undefined || runningChip !== undefined
+  // Collapsing a panel toggles that panel alone — it never sends the bar compact. Only a
+  // streaming run chip does, same as before the toggle buttons moved into this bar.
+  const compact = runningChip !== undefined
   // `gap:16px` in `Studio — default` alone; `14px` in `2A`, `panels collapsed` and
   // `run in progress` — i.e. the moment anything joins the bar beyond the plain identity row.
   const dense = compact || runControl !== undefined
@@ -103,7 +123,12 @@ export const TopBar = reatomComponent(function TopBar(props: TopBarProps) {
 
       <div className={s.divider} />
 
-      {dockedLeft}
+      <IconButton
+        data-testid="studio-toggle-left"
+        label={leftCollapsed ? 'Expand flows and nodes' : 'Collapse flows and nodes'}
+        icon={<PanelLeftIcon />}
+        onClick={props.onToggleLeft}
+      />
 
       <div data-testid="studio-top-bar-identity" className={s.flowNameRow}>
         <div className={s.flowName}>{props.flowName}</div>
@@ -117,7 +142,6 @@ export const TopBar = reatomComponent(function TopBar(props: TopBarProps) {
       <div data-testid="studio-top-bar-actions" className={s.actions}>
         {runControl}
         {runningChip}
-        {dockedRight}
         {/*
           `3D` replaces the plain ghost button with the four-cell control. The two are written out
           rather than spread, because the count is part of the invalid cell's type and a spread of
@@ -144,6 +168,12 @@ export const TopBar = reatomComponent(function TopBar(props: TopBarProps) {
         <Button variant="outlined" size="lg" onClick={props.onSave} dimmed={running}>
           Save
         </Button>
+        <IconButton
+          data-testid="studio-toggle-right"
+          label={rightCollapsed ? 'Expand run panel' : 'Collapse run panel'}
+          icon={<PanelRightIcon />}
+          onClick={props.onToggleRight}
+        />
       </div>
     </div>
   )

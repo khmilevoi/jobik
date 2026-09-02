@@ -5,9 +5,9 @@ import type { IconProps } from './types.js'
  * Foundations §7 — **Chevron up**, 9 × 9, `stroke-width` `1.2`, `currentColor`. `2A`'s
  * `Show output` on the collapsed output dock.
  *
- * It is the one chevron in the design drawn in `currentColor`: the sidebar and run-dock collapse
- * chevrons hard-code `#7c848b`, which makes them shell chrome rather than an icon a control can
- * tint. Its grid is `0 0 9 9`, not the `0 0 10 10` the other four share, so its default size is 9.
+ * It is the one chevron *shape* in the set — `PanelLeftIcon` and `PanelRightIcon` draw a
+ * different glyph for the sidebar and run-dock panel toggles, not a triangle. Its grid is
+ * `0 0 9 9`, not the `0 0 10 10` the rest of the set shares, so its default size is 9.
  */
 export const ChevronUpIcon = reatomComponent(function ChevronUpIcon(props: IconProps) {
   const { size = 9, strokeWidth = 1.2 } = props

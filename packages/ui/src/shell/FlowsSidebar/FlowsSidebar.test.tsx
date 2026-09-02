@@ -31,7 +31,7 @@ const inventory = [
   { name: 'httpSink', kind: 'sink' },
 ]
 
-function renderSidebar(onCollapse = () => {}) {
+function renderSidebar() {
   return render(
     <FlowsSidebar
       flows={flows}
@@ -39,7 +39,6 @@ function renderSidebar(onCollapse = () => {}) {
       nodes={nodes}
       selectedNodeId="start1"
       inventory={inventory}
-      onCollapse={onCollapse}
     />,
   )
 }
@@ -64,7 +63,6 @@ describe('FlowsSidebar — run history', () => {
         inventory={inventory}
         runs={runs}
         selectedRunId="221"
-        onCollapse={() => {}}
       />,
     )
     expect(screen.getByText('Run history')).toBeInTheDocument()
@@ -85,7 +83,6 @@ describe('FlowsSidebar — run history', () => {
         runs={runs}
         selectedRunId="221"
         onSelectRun={onSelectRun}
-        onCollapse={() => {}}
       />,
     )
     await userEvent.click(screen.getByTestId('studio-run-row-220'))
@@ -104,7 +101,6 @@ describe('FlowsSidebar — run history', () => {
         nodes={nodes}
         inventory={inventory}
         runs={[{ id: '4', label: '#4', status: 'cancelled' }]}
-        onCollapse={() => {}}
       />,
     )
     expect(screen.getByTestId('studio-run-meta-4')).toHaveTextContent('cancelled')
@@ -118,7 +114,6 @@ describe('FlowsSidebar — run history', () => {
         nodes={nodes}
         inventory={inventory}
         runs={[{ id: '222', label: '#222', status: 'ok' }]}
-        onCollapse={() => {}}
       />,
     )
     expect(screen.getByTestId('studio-run-row-222')).toHaveTextContent('#222')
@@ -153,7 +148,6 @@ describe('FlowsSidebar — start nodes', () => {
         nodes={twoStarts}
         selectedNodeId="byName"
         inventory={inventory}
-        onCollapse={() => {}}
       />,
     )
     expect(screen.getByText('Start')).toBeInTheDocument()
@@ -173,7 +167,6 @@ describe('FlowsSidebar — start nodes', () => {
         selectedNodeId="byName"
         inventory={inventory}
         onSelectStart={onSelectStart}
-        onCollapse={() => {}}
       />,
     )
     await userEvent.click(screen.getByTestId('studio-start-row-byNumber'))
@@ -188,7 +181,6 @@ describe('FlowsSidebar — start nodes', () => {
         nodes={twoStarts}
         selectedNodeId="byName"
         inventory={inventory}
-        onCollapse={() => {}}
       />,
     )
     await userEvent.click(screen.getByTestId('studio-start-row-byNumber'))
@@ -202,12 +194,11 @@ describe('FlowsSidebar', () => {
     expect(screen.getByTestId('studio-sidebar')).toBeInTheDocument()
   })
 
-  it('heads the panel with its label and a collapse chevron', async () => {
-    const onCollapse = vi.fn()
-    renderSidebar(onCollapse)
+  /** The collapse control moved to `TopBar` — the panel's own header is now a bare label row. */
+  it('heads the panel with its label and no button of its own', () => {
+    renderSidebar()
     expect(screen.getByText('Flows & nodes')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Collapse flows and nodes' }))
-    expect(onCollapse).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('button', { name: 'Collapse flows and nodes' })).toBeNull()
   })
 
   it('labels the three groups, naming the active flow in the second', () => {
@@ -234,7 +225,6 @@ describe('FlowsSidebar', () => {
         ]}
         selectedNodeId="render"
         inventory={inventory}
-        onCollapse={() => {}}
       />,
     )
     expect(screen.getByTestId('studio-node-dot-render')).toBeInTheDocument()
@@ -258,16 +248,14 @@ describe('FlowsSidebar', () => {
 
   /**
    * This used to assert `getAllByRole('button')` had length 1 — "exposes no interaction other than
-   * collapse". That stopped being true when the flow rows became real buttons, because the Studio
-   * ships three flows now and could only ever load the first. The honest statement of what the
-   * panel offers is: collapse, plus one button per flow and one per declared start, and nothing
-   * else — the node rows and the inventory rows are still inert, which is what the old test was
-   * really protecting.
+   * collapse". The panel no longer draws a collapse button of its own at all (it moved to
+   * `TopBar`), so the honest statement of what the panel offers is: one button per flow and one
+   * per declared start, and nothing else — the node rows and the inventory rows are still inert.
    */
-  it('offers collapse, one button per flow and one per start, and no other interaction', () => {
+  it('offers one button per flow and one per start, and no other interaction', () => {
     renderSidebar()
     const starts = nodes.filter((node) => node.kind === 'start')
-    expect(screen.getAllByRole('button')).toHaveLength(1 + flows.length + starts.length)
+    expect(screen.getAllByRole('button')).toHaveLength(flows.length + starts.length)
     for (const flow of flows) {
       expect(screen.getByTestId(`studio-flow-row-${flow.id}`).tagName).toBe('BUTTON')
     }
@@ -285,7 +273,6 @@ describe('FlowsSidebar', () => {
         nodes={nodes}
         selectedNodeId="start1"
         inventory={inventory}
-        onCollapse={() => {}}
       />,
     )
     await userEvent.click(screen.getByTestId('studio-flow-row-digest'))
@@ -321,7 +308,6 @@ describe('FlowsSidebar', () => {
         nodes={nodes}
         selectedNodeId="start1"
         inventory={inventory}
-        onCollapse={() => {}}
       />,
     )
     expect(screen.getByTestId('studio-flow-row-digest')).toBeDisabled()
@@ -341,7 +327,6 @@ describe('FlowsSidebar', () => {
         nodes={nodes}
         selectedNodeId="start1"
         inventory={inventory}
-        onCollapse={() => {}}
       />,
     )
     await userEvent.click(screen.getByTestId('studio-flow-row-digest'))

@@ -89,7 +89,6 @@ export interface FlowsSidebarProps {
   readonly runs?: readonly RunHistoryEntry[]
   readonly selectedRunId?: string
   readonly onSelectRun?: (runId: string) => void
-  readonly onCollapse: () => void
 }
 
 /** Spelled out, not indexed by a computed key — see `cssModuleUsage.test.ts`. */
@@ -145,11 +144,7 @@ export const FlowsSidebar = reatomComponent(function FlowsSidebar(props: FlowsSi
 
   return (
     <div data-testid="studio-sidebar" className={s.sidebar}>
-      <PanelHeader
-        chevron="left"
-        collapseLabel="Collapse flows and nodes"
-        onCollapse={props.onCollapse}
-      >
+      <PanelHeader>
         <SectionLabel color={textColors.panelHeaderLabel}>Flows &amp; nodes</SectionLabel>
       </PanelHeader>
 

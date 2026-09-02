@@ -6,13 +6,24 @@ import { Studio } from './Studio.js'
 afterEach(cleanup)
 
 describe('Studio', () => {
-  it('opens with both panels expanded and nothing docked', () => {
+  it('opens with both panels expanded and both toggle buttons in the bar', () => {
     render(<Studio flowFile="index.ts" />)
     expect(screen.getByTestId('studio-frame')).toBeInTheDocument()
     expect(screen.getByTestId('studio-sidebar')).toBeInTheDocument()
     expect(screen.getByTestId('studio-dock')).toBeInTheDocument()
     expect(screen.getByTestId('studio-flow-file')).toHaveTextContent('index.ts')
-    expect(screen.queryByRole('button', { name: 'Expand flows and nodes' })).not.toBeInTheDocument()
+    // Both toggles live in the top bar, permanently — see `TopBar`'s doc comment — named by what
+    // they currently do: with both panels open, both read `Collapse …`.
+    expect(
+      within(screen.getByTestId('studio-top-bar')).getByRole('button', {
+        name: 'Collapse flows and nodes',
+      }),
+    ).toBeInTheDocument()
+    expect(
+      within(screen.getByTestId('studio-top-bar')).getByRole('button', {
+        name: 'Collapse run panel',
+      }),
+    ).toBeInTheDocument()
   })
 
   /**
@@ -41,15 +52,19 @@ describe('Studio', () => {
     expect(screen.getByTestId('studio-inventory-row-httpSink')).toBeInTheDocument()
   })
 
-  it('docks the left panel into the top bar and brings it back', async () => {
+  it('docks the left panel into the top bar and brings it back, from one toggle button', async () => {
     render(<Studio flowFile="index.ts" />)
     await userEvent.click(screen.getByRole('button', { name: 'Collapse flows and nodes' }))
     // `4A` keeps the panel mounted so its container's width can ease; collapsed, the slot is
     // `aria-hidden` and `inert`, so nothing inside it is reachable or announced.
     expect(screen.getByTestId('studio-left-panel')).toHaveAttribute('aria-hidden', 'true')
+    // Same button, renamed to say what it does next — not a second, docked control.
     expect(screen.queryByRole('button', { name: 'Collapse flows and nodes' })).toBeNull()
-    expect(screen.queryByTestId('studio-flow-file')).toBeNull()
-    expect(screen.getByText('Unsaved')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Expand flows and nodes' })).toBeInTheDocument()
+    // Collapsing a panel is purely a layout choice — the rest of the bar, including the file badge
+    // and the full "Unsaved changes" label, stays exactly as it was.
+    expect(screen.getByTestId('studio-flow-file')).toHaveTextContent('index.ts')
+    expect(screen.getByText('Unsaved changes')).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Expand flows and nodes' }))
     expect(screen.getByTestId('studio-left-panel')).not.toHaveAttribute('aria-hidden')
@@ -57,25 +72,24 @@ describe('Studio', () => {
     expect(screen.getByTestId('studio-flow-file')).toHaveTextContent('index.ts')
   })
 
-  it('docks the run panel into the top bar and brings it back', async () => {
-    // The run control is in the top bar in BOTH states — `2A` draws it there with the dock open —
-    // so its presence no longer distinguishes them. What distinguishes them is the expand
-    // affordance: collapsed, the label is the button that brings the dock back; open, the label is
-    // inert text and only the accent `Run` chip acts.
+  it('collapses and expands the run panel from one toggle button, keeping the run pill live throughout', async () => {
     render(<Studio />)
     expect(screen.getByTestId('studio-dock')).toBeInTheDocument()
+    // The run pill is the only way to start a run, so it stays in the bar whether the dock is open
+    // or collapsed — only a streaming run (`running`) withdraws it, see the test below.
     expect(screen.getByTestId('studio-docked-run')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Expand run panel' })).toBeNull()
 
     await userEvent.click(screen.getByRole('button', { name: 'Collapse run panel' }))
     expect(screen.getByTestId('studio-right-panel')).toHaveAttribute('aria-hidden', 'true')
     expect(screen.queryByRole('button', { name: 'Collapse run panel' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Expand run panel' })).toBeInTheDocument()
     expect(screen.getByTestId('studio-docked-run')).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Expand run panel' }))
     expect(screen.getByTestId('studio-right-panel')).not.toHaveAttribute('aria-hidden')
     expect(screen.getByTestId('studio-dock')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Expand run panel' })).toBeNull()
+    expect(screen.getByTestId('studio-docked-run')).toBeInTheDocument()
   })
 
   /**
@@ -91,17 +105,15 @@ describe('Studio', () => {
   })
 
   /**
-   * Collapsed, the same control is the dock's expand affordance, so it stays drawn — and `3B` then
-   * applies: a run in flight already reports progress, so the accent chip dims and answers nothing.
+   * Both toggle buttons stay in the bar and stay live while a run streams — panel visibility is a
+   * layout choice, independent of whether the surface is busy — even though the run pill itself
+   * is withdrawn for the run's whole duration (see above).
    */
-  it('blocks the docked run chip while a run streams', async () => {
-    const onRun = vi.fn()
-    render(<Studio running onRun={onRun} runningChip={<div data-testid="running-chip" />} />)
+  it('keeps both panel toggles working while a run streams', async () => {
+    render(<Studio running runningChip={<div data-testid="running-chip" />} />)
     await userEvent.click(screen.getByRole('button', { name: 'Collapse run panel' }))
-    expect(screen.getByTestId('studio-docked-run')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Run' })).toBeDisabled()
-    await userEvent.click(screen.getByRole('button', { name: 'Run' }))
-    expect(onRun).not.toHaveBeenCalled()
+    expect(screen.getByTestId('studio-right-panel')).toHaveAttribute('aria-hidden', 'true')
+    expect(screen.queryByTestId('studio-docked-run')).toBeNull()
   })
 
   it('collapses both panels and gives the whole body to the canvas', async () => {
@@ -115,13 +127,12 @@ describe('Studio', () => {
     expect(screen.getByTestId('studio-canvas-slot')).toBeInTheDocument()
   })
 
-  it('runs from the docked control without expanding the dock', async () => {
+  it('runs from the open dock’s pill', async () => {
     const onRun = vi.fn()
     render(<Studio onRun={onRun} />)
-    await userEvent.click(screen.getByRole('button', { name: 'Collapse run panel' }))
     await userEvent.click(screen.getByRole('button', { name: 'Run' }))
     expect(onRun).toHaveBeenCalledTimes(1)
-    expect(screen.getByTestId('studio-right-panel')).toHaveAttribute('aria-hidden', 'true')
+    expect(screen.getByTestId('studio-right-panel')).not.toHaveAttribute('aria-hidden')
   })
 
   it('lets a later plan fill the canvas and the run panel', () => {

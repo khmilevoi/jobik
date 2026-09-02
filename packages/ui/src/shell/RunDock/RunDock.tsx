@@ -34,16 +34,22 @@ export type RunDockStatus = 'running' | 'completed' | 'failed' | 'cancelled'
 
 export interface RunDockProps {
   readonly entryNodeId: string
-  readonly onCollapse: () => void
+  /**
+   * No longer wired to anything: the dock draws no collapse control of its own — that moved to
+   * `TopBar`'s `rightCollapsed`/`onToggleRight` (see `Studio`), for the same reason described on
+   * `PanelHeader`. Kept optional, and otherwise unused, only so `run/RunPanel.test.tsx` — outside
+   * this change's scope, owned by a concurrent session — keeps compiling against the prop it
+   * already passes; a future pass that touches that file can drop it for good.
+   */
+  readonly onCollapse?: () => void
   /**
    * The run number, once a run exists: `#219` while in flight (`Studio — run in progress`, design
    * 592) and `#220 · 0.8s` / `#221 · 2.4s` once settled (`Run panel — states`, 801 and 838; `2A`).
    *
-   * While it is set the 22×22 chevron gives way to it and the header's asymmetric
-   * `0 10px 0 14px` — which exists only to seat that button — becomes symmetric `0 14px`. That
-   * closes closeout finding 8-A: `RunStateHeader` drew all three of these headers for the
-   * standalone card and nothing ever mounted it in the dock, so the run number reached no run
-   * state at all.
+   * While it is set the header's left half gives way to the run's own state — see `runStatus` —
+   * instead of the idle `Run <entry>` title. That closes closeout finding 8-A: `RunStateHeader`
+   * drew all three of these headers for the standalone card and nothing ever mounted it in the
+   * dock, so the run number reached no run state at all.
    */
   readonly runMeta?: string
   readonly runMetaTone?: RunDockMetaTone
@@ -127,33 +133,26 @@ export const RunDock = reatomComponent(function RunDock(props: RunDockProps) {
       </div>
     )
 
-  const settled = props.runMeta !== undefined || status !== undefined
-
   return (
     <div data-testid="studio-dock" className={s.dock}>
-      {settled ? (
-        // design 586–593 shows no collapse control in a dock that reports a run.
-        <div data-testid="studio-dock-header" className={cx(s.header, failed && s.headerFailed)}>
-          {leading}
-          {props.runMeta === undefined ? null : (
-            <div
-              data-testid="studio-dock-run-meta"
-              className={cx(s.meta, metaTone[props.runMetaTone ?? 'normal'])}
-            >
-              {props.runMeta}
-            </div>
-          )}
-        </div>
-      ) : (
-        <PanelHeader
-          data-testid="studio-dock-header"
-          chevron="right"
-          collapseLabel="Collapse run panel"
-          onCollapse={props.onCollapse}
-        >
-          {title}
-        </PanelHeader>
-      )}
+      {/*
+        One header shape for both the idle and the settled/in-flight dock now that neither draws a
+        collapse control of its own — `PanelHeader`'s box (height, divider, `space-between` row) is
+        exactly what design 586–593's run-number header and `Studio — default`'s idle header both
+        are. `runMeta` is simply absent on the idle render, and `failed` tints the bar via a plain
+        className rather than a second, duplicated header element.
+      */}
+      <PanelHeader data-testid="studio-dock-header" className={failed ? s.headerFailed : undefined}>
+        {leading}
+        {props.runMeta === undefined ? null : (
+          <div
+            data-testid="studio-dock-run-meta"
+            className={cx(s.meta, metaTone[props.runMetaTone ?? 'normal'])}
+          >
+            {props.runMeta}
+          </div>
+        )}
+      </PanelHeader>
 
       <div data-testid="studio-dock-body" className={s.body}>
         {props.children}

@@ -3,16 +3,6 @@
   color: var(--jbk-text-control-label);
 }
 
-/*
- * The label doubles as the run dock's expand button, which needs the browser's own button chrome
- * stripped so it reads as plain text inside the chip.
- */
-.runButton {
-  background: none;
-  border: none;
-  padding: 0;
-}
-
 .runEntry {
   font-family: var(--jbk-font-mono);
   color: var(--jbk-accent);

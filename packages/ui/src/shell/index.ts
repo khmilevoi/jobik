@@ -6,7 +6,7 @@
 import './shellTokens.css'
 
 export type { DockedRunControlProps } from './DockedControls/DockedControls.js'
-export { DockedFlowsControl, DockedRunControl } from './DockedControls/DockedControls.js'
+export { DockedRunControl } from './DockedControls/DockedControls.js'
 export type {
   FlowNodeSummary,
   FlowSummary,
@@ -14,8 +14,8 @@ export type {
   InventoryEntry,
 } from './FlowsSidebar/FlowsSidebar.js'
 export { FlowsSidebar } from './FlowsSidebar/FlowsSidebar.js'
-export type { ChevronDirection, PanelHeaderProps } from './PanelHeader/PanelHeader.js'
-export { Chevron, PanelHeader } from './PanelHeader/PanelHeader.js'
+export type { PanelHeaderProps } from './PanelHeader/PanelHeader.js'
+export { PanelHeader } from './PanelHeader/PanelHeader.js'
 export type { RunDockProps } from './RunDock/RunDock.js'
 export { RunDock } from './RunDock/RunDock.js'
 export type { StudioFrameProps } from './StudioFrame/StudioFrame.js'

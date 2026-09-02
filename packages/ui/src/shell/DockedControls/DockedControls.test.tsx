@@ -1,55 +1,21 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { DockedFlowsControl, DockedRunControl } from './DockedControls.js'
+import { DockedRunControl } from './DockedControls.js'
 
 afterEach(cleanup)
 
-describe('DockedFlowsControl', () => {
-  it('is one button with a right-pointing chevron', async () => {
-    const onExpand = vi.fn()
-    const { container } = render(<DockedFlowsControl onExpand={onExpand} />)
-    const button = screen.getByRole('button', { name: 'Expand flows and nodes' })
-    expect(container.querySelector('path')).toHaveAttribute('d', 'M3.5 1 7 4.5 3.5 8')
-    expect(screen.getByText('Flows & nodes')).toBeInTheDocument()
-    await userEvent.click(button)
-    expect(onExpand).toHaveBeenCalledTimes(1)
-  })
-})
-
 describe('DockedRunControl', () => {
-  it('separates the expand affordance from the accent Run button', async () => {
-    const onExpand = vi.fn()
-    const onRun = vi.fn()
-    render(<DockedRunControl entryNodeId="start1" onExpand={onExpand} onRun={onRun} />)
-
-    expect(screen.getByTestId('studio-docked-run')).toBeInTheDocument()
-
-    const expand = screen.getByRole('button', { name: 'Expand run panel' })
-    const run = screen.getByRole('button', { name: 'Run' })
-    expect(expand).not.toBe(run)
-
-    await userEvent.click(expand)
-    expect(onExpand).toHaveBeenCalledTimes(1)
-    expect(onRun).not.toHaveBeenCalled()
-
-    await userEvent.click(run)
-    expect(onRun).toHaveBeenCalledTimes(1)
-    expect(onExpand).toHaveBeenCalledTimes(1)
-  })
-
-  it('prints the entry id inside the label', () => {
-    render(<DockedRunControl entryNodeId="start1" onExpand={() => {}} />)
-    expect(screen.getByText('start1')).toBeInTheDocument()
-  })
-
-  /** `2A`: the same pill in the bar with the dock open, where there is nothing to expand. */
-  it('leaves the label inert when there is nothing to expand', async () => {
+  it('prints the entry id inside an inert label and fires onRun from the accent chip alone', async () => {
     const onRun = vi.fn()
     render(<DockedRunControl entryNodeId="start1" onRun={onRun} />)
-    expect(screen.queryByRole('button', { name: 'Expand run panel' })).toBeNull()
+
+    expect(screen.getByTestId('studio-docked-run')).toBeInTheDocument()
     expect(screen.getByTestId('studio-run-control-label')).toHaveTextContent('Run start1')
+    // The label is plain text now — expand/collapse moved to TopBar's own toggle button — so the
+    // chip offers exactly one control, the accent Run button.
     expect(screen.getAllByRole('button')).toHaveLength(1)
+
     await userEvent.click(screen.getByRole('button', { name: 'Run' }))
     expect(onRun).toHaveBeenCalledTimes(1)
   })

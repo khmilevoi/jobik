@@ -10,14 +10,7 @@ import type {
   RunHistoryEntry,
   TopBarValidateState,
 } from '#shell/index.js'
-import {
-  DockedFlowsControl,
-  DockedRunControl,
-  FlowsSidebar,
-  RunDock,
-  StudioFrame,
-  TopBar,
-} from '#shell/index.js'
+import { DockedRunControl, FlowsSidebar, RunDock, StudioFrame, TopBar } from '#shell/index.js'
 import s from './Studio.module.css'
 
 /** The artboard's own data (design lines 68–122). A default, not a hard-coded body. */
@@ -152,34 +145,19 @@ export const Studio = reatomComponent(function Studio(props: StudioProps) {
           onValidate={props.onValidate}
           onOpenReport={props.onOpenReport}
           onSave={props.onSave}
-          dockedLeft={
-            leftCollapsed ? (
-              <DockedFlowsControl onExpand={() => setLeftCollapsed(false)} />
-            ) : undefined
-          }
-          // The same control in both places, and the difference is `onExpand`. Collapsed, it is
-          // `Studio — panels collapsed`'s docked control and its label expands the dock; open, it
-          // is `2A`'s top-bar run pill, whose label is inert and whose accent chip is the only
-          // thing that acts. `2A` is why it is present at all while the dock is open.
-          dockedRight={
-            rightCollapsed ? (
-              <DockedRunControl
-                entryNodeId={entryNodeId}
-                onExpand={() => setRightCollapsed(false)}
-                onRun={props.onRun}
-                runBlocked={runBlocked}
-              />
-            ) : undefined
-          }
+          leftCollapsed={leftCollapsed}
+          onToggleLeft={() => setLeftCollapsed((collapsed) => !collapsed)}
+          rightCollapsed={rightCollapsed}
+          onToggleRight={() => setRightCollapsed((collapsed) => !collapsed)}
           // `Studio — run in progress` (design 1706–1714) puts exactly three things in the actions
           // cluster: the running pill, then `Validate` and `Save` at 45%. There is no `Run start1`
           // pill beside the chip — while a run streams the chip *is* the run affordance, and a
-          // second one would offer a second run over the first. Hence `running` drops this slot;
-          // where the control is still drawn (the collapsed dock, which is also the panel's expand
-          // affordance) `runBlocked` dims its accent chip instead, which is `3B`'s rule for a
-          // button the surface has already spoken for.
+          // second one would offer a second run over the first. Hence `running` alone drops this
+          // slot. Collapsing the right panel does not: the pill is the only way to start a run, so
+          // it stays put regardless of which panels are open, and `runBlocked` dims its accent chip
+          // instead whenever the surface has already spoken for it, which is `3B`'s rule.
           runControl={
-            rightCollapsed || running ? undefined : (
+            running ? undefined : (
               <DockedRunControl
                 entryNodeId={entryNodeId}
                 onRun={props.onRun}
@@ -208,7 +186,6 @@ export const Studio = reatomComponent(function Studio(props: StudioProps) {
             {...(props.runs === undefined ? {} : { runs: props.runs })}
             {...(props.selectedRunId === undefined ? {} : { selectedRunId: props.selectedRunId })}
             {...(props.onSelectRun === undefined ? {} : { onSelectRun: props.onSelectRun })}
-            onCollapse={() => setLeftCollapsed(true)}
           />
         </div>
       }
@@ -222,7 +199,6 @@ export const Studio = reatomComponent(function Studio(props: StudioProps) {
         >
           <RunDock
             entryNodeId={entryNodeId}
-            onCollapse={() => setRightCollapsed(true)}
             {...(props.runMeta === undefined ? {} : { runMeta: props.runMeta })}
             {...(props.runMetaTone === undefined ? {} : { runMetaTone: props.runMetaTone })}
             {...(props.runStatus === undefined ? {} : { runStatus: props.runStatus })}

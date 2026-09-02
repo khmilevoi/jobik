@@ -4,24 +4,6 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 10px 0 14px;
+  padding: 0 14px;
   border-bottom: 1px solid var(--jbk-border-panel-header-divider);
-}
-
-.collapseButton {
-  width: var(--jbk-layout-icon-button-size);
-  height: var(--jbk-layout-icon-button-size);
-  border: 1px solid var(--jbk-border-icon-button);
-  border-radius: var(--jbk-radius-small);
-  background: none;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* The chevron's stroke is the one colour in this file; its geometry (`fill`, `stroke-width`) has
- * no token and stays an SVG attribute. */
-.chevronPath {
-  stroke: var(--jbk-text-chevron);
 }
