@@ -11,7 +11,7 @@ import {
   withComputed,
   wrap,
 } from '@reatom/core'
-import type { SafeFlowDescriptorPayload } from '#client/index.js'
+import type { SafeFlowDescriptorPayload, WireErrorPayload } from '#client/index.js'
 import type { ValidationFinding } from '#modals/index.js'
 import { ACTION_TIMINGS, type CopyState, type ValidateState } from '#primitives/index.js'
 import type { TopBarValidateState } from '#shell/index.js'
@@ -53,6 +53,42 @@ import type { StudioDeps, ValidationModel, ValidationState } from './types.js'
  * mark `3D` draws is derived from the document and the one wire finding. It stays on the signature
  * because the contract declares it and `reatomStudio` wires every factory the same way.
  */
+/**
+ * R2 — the location line `3C` draws beside every finding's class, filled with what the wire
+ * actually carries.
+ *
+ * The artboard writes `flow.ts:41`. **No wire payload carries a file or a line**, and neither is
+ * invented here. What `POST /api/flows/:id/validate` does carry is where in the *graph* the check
+ * failed: `ConnectionError` declares `from` and `to` as `FieldRef`s, and `graph/validate.ts` sets
+ * `to` on every unconnected-input and literal failure and both ends on a type mismatch, while the
+ * run-time tags name a bare `nodeId`. `studio/problems.ts` already reads exactly these three
+ * fields to mark the canvas, so the dialog was the one surface that knew where the problem was and
+ * did not say so.
+ *
+ * A finding therefore prints `render.markdown`, or `render` where only a node is named, and prints
+ * nothing at all where the payload names neither. `to` is preferred over `from` because it is the
+ * receiving port — the end the check is reported against, and the end the canvas marks.
+ *
+ * **The artboard's per-finding actions are deliberately still absent.** `Reveal node` would
+ * recolour a node the canvas cannot scroll to, and the Studio has no editor for `Open in editor`
+ * to open; a control that cannot do what its label says is worse than no control. That is the call
+ * `toValidationFindings` already records for `Open in editor`, applied to both.
+ */
+function findingSource(error: WireErrorPayload): string | undefined {
+  const ref = fieldRef(error.to) ?? fieldRef(error.from)
+  if (ref !== undefined) return `${ref.node}.${ref.field}`
+  return typeof error.nodeId === 'string' && error.nodeId !== '' ? error.nodeId : undefined
+}
+
+/** A `FieldRef` off the payload's open index signature, or nothing. Never a half-read one. */
+function fieldRef(value: unknown): { readonly node: string; readonly field: string } | undefined {
+  if (value === null || typeof value !== 'object') return undefined
+  const node = (value as { node?: unknown }).node
+  const field = (value as { field?: unknown }).field
+  if (typeof node !== 'string' || typeof field !== 'string') return undefined
+  return { node, field }
+}
+
 export function reatomValidation(
   deps: StudioDeps,
   input: {
@@ -116,7 +152,10 @@ export function reatomValidation(
   const findings = computed<readonly ValidationFinding[] | undefined>(() => {
     const current = active()
     if (current?.kind !== 'invalid') return undefined
-    return toValidationFindings({ error: current.error })
+    const source = findingSource(current.error)
+    return toValidationFindings({ error: current.error }).map((finding) =>
+      source === undefined ? finding : { ...finding, source },
+    )
   }, `${name}.findings`)
 
   /** `3D`'s four cells: `Default`, `Validating`, `Valid`, `Invalid`. */

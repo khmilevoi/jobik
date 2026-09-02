@@ -138,18 +138,63 @@ describe('ValidationModal', () => {
   })
 
   /**
-   * The two absences are the point. `3C` puts a `flow.ts:41` at the right of every tag row and two
-   * action links under the first two findings; `WireErrorPayload` carries no source location, and
-   * `ValidationModel.findings` passes no `onRevealNode`, so neither is ever drawn today.
+   * R2 — `3C` puts a location at the right of every tag row, and the dialog printed none.
+   *
+   * The artboard's own `flow.ts:41` stays unfillable: no wire payload carries a file or a line. But
+   * the payload does say *where in the graph* the check failed, and `model/validation.ts` now reads
+   * it, so the finding names the node the server named.
    */
-  it('draws the finding’s class, with no source ref and no action links the wire can fill', async () => {
+  it('draws the finding’s class over the location the payload names', async () => {
     await mountRejected()
 
     expect(screen.getAllByTestId('validation-finding')).toHaveLength(1)
     expect(screen.getAllByTestId('validation-code').map((node) => node.textContent)).toEqual([
       'TypeMismatch',
     ])
+    expect(screen.getByTestId('validation-source')).toHaveTextContent('render.markdown')
+  })
+
+  /** `ConnectionError`'s `to` — the receiving port, which is the end the check is reported against. */
+  it('prefers the field ref the payload carries over its bare node id', async () => {
+    await mountRejected(
+      stubClient({
+        validate: vi.fn(async () => ({
+          valid: false,
+          error: {
+            _tag: 'ConnectionError',
+            message: 'The flow graph is invalid: markdown has no source',
+            to: { node: 'render', field: 'markdown' },
+          },
+        })),
+      } as unknown as Partial<JobikClient>),
+    )
+
+    expect(screen.getByTestId('validation-source')).toHaveTextContent('render.markdown')
+  })
+
+  /** A payload that names neither prints no location, rather than a guessed one. */
+  it('draws no location for a payload that names nowhere', async () => {
+    await mountRejected(
+      stubClient({
+        validate: vi.fn(async () => ({
+          valid: false,
+          error: { _tag: 'FlowSchemaError', message: 'The document does not parse' },
+        })),
+      } as unknown as Partial<JobikClient>),
+    )
+
+    expect(screen.getByTestId('validation-code')).toHaveTextContent('FlowSchemaError')
     expect(screen.queryByTestId('validation-source')).toBeNull()
+  })
+
+  /**
+   * The remaining absence, and it is deliberate. `3C` draws `Reveal node` and `Open in editor`
+   * under a finding; the canvas cannot scroll to a node and the Studio has no editor, so a control
+   * that cannot do what its label says is not offered. See `findingSource`'s own note.
+   */
+  it('offers no per-finding action links, because neither would do what it says', async () => {
+    await mountRejected()
+
     expect(screen.queryByTestId('validation-action')).toBeNull()
   })
 
