@@ -9,9 +9,12 @@
  * changes nothing.
  *
  * The keyframe names are load-bearing: the `motion` tokens name `jspin`, `jdash`, `jshim`,
- * `jpulse`, `jsweep`, `jpop`, `jfade` and `jline`, so renaming one here silently stops an
- * animation. The `4A` transition durations and curves live in `tokens.css` beside them; only the
- * `@keyframes` themselves need a stylesheet with no selector, which is why they are here.
+ * `jpulse`, `jsweep`, `jpop`, `jfade` and `jline`, so renaming one here would stop an animation
+ * with nothing in a compiler noticing. `globalStyles.test.tsx` derives both sides of that join —
+ * the names defined below and the names the tokens spell — and compares them as a set, so neither
+ * a rename nor an unreferenced keyframe can pass, and the guard needs no list to be remembered.
+ * The `4A` transition durations and curves live in `tokens.css` beside them; only the `@keyframes`
+ * themselves need a stylesheet with no selector, which is why they are here.
  */
 
 [data-jobik-studio],
@@ -79,6 +82,14 @@
  * `jspin` is the single exception, deliberately left running. It is 11px of rotation and it is the
  * *only* signal that a run is in progress; stopping it removes information rather than motion. Its
  * duration is not changed either, because the design fixes `.7s` and a slower one would be invented.
+ *
+ * The list below is hand-written but it is no longer trusted to be complete.
+ * `tokens.css.test.ts` § `prefers-reduced-motion` parses this block and walks the whole `motion`
+ * group against it: a `duration*` token must be `0ms` here, any other must be `none`, the three
+ * curves must be absent, and `spinner` is the one exception the test declares out loud. It also
+ * fails on a `<name>Tokens.css` that inlines a keyframe name or a raw duration of its own, because
+ * such a value resolves before this block runs and nothing here can reach it. So a ninth motion
+ * token cannot be added without either appearing below or being argued for in that test.
  */
 @media (prefers-reduced-motion: reduce) {
   [data-jobik-studio] {

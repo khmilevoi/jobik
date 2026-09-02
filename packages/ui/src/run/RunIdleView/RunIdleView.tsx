@@ -12,10 +12,17 @@ export interface RunIdleViewProps {
   readonly state: RunIdleState
 }
 
-/** Both summary outcomes, spelled out; `satisfies` makes a third one a type error. */
+/**
+ * All three summary outcomes, spelled out; `satisfies` makes a fourth one a type error.
+ *
+ * `cancelled` takes the muted dot rather than the error one, exactly as `RunStateHeader`,
+ * `FlowsSidebar`'s history rows and `RunToast` already do (R7): the word beside it says the user
+ * chose to stop, and a failure colour would contradict it inside one line.
+ */
 const lastRunDotTone = {
   completed: 'ok',
   failed: 'failed',
+  cancelled: 'cancelled',
 } satisfies Record<RunSummary['status'], RunDotTone>
 
 /**

@@ -182,13 +182,22 @@ export function toFlowNodeSummaries(
 }
 
 /**
- * `ok` once the node has settled successfully — `cached` and `skipped` included, since both mean
- * the run got past it with a value — `start` while it is the one running, and otherwise whatever
- * the descriptor says. `failed` deliberately has no tone of its own here: the sidebar row has no
- * failure treatment in any artboard, and the card on the canvas is where a failure is read.
+ * `ok` once the node has settled with a value — `cached` included, since a cached node really did
+ * produce one — `start` while it is the one running, and otherwise whatever the descriptor says.
+ *
+ * `failed` and `skipped` deliberately have no tone of their own here. The sidebar row has no
+ * failure treatment in any artboard, and the card on the canvas is where a failure is read; a
+ * node the run did not get to is not a node that succeeded. **`skipped` is core's word for a node
+ * the engine never executed** — `run/execute.ts` settles every node still outstanding as `skipped`
+ * with a `RunCancelledError` the moment a run is aborted, and settles anything blocked downstream
+ * of a failure the same way. There is no value behind it. `model/canvas.tsx` and
+ * `runPresenter.ts` both hand `skipped` the `queued` CARD treatment for that reason; this list
+ * never draws the queued dot at all (see above), so its "did not run" reading is the descriptor
+ * tone the row started at — and a row and the card beside it can no longer disagree about the
+ * same node.
  */
 function sidebarDotTone(kind: string, status: string | undefined): FlowNodeSummary['dot'] {
-  if (status === 'ok' || status === 'cached' || status === 'skipped') return 'ok'
+  if (status === 'ok' || status === 'cached') return 'ok'
   if (status === 'running') return 'start'
   return kind === 'start' ? 'start' : 'neutral'
 }

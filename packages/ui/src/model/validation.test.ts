@@ -12,8 +12,9 @@ import { reatomValidation } from './validation.js'
  *
  * The first five cases were `useStudioSession.test.ts` cases and keep their names; the chip cases
  * keep the names `primitives/actionState.test.ts` gave the same transitions, because that is what
- * this model now performs. That file is untouched and still covers `createValidateAction`, which
- * `StudioApp` uses until the wave that rewrites it.
+ * this model now performs. That file is untouched and still covers `createValidateAction` — which
+ * this model ported and which nothing outside that suite calls any more, as
+ * `ValidationModel.chip`'s own note records.
  *
  * **Every promise this file awaits is a `wrap`ped one.** `context.start(async …)` holds its frame
  * only across wrapped boundaries; resuming from a bare `await` puts the reads that follow in the
@@ -59,6 +60,19 @@ const DESCRIPTOR = {
 const REJECTED: ValidatePayload = {
   valid: false,
   error: { _tag: 'ConnectionError', message: 'render.markdown expects string' },
+}
+
+/**
+ * The same rejection, with the `to` `FieldRef` `graph/validate.ts` sets on it — which is what
+ * `findingSource` reads, and therefore the one payload shape whose finding carries a source.
+ */
+const REJECTED_AT_PORT: ValidatePayload = {
+  valid: false,
+  error: {
+    _tag: 'ConnectionError',
+    message: 'render.markdown expects string',
+    to: { node: 'render', field: 'markdown' },
+  },
 }
 
 interface World {
@@ -150,6 +164,7 @@ async function withValidation(
 
 const passes = async (): Promise<ValidatePayload> => ({ valid: true })
 const rejects = async (): Promise<ValidatePayload> => REJECTED
+const rejectsAtPort = async (): Promise<ValidatePayload> => REJECTED_AT_PORT
 
 beforeEach(() => {
   vi.useFakeTimers()
@@ -534,6 +549,38 @@ describe('Copy report', () => {
 
         await elapse(ACTION_TIMINGS.copiedHoldMs)
         expect(validation.copyState()).toBe('idle')
+      })
+    } finally {
+      Reflect.deleteProperty(globalThis.navigator, 'clipboard')
+    }
+  })
+
+  /**
+   * R2's other half. `findingSource` fills the row's source cell off the payload's `FieldRef`, so
+   * the clipboard has to carry it as well: what the dialog draws is what the user copies. The rows
+   * are read here too, so the text is pinned against the finding rather than against a literal.
+   */
+  it('carries the source location the rows draw', async () => {
+    const writeText = vi.fn(async (_text: string) => {})
+    Object.defineProperty(globalThis.navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true,
+    })
+
+    try {
+      await withValidation(rejectsAtPort, async ({ validation, settle }) => {
+        validation.validate()
+        await settle()
+
+        const row = validation.reportFindings()?.[0]
+        expect(row?.source).toBe('render.markdown')
+
+        validation.copyReport()
+        await settle()
+
+        const copied = writeText.mock.calls[0]?.[0]
+        expect(copied).toBe('ConnectionError · render.markdown\nrender.markdown expects string')
+        expect(copied).toContain(row?.source)
       })
     } finally {
       Reflect.deleteProperty(globalThis.navigator, 'clipboard')

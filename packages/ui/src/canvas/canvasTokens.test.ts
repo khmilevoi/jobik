@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { motion } from '#tokens.js'
 import { canvasColors, canvasMetrics } from './canvasTokens.js'
 
 describe('canvasColors', () => {
@@ -51,7 +50,6 @@ describe('canvasColors', () => {
       'linear-gradient(100deg,#0d0f11 30%,#161a1d 50%,#0d0f11 70%)',
     )
     expect(canvasMetrics.skeletonBackgroundSize).toBe('220% 100%')
-    expect(canvasMetrics.skeletonAnimation).toBe(motion.shimmer)
   })
 })
 

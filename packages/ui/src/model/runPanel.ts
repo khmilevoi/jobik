@@ -652,28 +652,28 @@ export function reatomRunPanel(
   )
 
   /**
-   * `2A`: once a run settles, the dock header's left half is `● Completed` or `● Run failed` rather
-   * than `Run <entry>`. `Studio — run in progress` keeps the entry point while the run is in
-   * flight, and the idle artboard has no state at all, so this is `undefined` in both.
+   * `2A`: once a run exists, the dock header's left half is the run's state — `● Completed` in the
+   * artboard — rather than `Run <entry>`. Idle has no run and no state, so it is `undefined` there
+   * and only there.
    *
-   * ## The missing third arm is an unsettled artboard disagreement, not an oversight
+   * ## F-C4 is resolved, against the earlier ruling recorded here
    *
-   * `Run panel — states` (design 2013-2019) draws a running header too: a 9px `jspin` ring, the
-   * word `Running`, and `#219` on the right. `RunStateHeader` implements it faithfully and
-   * `RunPanelCard` draws it, so the artboard is not unimplemented — but the *dock* never reaches
-   * it, because this returns `undefined` while a run is in flight and `RunDock` falls back to
-   * `Run <entry>` in a `PanelHeader`.
+   * This used to return `undefined` while a run streamed, on the reading that
+   * `Studio — run in progress` (design 1818-1822, `Run start1` + `#219`) and `Run panel — states`
+   * (2009-2011, ring + `Running` + `#219`) were same-generation artboards in an unbreakable tie.
+   * They are not in a tie. `2A:1191` draws the *settled* dock inside the live shell as a state word
+   * plus meta, no artboard anywhere draws a settled dock as `Run <entry>`, and `2A` is the newer
+   * file — so the header takes a state word. Leaving the running arm out therefore did not pick one
+   * artboard over the other: it made the header **change shape mid-run**, `Run start1` up to the
+   * last event and `Completed` after it, which is a third behaviour neither artboard draws.
    *
-   * That is what `Studio — run in progress` draws, and the two artboards are the same generation:
-   * neither carries a `2A`-style prefix, so the "newer wins" tie-break does not apply and no
-   * artboard settles it. It is an operator decision. **Do not add a `running` arm here on your own
-   * authority** — it would change what the Studio shows during every run, and the disagreement is
-   * recorded rather than resolved on purpose. If the standalone card wins, the arm goes here and
-   * `RunDockStatus` grows a `running` member; if the full-page artboard wins, this comment is the
-   * answer and the next auditor can stop re-finding it.
+   * So the three artboards describe one header in four states, and this names all of them.
+   * `RunDock` owns the treatment; `RunStateHeader` already drew the standalone running card and is
+   * where its ring and word came from.
    */
   const dockStatus = computed<RunDockStatus | undefined>(() => {
     const kind = _kind()
+    if (kind === 'running') return 'running'
     if (kind === 'completed') return 'completed'
     // R7 — the docked header is the surface the acceptance pass measured saying `Run failed` over
     // a `RunCancelledError`. `RunDock` owns the word and the tone; this says which of the three.

@@ -1,6 +1,7 @@
 import { reatomComponent } from '@reatom/react'
 import type { ReactNode } from 'react'
 import { cx } from '#cx.js'
+import { Spinner } from '#primitives/Spinner/Spinner.js'
 import { PanelHeader } from '#shell/PanelHeader/PanelHeader.js'
 import s from './RunDock.module.css'
 
@@ -9,13 +10,18 @@ import s from './RunDock.module.css'
 export type RunDockMetaTone = 'normal' | 'failed'
 
 /**
- * The settled run states the dock header names on its left, from `2A` (`● Completed`) and
- * `Run panel — states` (`Run failed`).
+ * The run states the dock header names on its left, from `2A` (`● Completed`) and
+ * `Run panel — states` (the `Running` ring, `Run failed`).
  *
- * There is deliberately no `running` member: `Studio — run in progress` keeps `Run` + the entry
- * point on the left while a run streams and moves only the right slot, so a spinner in the docked
- * header would state something no Studio artboard does. The standalone `Running` card is
- * `run/RunStateHeader`'s.
+ * **`running` is a member, and F-C4's earlier ruling that "no artboard settles it" was wrong.**
+ * `2A:1191` — the newest artboard, and the only one that draws a *settled* dock inside the live
+ * shell — heads it `● Completed` / `#221 · 2.4s`: a state word and a meta, never `Run <entry>`.
+ * `Studio — run in progress` (1818-1822) is the only `Run <entry>` header anywhere, it is older,
+ * and it shows a *different state of the same header* rather than a rival design for it. Reading
+ * the two as irreconcilable produced a header that changed shape mid-run — `Run start1` while the
+ * stream ran, a state word the instant it stopped — which is a third behaviour neither artboard
+ * draws. So the header takes a state word for the whole run, and `Run panel — states` (2009-2011)
+ * is what the running one looks like: the 9px `jspin` ring, `Running`, `#219` opposite.
  *
  * **`cancelled` is here because the engine settles three ways and this header used to name two
  * (R7).** No artboard draws it — the design speaks about cancelling in exactly one place, `3C`'s
@@ -24,7 +30,7 @@ export type RunDockMetaTone = 'normal' | 'failed'
  * word `cancelled`, and none of the failed header's warm wash. Saying `Run failed` over a
  * `RunCancelledError` was the app contradicting itself inside one header.
  */
-export type RunDockStatus = 'completed' | 'failed' | 'cancelled'
+export type RunDockStatus = 'running' | 'completed' | 'failed' | 'cancelled'
 
 export interface RunDockProps {
   readonly entryNodeId: string
@@ -42,10 +48,11 @@ export interface RunDockProps {
   readonly runMeta?: string
   readonly runMetaTone?: RunDockMetaTone
   /**
-   * The settled state, once there is one. `2A` heads the dock `● Completed` / `#221 · 2.4s` — the
-   * header carries the run's *state*, not only its number — and `Run panel — states` gives the
-   * failed form the same shape on a tinted bar. Left unset, the header keeps `Run <entry>` on its
-   * left, which is what `Studio — default` and `Studio — run in progress` draw.
+   * The run's state, from the moment one exists. `2A` heads the dock `● Completed` / `#221 · 2.4s`
+   * — the header carries the run's *state*, not only its number — and `Run panel — states` gives
+   * the running and failed forms the same shape, the failed one on a tinted bar. Left unset, the
+   * header keeps `Run <entry>` on its left, which is what `Studio — default` draws and what the
+   * idle dock is.
    */
   readonly runStatus?: RunDockStatus
   /**
@@ -62,18 +69,24 @@ const metaTone = {
   failed: s.metaFailed,
 } satisfies Record<RunDockMetaTone, string>
 
-/** The three tables the settled header reads, each written out so a new state is a type error. */
+/** The tables the state header reads, each written out so a new state is a type error. */
 const statusTitle = {
+  running: 'Running',
   completed: 'Completed',
   failed: 'Run failed',
   cancelled: 'Run cancelled',
 } satisfies Record<RunDockStatus, string>
 
+/**
+ * Only the settled three. `running` is absent because it takes the ring instead of a dot
+ * (`Run panel — states`, 2009), and `Exclude` is what makes that a table the compiler still
+ * completes rather than a case somebody can forget.
+ */
 const statusDotTone = {
   completed: s.statusDotOk,
   failed: s.statusDotFailed,
   cancelled: s.statusDotCancelled,
-} satisfies Record<RunDockStatus, string>
+} satisfies Record<Exclude<RunDockStatus, 'running'>, string>
 
 /**
  * A `reatomComponent` with an unchanged prop API. `runMeta`, `runMetaTone` and `runStatus` all have
@@ -81,8 +94,8 @@ const statusDotTone = {
  * model at all; reading them here would make the artboard's shell unrenderable on its own.
  */
 export const RunDock = reatomComponent(function RunDock(props: RunDockProps) {
-  // `Studio — default` (264–273) and `Studio — run in progress` (586–591): the dock header's left
-  // half carries the flow's entry point, unchanged by the run. Only the right slot moves.
+  // `Studio — default` (264–273): the idle dock's left half carries the flow's entry point. Once a
+  // run exists `runStatus` replaces it with the run's own state word — see `RunDockStatus`.
   const title = (
     <div className={s.title}>
       <div className={s.titleLabel}>Run</div>
@@ -93,16 +106,21 @@ export const RunDock = reatomComponent(function RunDock(props: RunDockProps) {
   const status = props.runStatus
   const failed = status === 'failed'
 
-  // `2A` (`● Completed`) and `Run panel — states` (795–801): a 6×6 square dot plus the state word.
+  // `2A` (`● Completed`) and `Run panel — states` (795–801): a 6×6 square dot plus the state word,
+  // and (2009) the 9px ring in the dot's place while the run streams.
   const leading =
     status === undefined ? (
       title
     ) : (
       <div className={s.title}>
-        <div
-          data-testid="studio-dock-status-dot"
-          className={cx(s.statusDot, statusDotTone[status])}
-        />
+        {status === 'running' ? (
+          <Spinner size={9} track="wide" data-testid="studio-dock-status-spinner" />
+        ) : (
+          <div
+            data-testid="studio-dock-status-dot"
+            className={cx(s.statusDot, statusDotTone[status])}
+          />
+        )}
         <div data-testid="studio-dock-status" className={cx(s.titleLabel, failed && s.titleFailed)}>
           {statusTitle[status]}
         </div>

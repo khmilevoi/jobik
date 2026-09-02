@@ -87,10 +87,51 @@ describe('RunDock — the run number', () => {
  * not only its number. `Run panel — states` gives the failed form the same shape on a tinted bar.
  */
 describe('RunDock — the run state', () => {
-  it('keeps `Run <entry>` while no state has settled', () => {
+  it('keeps `Run <entry>` when the caller names no state at all', () => {
     render(<RunDock entryNodeId="start1" onCollapse={() => {}} runMeta="#219" />)
     expect(screen.getByTestId('studio-dock-header').textContent).toContain('start1')
     expect(screen.queryByTestId('studio-dock-status')).toBeNull()
+  })
+
+  /** `Run panel — states` (design 2009-2011): the ring, `Running`, and `#219` opposite. */
+  it('heads a running run with the spinner and the word, not the entry point', () => {
+    render(
+      <RunDock entryNodeId="start1" onCollapse={() => {}} runStatus="running" runMeta="#219" />,
+    )
+    expect(screen.getByTestId('studio-dock-status').textContent).toBe('Running')
+    expect(screen.getByTestId('studio-dock-status-spinner')).toBeInTheDocument()
+    expect(screen.queryByTestId('studio-dock-status-dot')).toBeNull()
+    expect(screen.getByTestId('studio-dock-run-meta').textContent).toBe('#219')
+    expect(screen.getByTestId('studio-dock-header').textContent).not.toContain('start1')
+  })
+
+  /**
+   * The header the whole of F1 is about: `2A:1191` draws it as a state word plus meta, and the
+   * running card draws the same two slots. So the shape a run reaches at its end is the shape it
+   * had all along — a word on the left, a meta on the right, and no chevron on either.
+   */
+  it('holds one shape across running → completed', () => {
+    const { rerender } = render(
+      <RunDock entryNodeId="start1" onCollapse={() => {}} runStatus="running" runMeta="#221" />,
+    )
+    const running = screen.getByTestId('studio-dock-header')
+    expect(screen.getByTestId('studio-dock-status')).toBeInTheDocument()
+    expect(screen.getByTestId('studio-dock-run-meta')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Collapse run panel' })).toBeNull()
+
+    rerender(
+      <RunDock
+        entryNodeId="start1"
+        onCollapse={() => {}}
+        runStatus="completed"
+        runMeta="#221 · 2.4s"
+      />,
+    )
+    // The same header element, not a swapped-in one: the left slot changed its word, nothing else.
+    expect(screen.getByTestId('studio-dock-header')).toBe(running)
+    expect(screen.getByTestId('studio-dock-status').textContent).toBe('Completed')
+    expect(screen.getByTestId('studio-dock-run-meta')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Collapse run panel' })).toBeNull()
   })
 
   it('heads a completed run with its state word and the run meta', () => {

@@ -1075,7 +1075,13 @@ describe('the 100ms clock and the panel it must not rebuild', () => {
  * fixture-driven — ever checked what it says.
  */
 describe('the dock status', () => {
-  it('names nothing until a run has settled', async () => {
+  /**
+   * `2A:1191` draws the settled dock header as a state word plus meta, and no artboard anywhere
+   * draws a settled dock as `Run <entry>`. Answering `undefined` while the run streamed made the
+   * header change shape mid-run — `Run start1` up to the last event, a state word after it — which
+   * is a third behaviour no artboard shows. Naming the running state is what holds one shape.
+   */
+  it('names the run from the first event to the last, so the header never changes shape', async () => {
     const streamGate = gate()
     await inFrame(
       async ({ panel, run }) => {
@@ -1083,8 +1089,8 @@ describe('the dock status', () => {
 
         const pending = run.start({ title: 'A post' })
         await flush()
-        // `Studio — run in progress` keeps the entry point in the header's left half.
-        expect(panel.dockStatus()).toBeUndefined()
+        // `Run panel — states` (design 2009-2011): a spinner, `Running`, and `#219` opposite.
+        expect(panel.dockStatus()).toBe('running')
 
         streamGate.release()
         await wrap(pending)

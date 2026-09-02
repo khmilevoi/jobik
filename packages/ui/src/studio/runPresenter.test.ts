@@ -112,7 +112,7 @@ describe('toRunSummary', () => {
     })
   })
 
-  it('reports a cancelled run as failed, because the panel has only two tones', () => {
+  it('keeps a cancelled run cancelled, rather than reporting it as failed', () => {
     const report: WireRunReportPayload = {
       flowName: 'publication',
       startId: 'start1',
@@ -122,6 +122,21 @@ describe('toRunSummary', () => {
       nodes: [],
       logs: [],
       error: { _tag: 'RunCancelledError', message: 'The run was cancelled', runNumber: 220 },
+    }
+
+    expect(toRunSummary(report).status).toBe('cancelled')
+  })
+
+  it('reports a genuinely failed run as failed', () => {
+    const report: WireRunReportPayload = {
+      flowName: 'publication',
+      startId: 'start1',
+      runNumber: 221,
+      status: 'failed',
+      elapsedMs: 800,
+      nodes: [],
+      logs: [],
+      error: { _tag: 'ImageRenderError', message: 'Layout pass failed', runNumber: 221 },
     }
 
     expect(toRunSummary(report).status).toBe('failed')

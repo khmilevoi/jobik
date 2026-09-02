@@ -25,7 +25,11 @@ export interface ValidationFinding {
   readonly severity: ValidationSeverity
   /** The error class, mono and PascalCase — `TypeMismatch`, `UnconnectedInput`, `UnusedOutput`. */
   readonly code: string
-  /** The source reference at the right of the tag row — `flow.ts:41`. */
+  /**
+   * The location at the right of the tag row. The artboard writes `flow.ts:41`; what the Studio can
+   * fill it with is where in the graph the check failed — `render.markdown`, or a bare node id.
+   * Absent where the payload names nowhere. See `model/validation.ts`'s `findingSource`.
+   */
   readonly source?: string
   /** The sentence, with its identifiers marked mono — see `ProseSegment`. */
   readonly message: readonly ProseSegment[]
@@ -113,18 +117,24 @@ function countLabel(count: number, noun: string): string {
  * **What the model can produce is one finding, and the artboard draws three.**
  * `ValidationModel.findings` runs `studio/validation.ts`'s `toValidationFindings`, which is honest
  * about v1's wire: `POST /api/flows/:id/validate` answers with **one** `WireErrorPayload` carrying
- * no severity, no source location and no second entry, so every finding reaching this component is
- * a lone `severity: 'error'` with no `source` and — because the model passes no `onRevealNode` — no
- * action links. `3C` fixes a list of three across two severities with `flow.ts:41` refs and
- * `Reveal node` / `Open in editor` links, so the warning ramp, the source cell, the action row and
- * the `2 errors · 1 warning` header pair below are **drawn but unexercised** until the endpoint is
- * widened. They are kept rather than deleted: the day the wire carries a second finding, nothing
- * here changes. The cases that used to assert them through props were removed with the props.
+ * no severity and no second entry, so every finding reaching this component is a lone
+ * `severity: 'error'` and — because the model passes no `onRevealNode` — carries no action links.
+ * `3C` fixes a list of three across two severities with `Reveal node` / `Open in editor` links, so
+ * the warning ramp, the action row and the `2 errors · 1 warning` header pair below are **drawn but
+ * unexercised** until the endpoint is widened. They are kept rather than deleted: the day the wire
+ * carries a second finding, nothing here changes. The cases that used to assert them through props
+ * were removed with the props.
  *
- * `Copy report` now has the unit it was missing. What it writes is the list this component draws
- * and nothing else — a code and the server's own sentence per row — so the clipboard cannot claim
- * a severity or a source location the wire never sent. It runs `3A` §4.1's matrix, the same one
- * the output dock's copy runs.
+ * **The source cell is the one that is now exercised.** `model/validation.ts`'s `findingSource`
+ * fills it from the payload's own `FieldRef` — `render.markdown`, or a bare node id where only one
+ * is named — so it is drawn on every finding the server locates and omitted on every finding it
+ * does not. The artboard's `flow.ts:41` is still unfillable: no payload carries a file or a line.
+ *
+ * `Copy report` writes the list this component draws and nothing else — per row, the class and that
+ * same location on one line, then the server's own sentence — so the clipboard cannot claim a
+ * severity the wire never sent, and cannot drop a location it did. `model/validation.ts`'s
+ * `toReportText` is the correspondence; `ValidationModal.test.tsx` reads both out of the DOM and
+ * pins them equal. It runs `3A` §4.1's matrix, the same one the output dock's copy runs.
  */
 export const ValidationModal = reatomComponent(function ValidationModal() {
   const { flows, validation } = useStudioModel()

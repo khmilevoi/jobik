@@ -977,6 +977,71 @@ describe('switching flows', () => {
         ),
     )
   })
+
+  /**
+   * `3F`'s `Switch and keep running`, followed all the way to the end.
+   *
+   * Draining the stream is only half of that promise. The run the user chose to keep settles on the
+   * server, and its report belongs to the flow it was *started* under — so it has to reach that
+   * flow's archive even though nothing it says may touch the surfaces any more. Otherwise the arm
+   * whose whole point is that the run survives loses it: no history row, no toast, and nothing
+   * under `Runs` on the way back.
+   *
+   * The archive is keyed by flow, so this also pins the other half: the run never appears under the
+   * name of the flow the user switched to.
+   */
+  it('files a run that outlived the switch under the flow it was started on', async () => {
+    const streamGate = gate()
+    await inFrame(
+      async ({ model, flowId }) => {
+        const pending = model.start({ title: 't' })
+        expect(model.running()).toBe(true)
+
+        // One flow switch, in `commitSwitch`'s own order: every reset, then the id moves.
+        model.reset()
+        flowId.set('pokedex')
+
+        streamGate.release()
+        await wrap(pending)
+        await flush()
+
+        // Nothing reached the surfaces, and nothing was filed under the flow now open.
+        expect(model.session()).toBeUndefined()
+        expect(model.lastReport()).toBeUndefined()
+        expect(model.running()).toBe(false)
+        expect(model.archive()).toEqual([])
+        expect(model.history()).toEqual([])
+
+        // Back on `publication`: the run the user kept is waiting, exactly as `3F` promises.
+        model.reset()
+        flowId.set('publication')
+
+        expect(model.history()).toEqual([
+          { id: '219', label: '#219', status: 'ok', elapsed: '2.4s' },
+        ])
+        model.selectRun('219')
+        expect(model.viewedSession()?.report).toEqual(REPORT)
+      },
+      () =>
+        makeHarness(
+          stubClient({
+            startRun: async () =>
+              (async function* () {
+                yield { type: 'run-accepted', runToken: 'tok' } as RunStreamEvent
+                await streamGate.promise
+                yield {
+                  type: 'run-started',
+                  runNumber: 219,
+                  flowName: 'publication',
+                  startId: 'start1',
+                  nodeCount: 1,
+                } as RunStreamEvent
+                yield { type: 'run-settled', report: REPORT } as RunStreamEvent
+              })(),
+          }),
+        ),
+    )
+  })
 })
 
 describe('choosing a start', () => {

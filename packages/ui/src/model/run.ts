@@ -56,7 +56,10 @@ import { toFailurePayload } from './types.js'
  * **A stale generation `continue`s, never `break`s.** {@link RunModel.generation} is read once,
  * before the first `await`, and every write below is gated on it still matching. A flow switch
  * (`reset`) bumps it and so does the next start — but the loop keeps pulling from the iterator, so
- * the server settles the run and is never left with a reader that walked away.
+ * the server settles the run and is never left with a reader that walked away. **The generation
+ * gates the surfaces, not the archive**: the fold runs on a local session and files the report
+ * under the flow the run was started on either way, which is the whole of `3F`'s
+ * `Switch and keep running`.
  *
  * **A late cancel failure is dropped.** 8-B: a cancel that loses the race against the run's own
  * terminal line is answered `404`, and writing that onto `session.failure` would replace a
@@ -415,14 +418,13 @@ export function reatomRun(
     // Declaration order, filtered — not the traversal order `runGraphNodeIds` happens to build the
     // set in, which is nothing the panel or the canvas should inherit.
     const runGraph = runGraphNodeIds(savedDocument, startId)
+    const started = createRunSession({
+      startId,
+      nodeIds: descriptor.nodes.map((node) => node.id).filter((id) => runGraph.has(id)),
+      startedAt: runStartedAt,
+    })
     // The one write in this run that deliberately replaces the session rather than folding into it.
-    session.set(
-      createRunSession({
-        startId,
-        nodeIds: descriptor.nodes.map((node) => node.id).filter((id) => runGraph.has(id)),
-        startedAt: runStartedAt,
-      }),
-    )
+    session.set(started)
     running.set(true)
 
     const stream = await wrap(deps.client.startRun({ flowId, startId, input: values }))
@@ -440,22 +442,38 @@ export function reatomRun(
     // Iterated by hand rather than with `for await` so every continuation crosses `wrap` (RTM-A04):
     // a bare `for await` resumes outside the frame and the writes below would be lost.
     const iterator = stream[Symbol.asyncIterator]()
+    /**
+     * The fold's own copy of the run, and the reason `3F`'s `Switch and keep running` keeps its
+     * promise rather than only appearing to.
+     *
+     * While this run still owns the surfaces the `session` atom is the accumulator, and it has to
+     * be: `cancel` writes `cancelling`, and a failed cancel's payload, straight onto it out of band
+     * (R27), and the next event must fold onto *that*. Once a flow switch has taken the surfaces
+     * away, `reset` has set the atom to `undefined` and every write below is stopped — so reading
+     * the accumulator back from it there would end the fold, and the run would settle into nothing.
+     * This variable is what the run is then, and it is what reaches the archive.
+     */
+    let folded: RunSession = started
     try {
       while (true) {
         const step = await wrap(iterator.next())
         if (step.done === true) break
         const event = step.value
+        const base = live() ? peek(session) : folded
+        if (base === undefined) continue
+        const next = applyRunEvent(base, event)
+        folded = next
+        // Terminal condition 1: a settled report joins its own flow's archive whether or not this
+        // run still owns the surfaces, and `archiveSettled` takes the flow `start` read before its
+        // first `await` so the row cannot land under the name of the flow that replaced it. The
+        // dedup on `report.runNumber` is what makes calling it on every line free.
+        archiveSettled(flowId, next)
         // `continue`, not `break`: the flow changed under this run, so nothing it says may reach
         // the panel any more — but the stream is still drained to completion so the server settles
         // the run rather than being left with a reader that walked away.
         if (!live()) continue
         if (event.type === 'run-accepted') runToken.set(event.runToken)
-        const current = peek(session)
-        if (current === undefined) continue
-        const next = applyRunEvent(current, event)
         session.set(next)
-        // Terminal conditions 1 and 2 both land here; only a settled report joins the archive.
-        archiveSettled(flowId, next)
       }
       // Terminal condition 6 (R28): the stream ended without a terminal line. `applyRunEvent` sets
       // neither `report` nor `failure` on its own, so a session that reaches here with neither is a
@@ -562,7 +580,14 @@ export function reatomRun(
 
   /**
    * One flow switch, from this module's side. The generation bump is what stops the in-flight run
-   * painting the flow that replaced it; the run itself keeps draining and is never orphaned.
+   * painting the flow that replaced it.
+   *
+   * **The run itself is not orphaned, and that claim now covers the archive as well as the
+   * server.** It used to cover only the server: the stream kept draining, so the run settled — and
+   * then landed nowhere, because `archiveSettled` sat below `start`'s `live()` guard and the
+   * session it read had just been set to `undefined` here. `start` folds the stream into a local
+   * `RunSession` and archives unconditionally, so a run the user chose to keep is waiting under
+   * `Runs` when they come back to the flow that made it.
    */
   const reset = action(() => {
     generation.set(generation() + 1)

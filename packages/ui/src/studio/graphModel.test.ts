@@ -331,6 +331,36 @@ describe('the sidebar lists', () => {
     ])
   })
 
+  /**
+   * `skipped` is core's word for a node the engine did **not** execute — every node still
+   * outstanding when a run is cancelled (`run/execute.ts` settles them with a
+   * `RunCancelledError`), and everything blocked downstream of a failure. It carries no value, so
+   * the row must not claim the settled-success dot. `model/canvas.tsx` and `runPresenter.ts` both
+   * hand `skipped` the `queued` CARD treatment for the same reason; the sidebar has no queued dot
+   * in any artboard, so its "did not run" reading is the descriptor tone it started at.
+   */
+  it('does not claim success for a node the run skipped', () => {
+    const overlays = new Map([
+      ['start1', { state: 'queued' as const, status: 'skipped' }],
+      ['render', { state: 'queued' as const, status: 'skipped' }],
+    ])
+
+    expect(toFlowNodeSummaries(DESCRIPTOR, overlays)).toEqual([
+      { id: 'start1', kind: 'start', dot: 'start' },
+      { id: 'render', kind: 'transform', dot: 'neutral' },
+    ])
+  })
+
+  /** A cached node really did produce a value, so it keeps the settled tone `skipped` loses. */
+  it('keeps the settled tone for a cached node', () => {
+    const overlays = new Map([['render', { state: 'cached' as const, status: 'cached' }]])
+
+    expect(toFlowNodeSummaries(DESCRIPTOR, overlays)).toEqual([
+      { id: 'start1', kind: 'start', dot: 'start' },
+      { id: 'render', kind: 'transform', dot: 'ok' },
+    ])
+  })
+
   it('lists each node definition once, by its title', () => {
     expect(toInventory(DESCRIPTOR)).toEqual([
       { name: 'start', kind: 'start' },

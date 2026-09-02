@@ -20,17 +20,26 @@ import type { RunModel, StudioDeps, ToastMessage, ToastModel } from './types.js'
  * invent a number to fill itself would be a hollow one, and `output/tabs.ts` records what happens
  * to those.
  *
- * **The three outcomes stay three.** `RunModel.history` collapses `cancelled` into `failed`
- * because `2A`'s history rows draw two tones; a toast that reused it would tell the user a run
- * they cancelled had failed. So this reads {@link RunModel.archive} — whole sessions, with the
- * report's own `ok | failed | cancelled` — and says which of the three actually happened.
+ * **The three outcomes stay three.** A settled report's `status` is `ok | failed | cancelled`, and
+ * the toast is the only report some runs get — so it must say which of the three actually
+ * happened, never fold two of them together the way a surface with two tones has to. That is why
+ * it reads {@link RunModel.archive}: whole sessions, each still carrying the report that settled
+ * it, rather than a projection shaped for somewhere else.
  *
- * ## The trigger is the archive's head, and it needs no "skip the first"
+ * ## The trigger is a run this model has not announced yet, not a change of the head
  *
- * A run joins the archive exactly once, as it settles, newest first, and the archive starts empty
- * and is cleared on a flow switch. So `effect` over its head fires once per settled run: at mount
- * and after a switch the head is `undefined`, which raises nothing, and every later change is a
- * run that has just finished in this session. Nothing here polls, and nothing counts.
+ * The archive's head is **not**, on its own, a run that has just finished. {@link RunModel.archive}
+ * is the active flow's slice of a map keyed by flow (`run.ts:211-224`), so selecting another flow
+ * swaps the entire list: the head jumps to a run that settled minutes ago, or — coming back —
+ * returns to one this toast has already spoken about. Anything watching the head alone announces
+ * both as fresh. (It was safe once: the archive really was cleared on a switch, until `8bb405c`
+ * keyed it by flow so that returning to a flow restores its `Runs` group.)
+ *
+ * So the guard is the settled session's own identity. A run joins the archive exactly once, as it
+ * settles, and `archiveSettled` stores that object and never rebuilds it (`run.ts:362-371`) — the
+ * object *is* the run, more exactly than a run number, which repeats across flows. Every session
+ * already announced goes into a `WeakSet` and a head found in it raises nothing. Nothing here
+ * polls, and nothing counts.
  */
 
 /** `demo.dc.html:406` — how long the toast stands before it begins to leave. */
@@ -40,7 +49,11 @@ export const TOAST_HOLD_MS = 2800
  * `4A`'s 120ms exit, in the one place it cannot be read from CSS: the surface must outlive
  * `visible` going `false` by exactly the length of its own fade, or it unmounts mid-exit and the
  * 120ms plays to nobody. The stylesheet reads `--jbk-motion-duration-exit` for the fade itself;
- * this is the same number and `toast.test.ts` is what holds the two together.
+ * this is the same number written a second time.
+ *
+ * One assertion holds the copy to the token — `toast.test.ts`'s *"the exit constant and the token
+ * the stylesheet reads / are the same duration"*. It has to be that shape: every timing case in
+ * that file measures with this constant, so all of them stay green whatever it says.
  */
 export const TOAST_EXIT_MS = 120
 
@@ -69,8 +82,18 @@ export function reatomToast(
   const message = atom<ToastMessage | undefined>(undefined, `${name}.message`)
   const visible = atom(false, `${name}.visible`)
 
-  /** The head of the archive — the run that settled most recently, or nothing yet. */
+  /** The head of the archive — the newest run of the flow now selected, or nothing yet. */
   const settled = computed<RunSession | undefined>(() => input.archive()[0], `${name}.settled`)
+
+  /**
+   * Every settled session this model has already spoken about. See the header: the head moving is
+   * not the same event as a run finishing, and this is what tells the two apart.
+   *
+   * It is a `WeakSet` so a flow's archive can be dropped without this holding it alive, and it
+   * lives in the factory rather than in the connect hook below — a surface that unmounts and
+   * mounts again must not re-announce the run standing at the head when it left.
+   */
+  const announced = new WeakSet<RunSession>()
 
   /**
    * The whole life of one toast: it is drawn, it stands, it fades, it goes.
@@ -108,26 +131,24 @@ export function reatomToast(
     withConnectHook(() => {
       const raised = settled.subscribe((session) => {
         if (session === undefined) return
+        if (announced.has(session)) return
+        announced.add(session)
         const next = messageFor(session)
         if (next === undefined) return
         detached(_show(next))
       })
       return () => {
         raised()
+        // Nothing is drawing the toast any more, and nothing else in the model owns one. The hold
+        // in flight has no surface left to fade and would clear a later toast if it were allowed
+        // to finish, so it is aborted here rather than left running — the same reason
+        // `OutputModel.reset` aborts its own holds — and the pair goes back to saying nothing.
+        _show.abort()
+        visible.set(false)
+        message.set(undefined)
       }
     }),
   )
 
-  /**
-   * What the surface's own dismissal and a flow switch both call. The frame is aborted rather than
-   * left running, for the same reason `OutputModel.reset` aborts its holds: a hold that outlived
-   * its toast would clear a later one.
-   */
-  const dismiss = action(() => {
-    _show.abort()
-    visible.set(false)
-    message.set(undefined)
-  }, `${name}.dismiss`)
-
-  return { message, visible, dismiss }
+  return { message, visible }
 }

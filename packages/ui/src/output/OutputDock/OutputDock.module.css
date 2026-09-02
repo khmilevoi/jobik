@@ -6,6 +6,12 @@
  * `transition:height 180ms cubic-bezier(.2,.8,.25,1),opacity 120ms linear`, and the prose says
  * why — "Height carries the change and the canvas above simply gives up the space. Opening fades
  * the contents in over the last 120 ms; closing drops them first, then collapses."
+ *
+ * It plays on the user's own open and close, and on nothing else. A flow switch looks like it would
+ * play it too — `commitSwitch` resets the output model — but the dock is mounted on `dockNode`,
+ * which derives from the run's report, and the same transaction clears that: the element is removed
+ * rather than resized, so `4A:186`'s "the chrome does not move" needs no suppression here. See
+ * `model/flowSwitch.ts`'s `commitSwitch`, and the `4A:186` case in `model/flowSwitch.test.ts`.
  */
 
 /* §1 — `flex:none`, so opening the dock shrinks the canvas instead of covering it. */

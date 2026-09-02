@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { JobikClient, WireRunReportPayload } from '#client/index.js'
 import type { StudioDeps } from '#model/index.js'
 import { reatomStudio, StudioModelProvider } from '#model/index.js'
+import { TOAST_EXIT_MS, TOAST_HOLD_MS } from '#model/toast.js'
 import type { RunSession } from '#studio/runSession.js'
 import { RunToast } from './RunToast.js'
 
@@ -55,19 +56,16 @@ function stubClient(): JobikClient {
   } as unknown as JobikClient
 }
 
-const connected: (() => void)[] = []
-
 afterEach(() => {
-  for (const off of connected.splice(0)) off()
+  // Unmounting is what drops the 2.8s hold: `model/toast.ts` owns it under the connect hook on
+  // `message`, so the frame goes with the last reader and no case leaves a timer behind.
   cleanup()
+  vi.useRealTimers()
 })
 
 function mountToast(): { settle: (report: WireRunReportPayload) => Promise<void> } {
   const deps: StudioDeps = { client: stubClient(), now: () => 1_700_000_000_000 }
   const model = reatomStudio(deps)
-  // The hold runs on `wrap(sleep(…))`; dismissing at teardown is what drops it rather than leaving
-  // a 2.8s timer behind every case.
-  connected.push(() => model.toast.dismiss())
 
   render(
     <StudioModelProvider model={model}>
@@ -122,5 +120,37 @@ describe('RunToast', () => {
       expect(screen.getByTestId('studio-run-toast')).toHaveTextContent('Run #220 failed'),
     )
     expect(screen.getAllByTestId('studio-run-toast')).toHaveLength(1)
+  })
+
+  /**
+   * S11 — the reason `ToastModel` is two units rather than one. `visible` going false is the start
+   * of the 120ms fade, not the end of the toast: the element has to still be in the document while
+   * that plays, or the exit runs on nothing. Written as identity plus a differential class read,
+   * never as a computed style — the durations belong to the stylesheet and the token gates.
+   */
+  it('stays in the document while its exit plays, and leaves only when it is over', async () => {
+    vi.useFakeTimers()
+    const { settle } = mountToast()
+    await settle(REPORT)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+
+    const element = screen.getByTestId('studio-run-toast')
+    const shown = element.className
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(TOAST_HOLD_MS)
+    })
+
+    // Still the very same node — it is fading, not gone — and no longer carrying the shown class.
+    expect(screen.getByTestId('studio-run-toast')).toBe(element)
+    expect(element.className).not.toBe(shown)
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(TOAST_EXIT_MS)
+    })
+
+    expect(screen.queryByTestId('studio-run-toast')).toBeNull()
   })
 })

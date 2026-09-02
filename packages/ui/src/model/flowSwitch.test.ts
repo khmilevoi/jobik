@@ -9,6 +9,7 @@ import { reatomExtension } from './extension.js'
 import { reatomFlowSwitch } from './flowSwitch.js'
 import { reatomFlows } from './flows.js'
 import { reatomInputs } from './inputs.js'
+import { reatomOutput } from './output.js'
 import { reatomRun } from './run.js'
 import { reatomSave } from './save.js'
 import type { FlowSwitchModel, OutputModel, StudioDeps } from './types.js'
@@ -30,9 +31,10 @@ import { reatomValidation } from './validation.js'
  * this harness is `model/studio.ts`'s wiring written out by hand — including the two lazily-read
  * forwarders (`locked`, `blocked`) that break the two cycles.
  *
- * `output` is the one exception, and it is a stub: `model/output.ts` is another agent's file, and
- * naming it here would tie this file's cases to a module this task never depended on. What
- * `switchTo` owes it is exactly one `reset`, and the stub counts it.
+ * `output` is the one exception, and it is a stub by default: what `switchTo` owes it is exactly one
+ * `reset`, and the stub counts it. One group of cases asks for the real `reatomOutput` instead —
+ * `4A:186`'s "the chrome does not move", at the end of this file — because that claim is about what
+ * the dock's own derivations answer during `commitSwitch`, and a stub cannot answer them.
  *
  * Two rules make a Reatom model testable this way. Every `await` inside `context.start` is
  * `await wrap(…)` — including awaits on the helpers below — because a bare `await` resumes in the
@@ -210,8 +212,16 @@ function stubOutput(name: string) {
   return { model, resets: () => resets }
 }
 
-/** `model/studio.ts`'s wiring, written out by hand: every sub-model, in the declared order. */
-function makeHarness(client: JobikClient) {
+/**
+ * `model/studio.ts`'s wiring, written out by hand: every sub-model, in the declared order.
+ *
+ * `output: 'real'` swaps {@link stubOutput} for `reatomOutput`, and exactly one group of cases asks
+ * for it — `4A:186`'s "the chrome does not move", which is a statement about what the dock's own
+ * derivations answer during `commitSwitch` and cannot be made against a stub that answers them.
+ * Every other case wants the stub, because what `switchTo` owes the output model is one `reset` and
+ * counting it is the whole assertion.
+ */
+function makeHarness(client: JobikClient, options: { output?: 'real' } = {}) {
   const clock = { value: 1000 }
   const deps: StudioDeps = { client, now: () => clock.value }
 
@@ -255,6 +265,20 @@ function makeHarness(client: JobikClient) {
     'test.run',
   )
   const output = stubOutput('test.output')
+  const outputModel: OutputModel =
+    options.output === 'real'
+      ? reatomOutput(
+          deps,
+          {
+            descriptor: flows.descriptor,
+            startId: inputs.startId,
+            viewedSession: run.viewedSession,
+            viewedReport: run.viewedReport,
+            start: run.start,
+          },
+          'test.output.real',
+        )
+      : output.model
 
   const model = reatomFlowSwitch(
     deps,
@@ -266,12 +290,25 @@ function makeHarness(client: JobikClient) {
       validation,
       extension,
       run,
-      output: output.model,
+      output: outputModel,
     },
     'test.flowSwitch',
   )
 
-  return { model, deps, clock, flows, draft, save, inputs, validation, extension, run, output }
+  return {
+    model,
+    deps,
+    clock,
+    flows,
+    draft,
+    save,
+    inputs,
+    validation,
+    extension,
+    run,
+    output,
+    outputModel,
+  }
 }
 
 type Harness = ReturnType<typeof makeHarness>
@@ -314,10 +351,11 @@ async function until(predicate: () => boolean, label: string): Promise<void> {
 function inFrame(
   client: JobikClient,
   body: (h: Harness, off: () => void) => Promise<void>,
+  options: { output?: 'real' } = {},
 ): Promise<void> {
   return wrap(
     context.start(async () => {
-      const h = makeHarness(client)
+      const h = makeHarness(client, options)
       const off = connect(h)
       await wrap(until(() => h.flows.descriptor()?.id === 'publication', 'the first flow'))
       await wrap(body(h, off))
@@ -983,5 +1021,62 @@ describe('4A — the switch waits for the dialog to leave, and never for anythin
       expect(h.flows.flowId()).toBe('publication')
       expect(h.model.closingFlowId()).toBeUndefined()
     })
+  })
+})
+
+/**
+ * `4A:186` — during the 240 ms screen change *"the chrome — top bar, panels, dock — does not
+ * move"*. The dock is the one piece of chrome a switch touches, because `commitSwitch` resets the
+ * output model, and both of the classes `OutputDock` swaps between carry `4A`'s 180 ms height.
+ *
+ * So the question is whether the switch ever produces the one frame that would play it: the dock
+ * still mounted and no longer open. It does not, and the reason is a derivation rather than a
+ * suppression — which is why this is a case here and not a rule in the stylesheet.
+ */
+describe('the output dock across a switch (`4A:186`)', () => {
+  it('takes the dock off the page rather than collapsing it', async () => {
+    await inFrame(
+      twoFlowClient({
+        startRun: async () =>
+          streamOf([
+            { type: 'run-accepted', runToken: 'tok' },
+            { type: 'run-settled', report: REPORT },
+          ]),
+      }),
+      async (h) => {
+        await wrap(startRun(h))
+        await wrap(until(() => !h.run.running(), 'the run to settle'))
+        h.outputModel.open('start1')
+
+        // The two units `StudioApp` draws the dock from: it is mounted on `dockNode` and drawn open
+        // — `.dock` rather than the 34px `.strip` — on `expanded`. Every value the pair takes
+        // across the transition is recorded, because what this pins is a frame in between and not
+        // where the pair lands.
+        const surface = computed(
+          () => ({
+            mounted: h.outputModel.dockNode() !== undefined,
+            open: h.outputModel.expanded(),
+          }),
+          'test.dockSurface',
+        )
+        const frames: { readonly mounted: boolean; readonly open: boolean }[] = []
+        const stop = surface.subscribe((value) => frames.push(value))
+
+        h.model.commitSwitch('pokedex')
+        await wrap(macrotask())
+        stop()
+
+        expect(frames[0]).toEqual({ mounted: true, open: true })
+        expect(frames.at(-1)).toEqual({ mounted: false, open: false })
+        // `.dock` -> `.strip` is the only swap that would ease the chrome's height, and it needs a
+        // frame that is still mounted and no longer open. `dockNode` derives from the run's report
+        // and `run.reset()` is in the same transaction as `output.reset()`, so the two answers move
+        // together — one notification, one render, and `StudioApp` renders `null`. The element is
+        // removed, never resized, and there is no in-between value for `4A`'s 180 ms to play on.
+        expect(frames).toHaveLength(2)
+        expect(frames.some((frame) => frame.mounted && !frame.open)).toBe(false)
+      },
+      { output: 'real' },
+    )
   })
 })

@@ -93,6 +93,28 @@ describe('RunCompletedView', () => {
     expect(screen.getByTestId('run-output-meta-image').textContent).toBe('png · 412 kb')
   })
 
+  /**
+   * `onOpen` is optional, so a caller that wires no viewer used to ship a pressable `Open` that
+   * did nothing. `3B`'s treatment for a control that cannot act is the 45% dim, which the button
+   * system spells `dimmed` and which disables the element as well.
+   */
+  it('cannot press Open when the caller wired no handler', () => {
+    render(
+      <RunCompletedView
+        state={state({
+          outputs: [
+            {
+              kind: 'asset',
+              field: 'image',
+              asset: { type: 'Buffer', mime: 'image/png', bytes: 421888, id: 'a' },
+            },
+          ],
+        })}
+      />,
+    )
+    expect(screen.getByTestId('run-output-open-image')).toBeDisabled()
+  })
+
   it('reports the Open click', async () => {
     const onOpen = vi.fn()
     render(
@@ -193,6 +215,25 @@ describe('RunCompletedView, in 2A’s shape', () => {
     expect(screen.getByTestId('run-input-title')).toHaveValue('Typed flows, quietly')
     expect(screen.getByTestId('run-input-markdown')).toHaveValue('## Release 0.4')
     expect(screen.getByTestId('run-input-annotation-title').textContent).toBe('string')
+  })
+
+  /**
+   * `2A:1207` — a 1px rule sits between the per-node timings block (`:1201-1205`) and the first
+   * input group (`:1209`). It was the one divider of the three the view never drew.
+   */
+  it('divides the timings from the first input', () => {
+    render(<RunCompletedView state={state(shape)} />)
+    const divider = screen.getByTestId('run-inputs-divider')
+    const timing = screen.getByTestId('run-timing-value-publish')
+    const input = screen.getByTestId('run-input-title')
+    expect(timing.compareDocumentPosition(divider) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(divider.compareDocumentPosition(input) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  /** No inputs below it, nothing to divide — the artboard's rule separates two blocks, not one. */
+  it('draws no such divider when the panel re-shows no inputs', () => {
+    render(<RunCompletedView state={state({ ...shape, inputs: undefined })} />)
+    expect(screen.queryByTestId('run-inputs-divider')).toBeNull()
   })
 
   it('keeps the re-shown inputs editable, reporting each edit to the caller', async () => {

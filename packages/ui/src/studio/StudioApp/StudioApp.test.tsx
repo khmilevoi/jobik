@@ -1881,7 +1881,9 @@ describe('`2A` — run history as a navigator', () => {
     // The live run has no row of its own, so a row that took the canvas over would strand the
     // user with no way back to what is actually happening.
     await userEvent.click(screen.getByTestId('studio-run-row-219'))
-    expect(screen.queryByTestId('studio-dock-status')).toBeNull()
+    // F1/`2A:1191`: the dock header names the run's state for the whole run, so the live one still
+    // reads `Running` — asserting it names *that* is what proves the archived row was ignored.
+    expect(screen.getByTestId('studio-dock-status').textContent).toBe('Running')
     release()
   })
 })

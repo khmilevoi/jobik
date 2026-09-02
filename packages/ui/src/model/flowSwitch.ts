@@ -98,6 +98,16 @@ export function reatomFlowSwitch(
    *    writing anything onto the flow that replaced it. The stream keeps draining, so the server
    *    still settles that run; its events simply stop being written.
    *
+   * **`output.reset()` does not play `4A`'s 180 ms dock height, and `4A:186`'s "the chrome does not
+   * move" holds without a suppression.** It looks as though it should: resetting the viewer drops
+   * `expanded`, and `OutputDock` draws `.dock` and `.strip` on one element with that transition on
+   * both. But the dock is mounted on `output.dockNode`, which derives from the run's own report —
+   * and `run.reset()` above is in this same transaction, so the report and the viewer id go
+   * together. The surface is handed one notification in which the dock is not there at all, so
+   * `StudioApp` removes the element rather than resizing it and there is no from-height to ease.
+   * `flowSwitch.test.ts`'s `4A:186` case records every value the pair takes and is what keeps this
+   * true; a dock that ever survived a switch would need the suppression this does not.
+   *
    * There is no guard on `nextFlowId` here. {@link requestFlow} holds it, exactly as
    * `useStudioSession.selectFlow` did — pressing the row of the flow already open is not a
    * transition — and every other call site reaches this with a target the dialog is standing in

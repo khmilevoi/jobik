@@ -6,7 +6,7 @@
  * value `tokens.ts` already carries — import it.** Every entry below names the
  * artboard it came from.
  */
-import { motion, surfaces } from '#tokens.js'
+import { surfaces } from '#tokens.js'
 
 /** `Node states` → running: the lit band that sweeps across the skeleton. */
 const skeletonHighlight = '#161a1d'
@@ -147,9 +147,14 @@ export const canvasMetrics = {
   stateMediaHeight: 96,
   placeholderBarHeight: 6,
 
+  /**
+   * The skeleton's gradient travel. Its *animation* is not here: a stylesheet writes
+   * `animation: var(--jbk-motion-shimmer)` directly (`NodeOutputSlot.module.css:34`,
+   * `NodeStateBody.module.css:122`), which is what lets `globalStyles.css`'s reduced-motion block
+   * reach it by redefining that one token. A canvas-local copy of the shorthand would resolve at
+   * declaration time and escape the block — see `tokens.css.test.ts` § prefers-reduced-motion.
+   */
   skeletonBackgroundSize: '220% 100%',
-  /** P4 owns the shimmer timing; this is a reference, not a copy. */
-  skeletonAnimation: motion.shimmer,
 
   zoomButtonSize: 26,
   zoomControlsInset: { left: 20, bottom: 16 },

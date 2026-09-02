@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { cleanup, render } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { STUDIO_GLOBAL_CSS, StudioStyles } from './globalStyles.js'
+import { motion } from './tokens.js'
 
 afterEach(cleanup)
 
@@ -62,11 +63,29 @@ describe('globalStyles.css', () => {
     expect(minify(stylesheet)).toBe(minify(STUDIO_GLOBAL_CSS))
   })
 
-  it('keeps the keyframe names the motion tokens reference', () => {
+  /**
+   * The keyframe names are the join between two files that no compiler checks: `tokens.ts` writes
+   * `jfade 90ms linear` into a token, and this stylesheet is where `jfade` is defined. Rename one
+   * side and the animation stops with nothing red.
+   *
+   * A hand-written list of names is the wrong guard for that, because it is only as good as the
+   * last person's memory — this one sat at six names while the design added two, so renaming
+   * `jfade` would have killed the swap fade in six components and `jline` the log-line entrance,
+   * with the gate green. So the list is derived from both sides instead and compared as a set: a
+   * keyframe defined here and referenced by no token fails, and a token naming a keyframe this
+   * file does not define fails. Neither direction can be forgotten into.
+   */
+  it('defines exactly the keyframes the motion tokens name', () => {
     const stylesheet = fs.readFileSync(path.join(SRC, 'globalStyles.css'), 'utf8')
-    for (const name of ['jspin', 'jdash', 'jshim', 'jpulse', 'jsweep', 'jpop']) {
-      expect(stylesheet).toContain(`@keyframes ${name}`)
-    }
+    const defined = [...stylesheet.matchAll(/@keyframes\s+([A-Za-z0-9_-]+)/g)].map(
+      (match) => match[1] as string,
+    )
+    // A duration or a curve names no keyframe; every other motion token is an animation shorthand
+    // whose first word is the name.
+    const referenced = Object.entries(motion)
+      .filter(([key]) => !key.startsWith('duration') && !key.startsWith('ease'))
+      .map(([, value]) => value.trim().split(/\s+/)[0] as string)
+    expect([...new Set(defined)].sort()).toEqual([...new Set(referenced)].sort())
   })
 })
 

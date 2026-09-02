@@ -3,6 +3,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as z from 'zod'
+import { RunStatusDot } from '#run/RunChrome/RunChrome.js'
 import type { RunIdleState } from '#run/types.js'
 import { RunIdleView } from './RunIdleView.js'
 
@@ -125,6 +126,55 @@ describe('RunIdleView', () => {
     )
     expect(screen.getByTestId('run-last-run-status').textContent).toBe('failed')
     expect(screen.getByTestId('run-last-run-dot').className).not.toBe(completedDot)
+  })
+
+  /**
+   * R7's third arm reaches this block too: `_lastRun` reads the viewed report, and the panel falls
+   * back to `idle` as soon as the settled run stops being the current one — cancel a run, pick a
+   * different start, and this is what the user reads. It must not say the run they stopped failed.
+   */
+  it('prints `cancelled` for a run the user stopped, apart from both other outcomes', () => {
+    render(<RunIdleView state={state()} />)
+    const completedDot = screen.getByTestId('run-last-run-dot').className
+    cleanup()
+    render(
+      <RunIdleView
+        state={state({
+          lastRun: {
+            status: 'failed',
+            totalElapsed: '0.8s',
+            nodeCount: 3,
+            timings: [{ nodeId: 'render', status: 'failed' }],
+          },
+        })}
+      />,
+    )
+    const failedDot = screen.getByTestId('run-last-run-dot').className
+    cleanup()
+    render(
+      <RunIdleView
+        state={state({
+          lastRun: {
+            status: 'cancelled',
+            totalElapsed: '0.9s',
+            nodeCount: 3,
+            timings: [{ nodeId: 'render', status: 'skipped' }],
+          },
+        })}
+      />,
+    )
+
+    expect(screen.getByTestId('run-last-run-status').textContent).toBe('cancelled')
+    const cancelledDot = screen.getByTestId('run-last-run-dot').className
+    expect(cancelledDot).not.toBe(completedDot)
+    expect(cancelledDot).not.toBe(failedDot)
+    cleanup()
+
+    // A missing entry in `lastRunDotTone` leaves `tone` undefined, which renders the same dot as
+    // a caller that asked for no tone at all — so the three-way difference above would hold for a
+    // state the table forgot. This is what says `cancelled` resolves to a tone of its own.
+    render(<RunStatusDot shape="round" data-testid="untoned-dot" />)
+    expect(cancelledDot).not.toBe(screen.getByTestId('untoned-dot').className)
   })
 
   it('omits the divider and the block entirely when there is no last run', () => {

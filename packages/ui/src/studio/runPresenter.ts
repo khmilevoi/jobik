@@ -78,10 +78,25 @@ export function toRunLog(session: RunSession): RunLog {
   }
 }
 
-/** `### Run panel` idle state: the `Last run` block. It has two tones, so `cancelled` is `failed`. */
+/** Written out in full, so a fourth wire outcome is a type error rather than a silent `failed`. */
+const runSummaryStatus = {
+  ok: 'completed',
+  failed: 'failed',
+  cancelled: 'cancelled',
+} satisfies Record<WireRunReportPayload['status'], RunSummary['status']>
+
+/**
+ * `### Run panel` idle state: the `Last run` block.
+ *
+ * All three of the engine's outcomes come through as themselves (R7). This block prints the status
+ * as a word, so the tone argument that once justified folding `cancelled` into `failed` does not
+ * reach it: whatever the dot does, the label would have read `failed` over a run the user stopped
+ * on purpose — the one thing the dock header, the history row and the toast were all fixed not to
+ * say. `ok` becomes `completed` because that is the word `Studio — default` draws.
+ */
 export function toRunSummary(report: WireRunReportPayload): RunSummary {
   return {
-    status: report.status === 'ok' ? 'completed' : 'failed',
+    status: runSummaryStatus[report.status],
     totalElapsed: formatElapsed(report.elapsedMs),
     nodeCount: report.nodes.length,
     timings: report.nodes.map((node) => ({

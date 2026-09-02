@@ -44,10 +44,14 @@ function OutputRow(props: { readonly output: RunOutputField }) {
           </div>
         </div>
         <div className={s.spacer} />
+        {/* `onOpen` is optional, so this button can have nothing to do. `3B`'s treatment for a
+            control that cannot act is the 45% dim and nothing else, which is what `dimmed` draws —
+            and it disables the element, so the row never offers a press that goes nowhere. */}
         <Button
           variant="quiet"
           size="sm"
           data-testid={`run-output-open-${output.field}`}
+          dimmed={output.onOpen === undefined}
           onClick={output.onOpen}
         >
           Open
@@ -78,8 +82,8 @@ export interface RunCompletedViewProps {
 
 /**
  * The completed panel, in `2A`'s shape — the newest artboard, and the one that shows the state
- * inside a live shell: per-node timings, the inputs still shown and still editable, `Re-run
- * start1 ⌘↵`, a divider, and the `Log` / `tail` tail.
+ * inside a live shell: per-node timings, a divider (`:1207`), the inputs still shown and still
+ * editable, `Re-run start1 ⌘↵`, a divider, and the `Log` / `tail` tail.
  *
  * `Run panel — states`' completed card (lines 836–864) is the older half of the evidence and puts
  * the run's outputs here as well. R8: the Studio now passes them — `model/runPanel.ts`'s completed
@@ -103,6 +107,10 @@ export const RunCompletedView = reatomComponent(function RunCompletedView(
   return (
     <>
       <RunNodeTimings nodes={state.nodes} variant="completed" />
+
+      {/* `2A:1207` — the rule between the timings block (`:1201-1205`) and the first input group
+          (`:1209`). It divides two blocks, so a panel re-showing no inputs draws none. */}
+      {inputs === undefined ? null : <RunDivider data-testid="run-inputs-divider" />}
 
       {inputs?.descriptor.fields.map((field) => (
         <RunInputControl

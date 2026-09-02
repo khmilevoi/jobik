@@ -14,14 +14,18 @@ import { ValidationModal } from './ValidationModal.js'
  *
  * **The wire carries one finding, so these cases assert one finding.** `POST
  * /api/flows/:id/validate` answers `{ valid: false, error }` with a single `WireErrorPayload` — no
- * severity, no second entry and no source location — and `ValidationModel.findings` passes no
- * `onRevealNode`, so no action links either. Artboard `3C` draws three findings across two
- * severities with `flow.ts:41` refs and `Reveal node` links, and the cases that used to assert
- * those shapes through props were deleted with the props: the component still draws them, nothing
- * can reach them, and inventing a model member to fill them is the fabrication
- * `toValidationFindings` refuses. What is kept here is everything the endpoint can actually
- * produce, plus the absences — no source cell, no action row — which are themselves assertions
- * about the wire.
+ * severity and no second entry — and `ValidationModel.findings` passes no `onRevealNode`, so no
+ * action links either. Artboard `3C` draws three findings across two severities with `Reveal node`
+ * links, and the cases that used to assert those shapes through props were deleted with the props:
+ * the component still draws them, nothing can reach them, and inventing a model member to fill them
+ * is the fabrication `toValidationFindings` refuses.
+ *
+ * The source cell is the exception and is exercised in both directions: the payload does say where
+ * in the graph the check failed, so a rejection that names a port or a node draws a location and
+ * one that names neither draws none. The artboard's `flow.ts:41` stays unfillable either way.
+ *
+ * What is kept here is everything the endpoint can actually produce, plus the absences — no warning
+ * ramp, no action row — which are themselves assertions about the wire.
  */
 
 const DOCUMENT = {
@@ -257,8 +261,15 @@ describe('ValidationModal', () => {
     expect(validate).toHaveBeenCalledTimes(2)
   })
 
-  /** `Copy report` writes the rows the dialog draws — `3C` §2's ghost, on `3A` §4.1's matrix. */
-  it('copies the standing findings from Copy report', async () => {
+  /**
+   * `Copy report` writes the rows the dialog draws — `3C` §2's ghost, on `3A` §4.1's matrix.
+   *
+   * Every half of a row is read off the screen and asserted to be in the text, so the two cannot
+   * drift: a finding whose payload names a port draws a location cell, and the clipboard carries
+   * that same location. The design puts the class and the location on one row, so the text puts
+   * them on one line.
+   */
+  it('copies the standing findings from Copy report, location included', async () => {
     const writeText = vi.fn(async (_text: string) => {})
     Object.defineProperty(globalThis.navigator, 'clipboard', {
       value: { writeText },
@@ -268,15 +279,51 @@ describe('ValidationModal', () => {
     try {
       await mountRejected()
 
+      const code = screen.getByTestId('validation-code').textContent
+      const source = screen.getByTestId('validation-source').textContent
+      const message = screen.getByTestId('validation-message').textContent
+
       fireEvent.click(screen.getByTestId('validation-copy-report'))
       await waitFor(() => {
         expect(writeText).toHaveBeenCalledTimes(1)
       })
 
-      expect(writeText.mock.calls[0]?.[0]).toBe(
-        'TypeMismatch\nrender.markdown expects string, receives Buffer',
+      const copied = writeText.mock.calls[0]?.[0]
+      expect(copied).toBe(`${code} · ${source}\n${message}`)
+      expect(copied).toBe(
+        'TypeMismatch · render.markdown\nrender.markdown expects string, receives Buffer',
       )
       expect(await screen.findByText('Copied')).toBeInTheDocument()
+    } finally {
+      Reflect.deleteProperty(globalThis.navigator, 'clipboard')
+    }
+  })
+
+  /** A row with no location cell copies no separator either — the text says what the row says. */
+  it('copies a finding that names nowhere as its class and sentence alone', async () => {
+    const writeText = vi.fn(async (_text: string) => {})
+    Object.defineProperty(globalThis.navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true,
+    })
+
+    try {
+      await mountRejected(
+        stubClient({
+          validate: vi.fn(async () => ({
+            valid: false,
+            error: { _tag: 'FlowSchemaError', message: 'The document does not parse' },
+          })),
+        } as unknown as Partial<JobikClient>),
+      )
+      expect(screen.queryByTestId('validation-source')).toBeNull()
+
+      fireEvent.click(screen.getByTestId('validation-copy-report'))
+      await waitFor(() => {
+        expect(writeText).toHaveBeenCalledTimes(1)
+      })
+
+      expect(writeText.mock.calls[0]?.[0]).toBe('FlowSchemaError\nThe document does not parse')
     } finally {
       Reflect.deleteProperty(globalThis.navigator, 'clipboard')
     }

@@ -29,8 +29,17 @@ export type RunNodeTiming = {
 
 /** The `Last run` block of the idle state. */
 export type RunSummary = {
-  /** The artboard shows `completed`; `failed` reuses `statusColors.failed` for the dot. */
-  readonly status: 'completed' | 'failed'
+  /**
+   * The artboard shows `completed`; `failed` reuses `statusColors.failed` for the dot.
+   *
+   * **`cancelled` is the third arm, for the same reason `RunDockStatus` and
+   * `RunHistoryEntry['status']` carry one (R7).** This block prints the status as a *word*, so
+   * collapsing a cancelled run into `failed` here told a user who stopped the run themselves that
+   * it had failed — while the dock header, the history row and the toast beside it all said
+   * otherwise. No artboard draws it, and its treatment is the one the rest of the app already
+   * chose: the muted `cancelled` dot rather than the error one.
+   */
+  readonly status: 'completed' | 'failed' | 'cancelled'
   /** e.g. `2.4s`. */
   readonly totalElapsed: string
   readonly nodeCount: number
@@ -92,6 +101,12 @@ export type RunOutputField =
       readonly src?: string
       /** The 54px thumbnail, when a caller wants to draw it itself. `src` wins over it. */
       readonly thumbnail?: ReactNode
+      /**
+       * What the row's `Open` does. Optional, because a caller with no viewer to open exists —
+       * `RunPanelCard` mounts this state with fixtures alone. Left out, the button takes `3B`'s
+       * treatment for a control that cannot act: 45% opacity, disabled, nothing else moved. It is
+       * never drawn live over an absent handler.
+       */
       readonly onOpen?: () => void
     }
   | { readonly kind: 'text'; readonly field: string; readonly value: string }

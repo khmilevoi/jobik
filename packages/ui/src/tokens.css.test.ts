@@ -34,7 +34,9 @@ import {
  * `*.module.css`, applied one level up.
  */
 
-const TOKENS_CSS = path.join(path.dirname(fileURLToPath(import.meta.url)), 'tokens.css')
+const SRC = path.dirname(fileURLToPath(import.meta.url))
+const TOKENS_CSS = path.join(SRC, 'tokens.css')
+const GLOBAL_STYLES_CSS = path.join(SRC, 'globalStyles.css')
 
 /**
  * CSS and TypeScript are allowed to disagree on spelling, never on value. Biome formats the
@@ -108,9 +110,48 @@ function declaredProperties(css: string): Map<string, string> {
   return declared
 }
 
+/**
+ * The `@media (prefers-reduced-motion: reduce)` block of `globalStyles.css`, as a property map.
+ *
+ * `declaredProperties` is deliberately reused: the block is a plain declaration list like the
+ * `:root`-equivalent one, so the same parser reads it and the two sides stay comparable. The slice
+ * ends at the first `\n}` in column zero, which is the `@media`'s own closing brace — the inner
+ * `[data-jobik-studio] { … }` closes indented and cannot terminate it early.
+ */
+function reducedMotionProperties(globalCss: string): Map<string, string> {
+  const block = /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{([\s\S]*?)\n\}/.exec(globalCss)
+  if (block === null) throw new Error('globalStyles.css declares no prefers-reduced-motion block')
+  return declaredProperties(block[1] as string)
+}
+
+/** Every `@keyframes` name `globalStyles.css` defines. */
+function keyframeNames(globalCss: string): string[] {
+  return [...globalCss.matchAll(/@keyframes\s+([A-Za-z0-9_-]+)/g)].map((m) => m[1] as string)
+}
+
+/**
+ * Every `<name>Tokens.css` beside a directory barrel, plus `tokens.css` itself. These are the only
+ * stylesheets allowed to state a design value; a `*.module.css` is covered by
+ * `cssModuleValues.test.ts`, which bans a literal outright.
+ */
+function tokenStylesheets(): string[] {
+  const files = [TOKENS_CSS]
+  for (const entry of fs.readdirSync(SRC, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue
+    const dir = path.join(SRC, entry.name)
+    for (const name of fs.readdirSync(dir)) {
+      if (name.endsWith('Tokens.css')) files.push(path.join(dir, name))
+    }
+  }
+  return files
+}
+
 const css = fs.readFileSync(TOKENS_CSS, 'utf8')
+const globalCss = fs.readFileSync(GLOBAL_STYLES_CSS, 'utf8')
 const expected = expectedProperties()
 const declared = declaredProperties(css)
+const reduced = reducedMotionProperties(globalCss)
+const keyframes = keyframeNames(globalCss)
 
 describe('tokens.css', () => {
   it('declares a custom property for every token in tokens.ts', () => {
@@ -148,5 +189,85 @@ describe('tokens.css', () => {
     expect(kindDotColors.cached).toBe('#4a5157')
     expect(declared.get('--jbk-text-failed-meta')).toBe(textColors.failedMeta)
     expect(textColors.failedMeta).toBe('#6d5f5c')
+  })
+})
+
+/**
+ * The reduced-motion gate, which is the wiring half of the parity gate above.
+ *
+ * The three tests over `tokens.css` prove that a value *agrees* across two files. They say nothing
+ * about whether a motion token is *reached* by `globalStyles.css`'s
+ * `@media (prefers-reduced-motion: reduce)` block — that block hand-enumerates its properties, and
+ * a ninth motion token added to `tokens.ts` would agree with `tokens.css`, satisfy the raw-literal
+ * gate and the class-usage gate, and still animate for a user who asked the operating system for
+ * no animation. `4A`'s rule 04 is not an aspiration ("every duration here becomes 0 except the
+ * spinner"), so it gets a gate that closes over the whole `motion` group rather than over the list
+ * somebody last remembered to extend.
+ *
+ * Three obligations, derived rather than listed:
+ *
+ * - a `duration*` key must be redefined to `0ms`;
+ * - any other key is a keyframe shorthand and must be redefined to `none`;
+ * - an `ease*` key must **not** be redefined, because a curve over zero time is not observable.
+ *
+ * `spinner` is the single exception and it is declared, not inferred: `4A:15` mandates it, since
+ * `jspin` is the only signal that a run is in progress and stopping it removes information rather
+ * than motion. Adding a second exception is therefore a deliberate edit to this map, which is the
+ * point.
+ */
+const REDUCED_MOTION_EXCEPTIONS = new Map<string, string>([
+  ['spinner', '`4A:15` — the only signal that a run is in progress'],
+  ['easeSettle', 'a curve over zero time is not observable'],
+  ['easeExit', 'a curve over zero time is not observable'],
+  ['easeLinear', 'a curve over zero time is not observable'],
+])
+
+describe('prefers-reduced-motion', () => {
+  it('redefines every motion token, except the ones it declares an exception', () => {
+    const escaped = Object.keys(motion)
+      .filter((key) => !REDUCED_MOTION_EXCEPTIONS.has(key))
+      .map((key) => {
+        const name = `--jbk-motion-${kebab(key)}`
+        const want = key.startsWith('duration') ? '0ms' : 'none'
+        const got = reduced.get(name)
+        return got === want ? '' : `${name}: ${got ?? '(not redefined)'} — expected ${want}`
+      })
+      .filter((message) => message !== '')
+    expect(escaped).toEqual([])
+  })
+
+  it('leaves the excepted tokens alone', () => {
+    const overreach = [...REDUCED_MOTION_EXCEPTIONS]
+      .filter(([key]) => reduced.has(`--jbk-motion-${kebab(key)}`))
+      .map(([key, why]) => `--jbk-motion-${kebab(key)} is redefined, but ${why}`)
+    expect(overreach).toEqual([])
+  })
+
+  it('redefines nothing that is not a token', () => {
+    const foreign = [...reduced.keys()].filter((name) => !expected.has(name))
+    expect(foreign).toEqual([])
+  })
+
+  /**
+   * The class, not the instance. A token stylesheet that inlines a keyframe name or a raw duration
+   * has written motion the block above cannot reach, however well `tokens.ts` and its `.css` twin
+   * agree about it. The one sanctioned way for a directory to carry motion is to point at the
+   * `motion` group — `var(--jbk-motion-…)` — so redefining that token redefines this one too.
+   */
+  it('leaves no token stylesheet carrying motion the block cannot reach', () => {
+    const time = /(^|[\s(,/])\d*\.?\d+m?s(\s|$|[),;])/
+    const unreachable: string[] = []
+    for (const file of tokenStylesheets()) {
+      const sheet = fs.readFileSync(file, 'utf8')
+      for (const [name, value] of declaredProperties(sheet)) {
+        // The `motion` group is what the block redefines; the tests above cover it in full.
+        if (name.startsWith('--jbk-motion-')) continue
+        if (value.includes('var(--jbk-motion-')) continue
+        const names = keyframes.filter((frame) => new RegExp(`\\b${frame}\\b`).test(value))
+        if (names.length === 0 && !time.test(value)) continue
+        unreachable.push(`${path.relative(SRC, file)} — ${name}: ${value}`)
+      }
+    }
+    expect(unreachable).toEqual([])
   })
 })

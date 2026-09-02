@@ -2,6 +2,7 @@ import { type Atom, atom, context, wrap } from '@reatom/core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { JobikClient, WireRunReportPayload } from '#client/index.js'
 import type { RunSession } from '#studio/runSession.js'
+import { motion } from '#tokens.js'
 import { reatomToast, TOAST_EXIT_MS, TOAST_HOLD_MS } from './toast.js'
 import type { StudioDeps, ToastModel } from './types.js'
 
@@ -45,6 +46,11 @@ interface World {
   readonly archive: Atom<readonly RunSession[]>
   /** Settles a run into the archive, the one event this model reacts to. */
   readonly settle: (report: WireRunReportPayload) => Promise<unknown>
+  /**
+   * What a flow switch does to `RunModel.archive`: it does not push a run, it swaps the whole
+   * slice for another flow's — see `run.ts:211-224`. Nothing settled here.
+   */
+  readonly swap: (sessions: readonly RunSession[]) => Promise<unknown>
   readonly elapse: (ms: number) => Promise<unknown>
   readonly disconnect: () => void
 }
@@ -76,9 +82,13 @@ function createWorld(): World {
       archive.set([sessionOf(report), ...archive()])
       return flush()
     },
+    swap: (sessions) => {
+      archive.set(sessions)
+      return flush()
+    },
     elapse: (ms: number) => wrap(vi.advanceTimersByTimeAsync(ms)),
     disconnect: () => {
-      for (const unsubscribe of unsubscribes) unsubscribe()
+      for (const unsubscribe of unsubscribes.splice(0)) unsubscribe()
     },
   }
 }
@@ -128,9 +138,9 @@ describe('the toast a settled run raises', () => {
   })
 
   /**
-   * `RunModel.history` collapses `cancelled` into `failed`, because `2A`'s rows draw two tones. A
-   * toast built on that would tell the user a run they cancelled had failed, so this model reads
-   * the archive's own reports instead.
+   * A settled report's `status` has three arms and the toast is the only report some runs get, so
+   * a toast that folded `cancelled` into `failed` would tell the user a run they stopped
+   * themselves had failed. It reads the archive's own reports, which keep all three.
    */
   it('keeps cancelled distinct from failed', async () => {
     await withToast(async ({ toast, settle }) => {
@@ -174,27 +184,78 @@ describe('the toast a settled run raises', () => {
     })
   })
 
-  it('raises nothing when a flow switch empties the archive', async () => {
-    await withToast(async ({ toast, archive, settle, elapse }) => {
+  /**
+   * The archive is keyed by flow and a switch swaps the slice rather than clearing it, so the head
+   * moves for a reason that is not a run finishing. Selecting a flow with no runs empties it, and
+   * selecting the first one again puts the very same settled session back on top — which is a
+   * change of the head, and must not be a second toast for a run announced minutes ago.
+   */
+  it('says nothing again when a flow switch brings a run it already announced back', async () => {
+    await withToast(async ({ toast, archive, swap, settle, elapse }) => {
       await settle(REPORT)
+      const announced = archive()
       await elapse(TOAST_HOLD_MS + TOAST_EXIT_MS)
       expect(toast.message()).toBeUndefined()
 
-      archive.set([])
-      await elapse(0)
-
+      // The flow with nothing in its archive.
+      await swap([])
       expect(toast.message()).toBeUndefined()
-    })
-  })
 
-  it('takes the toast away on dismiss', async () => {
-    await withToast(async ({ toast, settle }) => {
-      await settle(REPORT)
-
-      toast.dismiss()
-
+      // …and back to the one that has run.
+      await swap(announced)
       expect(toast.message()).toBeUndefined()
       expect(toast.visible()).toBe(false)
     })
+  })
+
+  it('says nothing when a flow switch swaps another flow’s settled runs in', async () => {
+    await withToast(async ({ toast, archive, swap, settle, elapse }) => {
+      await settle(REPORT)
+      const first = archive()
+      await elapse(TOAST_HOLD_MS + TOAST_EXIT_MS)
+
+      // The other flow's own run, settled while that flow was selected: it is announced then.
+      await swap([sessionOf({ ...REPORT, runNumber: 300 })])
+      expect(toast.message()).toEqual({ text: 'Run #300 finished in 2.4s', tone: 'ok' })
+      await elapse(TOAST_HOLD_MS + TOAST_EXIT_MS)
+
+      // Switching back is not a run finishing, and #219 has been announced once already.
+      await swap(first)
+      expect(toast.message()).toBeUndefined()
+      expect(toast.visible()).toBe(false)
+    })
+  })
+
+  /**
+   * The toast does not outlive the surface drawing it: nothing else in the model owns it, so the
+   * hold in flight is dropped with the last reader rather than left to clear a later toast.
+   */
+  it('drops the standing toast and its hold when nothing is drawing it any more', async () => {
+    await withToast(async ({ toast, settle, elapse, disconnect }) => {
+      await settle(REPORT)
+      expect(toast.visible()).toBe(true)
+
+      disconnect()
+      await elapse(0)
+
+      // Gone with its reader, not merely gone once the hold it left behind ran out.
+      expect(toast.message()).toBeUndefined()
+      expect(toast.visible()).toBe(false)
+
+      await elapse(TOAST_HOLD_MS + TOAST_EXIT_MS)
+      expect(toast.message()).toBeUndefined()
+    })
+  })
+})
+
+/**
+ * S10 — `TOAST_EXIT_MS` is `4A`'s exit duration written a second time, in the one place it cannot
+ * be read from CSS. Every timing case above measures with the constant itself, so all of them pass
+ * for any value of it; this is the one assertion that fails when the copy drifts from the token
+ * the stylesheet actually fades on.
+ */
+describe('the exit constant and the token the stylesheet reads', () => {
+  it('are the same duration', () => {
+    expect(`${TOAST_EXIT_MS}ms`).toBe(motion.durationExit)
   })
 })

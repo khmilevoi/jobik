@@ -863,12 +863,16 @@ export interface ToastMessage {
  * Two units, because the exit is 120ms long and the element has to still be there while it plays:
  * {@link ToastModel.message} is what the surface mounts on, {@link ToastModel.visible} is the
  * opacity it fades between. A message with `visible` false is a toast on its way out.
+ *
+ * **There is no dismissal, and there is nothing to call.** The toast answers no pointer — the
+ * prototype gives it `pointer-events:none` and `RunToast.module.css` keeps that — and no other
+ * model takes it away: a flow switch leaves the standing toast to finish its own hold, because it
+ * is still a true statement about a run that really did settle. The one thing that ends it early
+ * is the surface going away, and `model/toast.ts` does that from its own connect hook.
  */
 export interface ToastModel {
   readonly message: Atom<ToastMessage | undefined>
   readonly visible: Atom<boolean>
-  /** Takes the toast away now — the surface's own dismissal, and what a flow switch calls. */
-  readonly dismiss: Action<[], void>
 }
 
 /** Every slot of {@link StudioModel} except `deps` — the twelve the wiring task fills, by name. */

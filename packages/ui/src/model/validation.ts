@@ -126,8 +126,10 @@ export function reatomValidation(
 
   /**
    * `3D`, from the one finding the wire carries. Everything the wire cannot say — a second finding,
-   * a severity, a source location — is absent rather than invented; `toFlowProblems` is where that
-   * honesty lives.
+   * a severity, the artboard's own `flow.ts:41` file-and-line — is absent rather than invented;
+   * `toFlowProblems` is where that honesty lives. Where in the *graph* the check failed is a
+   * different question and the payload does answer it; that is {@link findingSource}, and it feeds
+   * the dialog's rows rather than this strip.
    */
   const problems = computed<FlowProblemModel>(() => {
     const current = active()
@@ -344,10 +346,11 @@ export function reatomValidation(
   }, `${name}._copy`).extend(withAbort())
 
   /**
-   * `3C` §2's footer ghost. What it copies is the dialog's own list and nothing more: the wire
-   * carries one finding with no severity and no source location, so the text says exactly what the
-   * rows say. The press is refused while the spinner shows and while `Copied` still stands, and
-   * accepted from `failed` — `3A` §2.5's one deliberate exception.
+   * `3C` §2's footer ghost. What it copies is `reportFindings` — the dialog's own list, the same
+   * rows it is drawing at the moment of the press — so the text says exactly what the rows say,
+   * source line included; {@link toReportText} is where that correspondence is kept. The press is
+   * refused while the spinner shows and while `Copied` still stands, and accepted from `failed` —
+   * `3A` §2.5's one deliberate exception.
    */
   const copyReport = action(() => {
     const cell = copyState()
@@ -380,8 +383,10 @@ export function reatomValidation(
    * `sameFlowShape`: that comparison exists so a drag does not throw away findings the user is still
    * reading *within one flow*, and a finding about flow `#1` says nothing at all about flow `#2`.
    *
-   * Both aborts matter. A check still in flight would otherwise land its answer under the new flow's
-   * id, and a chip still holding would return to idle four seconds into a flow that never ran one.
+   * All four aborts matter, and each for its own reason. A check still in flight would otherwise
+   * land its answer under the new flow's id; a chip still holding would return to idle four seconds
+   * into a flow that never ran one; a copy still holding `Copied` would put the footer back to idle
+   * inside a dialog that no longer exists; and an armed copy spinner would light one there.
    */
   const reset = action(() => {
     _check.abort()
@@ -419,12 +424,23 @@ export function reatomValidation(
 }
 
 /**
- * The dialog's rows as plain text, in the order they are drawn. A finding carries no severity the
- * wire could contradict and no source location, so neither is printed: the code, then the sentence
- * its segments spell, which is the server's own message reassembled verbatim.
+ * The dialog's rows as plain text, in the order they are drawn, carrying exactly what they draw.
+ *
+ * `3C` puts the class and the location on one row — the class at the left, the location at the
+ * right of the same baseline — so the text puts them on one line, joined by the ` · ` this codebase
+ * already uses for two things sharing a row (`runPanel.ts`'s `traceContext`, the dialog's own
+ * `publication · flow.ts` header). A finding whose payload names nowhere has no location cell and
+ * gets no separator either. Then the sentence its segments spell, which is the server's own message
+ * reassembled verbatim.
+ *
+ * Severity is still absent, and that is not an omission of the same kind: the wire has no way to
+ * say `warning`, so every finding is an `error` and printing the word would be printing a constant.
  */
 function toReportText(rows: readonly ValidationFinding[]): string {
   return rows
-    .map((row) => `${row.code}\n${row.message.map((segment) => segment.text).join('')}`)
+    .map((row) => {
+      const head = row.source === undefined ? row.code : `${row.code} · ${row.source}`
+      return `${head}\n${row.message.map((segment) => segment.text).join('')}`
+    })
     .join('\n\n')
 }
