@@ -388,6 +388,67 @@ describe('the draft lock a run holds', () => {
  * the real `blocked`. Both halves are asserted here, in one composed model.
  */
 describe('the validation gate', () => {
+  it('blocks direct, draft and shortcut runs during an upload, then runs the returned value', async () => {
+    const uploaded = gate()
+    const startRun = vi.fn(async () => streamOf(SETTLED_STREAM))
+    const uploadInput = vi.fn(async () => {
+      await uploaded.promise
+      return { value: 'uploaded-photo' }
+    })
+    const NativeURL = URL
+    vi.stubGlobal(
+      'URL',
+      class extends NativeURL {
+        static createObjectURL = vi.fn(() => 'blob:photo')
+        static revokeObjectURL = vi.fn()
+      },
+    )
+    const descriptor = {
+      ...DESCRIPTOR,
+      nodes: DESCRIPTOR.nodes.map((node) =>
+        node.id === 'start1'
+          ? {
+              ...node,
+              inputUploads: { title: { accept: 'image/png', maxBytes: 100 } },
+            }
+          : node,
+      ),
+    }
+    await inFrame(
+      async (model) => {
+        await mounted(model)
+        model.inputs.setInputField('title', 'previous-photo')
+        model.inputs
+          .uploads()
+          .title?.onSelect(new File(['png'], 'photo.png', { type: 'image/png' }))
+        await wrap(until(() => uploadInput.mock.calls.length === 1, 'the upload request'))
+        expect(model.inputs.uploading()).toBe(true)
+        expect(model.runPanel.state()).toMatchObject({ kind: 'idle', blocked: true })
+        await wrap(model.run.start({ title: 'bypass' }))
+        model.run.runFromDraft()
+        model.shortcuts.onKeyDown(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true }))
+        await wrap(macrotask())
+        expect(startRun).not.toHaveBeenCalled()
+        uploaded.release()
+        await wrap(until(() => !model.inputs.uploading(), 'the upload to finish'))
+        model.run.runFromDraft()
+        await wrap(until(() => startRun.mock.calls.length === 1, 'the run to start'))
+        expect(startRun).toHaveBeenCalledWith({
+          flowId: 'publication',
+          startId: 'start1',
+          input: { title: 'uploaded-photo' },
+        })
+      },
+      {
+        client: stubClient({
+          startRun,
+          uploadInput,
+          loadFlow: async () => ({ descriptor, document: DOCUMENT, revision: 'rev-1' }),
+        }),
+      },
+    )
+  })
+
   it('refuses to start a run while a standing error blocks it', async () => {
     const startRun = vi.fn(async () => streamOf(SETTLED_STREAM))
 

@@ -229,7 +229,7 @@ export function reatomCanvas(
   const _reportNodes = computed<ReadonlyMap<string, WireNodeReportPayload>>(() => {
     const index = new Map<string, WireNodeReportPayload>()
     const report = _report()
-    if (report === undefined) return index
+    if (report === undefined) return input.viewedSession()?.nodeReports ?? index
     for (const node of report.nodes) index.set(node.nodeId, node)
     return index
   }, `${name}._reportNodes`)
@@ -285,6 +285,7 @@ export function reatomCanvas(
     // RTM-S05: a per-instance unit names itself with `#id`.
     const unit = `${name}.node#${nodeId}`
     const record = computed(() => _sessionNodes()?.get(nodeId), `${unit}.record`)
+    const settledReport = computed(() => _reportNodes().get(nodeId), `${unit}.settledReport`)
     const status = computed(() => record()?.status, `${unit}.status`)
     const settled = computed(() => isSettledStatus(status()), `${unit}.settled`)
 
@@ -380,14 +381,18 @@ export function reatomCanvas(
           detail: {
             ...failure,
             onViewTrace: () => openTrace(),
-            onRetry: () =>
-              retryNode({ nodeId, errorName: failure.errorName, message: failure.message }),
+            ...(input.viewedSession()?.readOnly === true
+              ? { readOnly: true }
+              : {
+                  onRetry: () =>
+                    retryNode({ nodeId, errorName: failure.errorName, message: failure.message }),
+                }),
           },
         }
       }
 
       if (base.state !== 'ok') return base
-      const report = _reportNodes().get(nodeId)
+      const report = settledReport()
       if (report === undefined) return base
 
       // `## Flow-local output UI`: the registered component fills the inline slot; an absent one

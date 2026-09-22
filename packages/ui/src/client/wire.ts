@@ -49,6 +49,12 @@ export type SafeNodeDescriptorPayload = {
   readonly kind: NodeKind
   readonly title: string
   readonly input: NodeInputDescriptor
+  readonly inputUploads?: Readonly<
+    Record<
+      string,
+      { readonly accept: string; readonly maxBytes: number; readonly preview?: boolean }
+    >
+  >
   readonly output: NodeOutputDescriptor
 }
 
@@ -76,6 +82,7 @@ export type ValidatePayload =
 export type SavePayload = { readonly revision: string }
 
 export type WireNodeReportPayload = {
+  readonly input?: Readonly<Record<string, unknown>> | null
   readonly nodeId: string
   readonly status: NodeStatus
   readonly elapsedMs: number
@@ -86,6 +93,8 @@ export type WireNodeReportPayload = {
 }
 
 export type WireRunReportPayload = {
+  readonly runId?: string
+  readonly storageError?: WireErrorPayload
   readonly flowName: string
   readonly startId: string
   readonly runNumber: number
@@ -98,7 +107,7 @@ export type WireRunReportPayload = {
 
 /** One NDJSON line. The first is always `run-accepted`; the last always settles the run. */
 export type RunStreamEvent =
-  | { readonly type: 'run-accepted'; readonly runToken: string }
+  | { readonly type: 'run-accepted'; readonly runToken: string; readonly runId?: string }
   | {
       readonly type: 'run-started'
       readonly runNumber: number
@@ -113,9 +122,36 @@ export type RunStreamEvent =
       readonly elapsedMs: number
       readonly error: WireErrorPayload | null
     }
+  | {
+      readonly type: 'node-settled'
+      readonly runNumber: number
+      readonly node: WireNodeReportPayload
+    }
   | { readonly type: 'node-log'; readonly line: RunLogLine }
   | { readonly type: 'run-settled'; readonly report: WireRunReportPayload }
   | { readonly type: 'run-failed'; readonly error: WireErrorPayload }
+
+export type PersistedRunSummary = {
+  readonly runId: string
+  readonly flowId: string
+  readonly startId: string
+  readonly createdAt: number
+  readonly updatedAt: number
+  readonly status: 'running' | 'ok' | 'failed' | 'cancelled' | 'interrupted'
+  readonly runNumber: number | null
+}
+
+export type PersistedRunRecord = PersistedRunSummary & {
+  readonly schemaVersion: 1
+  readonly source?: 'studio-export'
+  readonly input: unknown
+  readonly document: FlowDocument | null
+  readonly revision: string | null
+  readonly report: WireRunReportPayload | null
+  readonly events: readonly RunStreamEvent[]
+  readonly failure: WireErrorPayload | null
+  readonly storageError?: WireErrorPayload
+}
 
 export type RevisionConflictPayload = WireErrorPayload & {
   readonly _tag: 'FlowRevisionConflictError'

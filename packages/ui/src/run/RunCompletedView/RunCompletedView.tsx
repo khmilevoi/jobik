@@ -4,6 +4,7 @@ import { RunDivider } from '#run/RunChrome/RunChrome.js'
 import { RunInputControl } from '#run/RunInputControl/RunInputControl.js'
 import { RunLogSection } from '#run/RunLogSection/RunLogSection.js'
 import { RunNodeTimings } from '#run/RunNodeList/RunNodeList.js'
+import { RunSavedContext } from '#run/RunSavedContext/RunSavedContext.js'
 import type { RunCompletedState, RunInputDraftValue } from '#run/types.js'
 
 export interface RunCompletedViewProps {
@@ -43,6 +44,10 @@ export const RunCompletedView = reatomComponent(function RunCompletedView(
 
   return (
     <>
+      <RunSavedContext
+        {...(state.snapshot === undefined ? {} : { snapshot: state.snapshot })}
+        {...(state.storageWarning === undefined ? {} : { storageWarning: state.storageWarning })}
+      />
       <RunNodeTimings nodes={state.nodes} variant="completed" />
 
       {/* `2A:1207` — the rule between the timings block (`:1201-1205`) and the first input group
@@ -53,6 +58,7 @@ export const RunCompletedView = reatomComponent(function RunCompletedView(
         <RunInputControl
           key={field.field}
           field={field}
+          upload={inputs.uploads?.[field.field]}
           value={inputs.draft[field.field] ?? ''}
           presentation={inputs.presentation?.[field.field]}
           onChange={onDraftChange}
@@ -66,6 +72,7 @@ export const RunCompletedView = reatomComponent(function RunCompletedView(
           hint="⌘↵"
           data-testid="run-rerun-button"
           onClick={onRerun}
+          dimmed={state.blocked}
         >
           {`Re-run ${state.entryNodeId}`}
         </Button>

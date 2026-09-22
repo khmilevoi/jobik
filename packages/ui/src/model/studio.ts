@@ -89,6 +89,10 @@ export function reatomStudio(deps: StudioDeps, name = 'studio'): StudioModel {
     `${name}.validation`,
   )
 
+  const runBlocked = computed(
+    () => validation.blocked() || inputs.uploading(),
+    `${name}.runBlocked`,
+  )
   const extension = reatomExtension(deps, { flowId: flows.flowId }, `${name}.extension`)
 
   const run = reatomRun(
@@ -101,7 +105,7 @@ export function reatomStudio(deps: StudioDeps, name = 'studio'): StudioModel {
       savedDocument: draft.savedDocument,
       inputValues: inputs.values,
       inputIssues: inputs.issues,
-      blocked: validation.blocked,
+      blocked: runBlocked,
     },
     `${name}.run`,
   )
@@ -133,7 +137,7 @@ export function reatomStudio(deps: StudioDeps, name = 'studio'): StudioModel {
       descriptor: flows.descriptor,
       inputs,
       run,
-      blocked: validation.blocked,
+      blocked: runBlocked,
     },
     `${name}.runPanel`,
   )

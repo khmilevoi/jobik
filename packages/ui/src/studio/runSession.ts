@@ -1,5 +1,11 @@
-import type { NodeStatus, RunLogLine } from '@jobik/core'
-import type { RunStreamEvent, WireErrorPayload, WireRunReportPayload } from '#client/index.js'
+import type { FlowDocument, NodeStatus, RunLogLine } from '@jobik/core'
+import type {
+  RunStreamEvent,
+  WireErrorPayload,
+  WireNodeReportPayload,
+  WireRunReportPayload,
+} from '#client/index.js'
+import type { PersistedRunRecord } from '#client/wire.js'
 
 /**
  * The live run stream, reduced to a value.
@@ -10,11 +16,9 @@ import type { RunStreamEvent, WireErrorPayload, WireRunReportPayload } from '#cl
  * once — which is why `run-settled` overwrites the accumulated node statuses with the report's:
  * the report is the authority and the transitions are only what let the panel move before it lands.
  *
- * `applyRunEvent` relies on the server's structural guarantee (`## Execution`) that the stream's
- * last line is always exactly one `run-settled` or `run-failed`. It does not guard against an event
- * arriving after a terminal one, or a duplicate `run-accepted` — a pure reducer cannot repair a
- * stream that violates that guarantee. If a stream ended without a terminal event, the session it
- * produced stays permanently unsettled (`report` and `failure` both `undefined`).
+ * Incremental node reports are accepted only for this run number and before its terminal
+ * event. A final report replaces the partial map; a dropped stream retains the current run's
+ * completed output while rejecting late node results. Each new session starts with an empty map.
  */
 
 export type NodeRunRecord = {
@@ -24,6 +28,12 @@ export type NodeRunRecord = {
 }
 
 export type RunSession = {
+  readonly readOnly?: boolean
+  readonly runId?: string
+  readonly input?: unknown
+  readonly document?: FlowDocument
+  /** Full immutable saved context; never merged with the current editable flow. */
+  readonly persisted?: PersistedRunRecord
   readonly startId: string
   /** From the stream's first line. `POST /api/runs/:token/cancel` takes it. */
   readonly runToken: string | undefined
@@ -33,6 +43,7 @@ export type RunSession = {
   /** `Date.now()` when the request was sent. Log stamps and the chip's clock are offsets from it. */
   readonly startedAt: number
   readonly nodes: ReadonlyMap<string, NodeRunRecord>
+  readonly nodeReports?: ReadonlyMap<string, WireNodeReportPayload>
   readonly logs: readonly RunLogLine[]
   readonly report: WireRunReportPayload | undefined
   /**
@@ -41,6 +52,7 @@ export type RunSession = {
    * outcome outranks the outcome of a control action issued against it.
    */
   readonly failure: WireErrorPayload | undefined
+  readonly streamEnded?: boolean
   readonly cancelling: boolean
 }
 
@@ -50,6 +62,8 @@ export function createRunSession(args: {
   startId: string
   nodeIds: readonly string[]
   startedAt: number
+  input?: unknown
+  document?: FlowDocument
 }): RunSession {
   const nodes = new Map<string, NodeRunRecord>()
   for (const nodeId of args.nodeIds) {
@@ -58,11 +72,14 @@ export function createRunSession(args: {
 
   return {
     startId: args.startId,
+    ...(args.input === undefined ? {} : { input: args.input }),
+    ...(args.document === undefined ? {} : { document: args.document }),
     runToken: undefined,
     runNumber: undefined,
     nodeCount: args.nodeIds.length,
     startedAt: args.startedAt,
     nodes,
+    nodeReports: new Map(),
     logs: [],
     report: undefined,
     failure: undefined,
@@ -73,7 +90,11 @@ export function createRunSession(args: {
 export function applyRunEvent(session: RunSession, event: RunStreamEvent): RunSession {
   switch (event.type) {
     case 'run-accepted':
-      return { ...session, runToken: event.runToken }
+      return {
+        ...session,
+        runToken: event.runToken,
+        ...(event.runId === undefined ? {} : { runId: event.runId }),
+      }
 
     case 'run-started':
       return { ...session, runNumber: event.runNumber, nodeCount: event.nodeCount }
@@ -86,6 +107,24 @@ export function applyRunEvent(session: RunSession, event: RunStreamEvent): RunSe
         error: event.error,
       })
       return { ...session, nodes }
+    }
+
+    case 'node-settled': {
+      if (
+        session.report !== undefined ||
+        session.streamEnded === true ||
+        session.runNumber !== event.runNumber
+      )
+        return session
+      const nodeReports = new Map(session.nodeReports)
+      nodeReports.set(event.node.nodeId, event.node)
+      const nodes = new Map(session.nodes)
+      nodes.set(event.node.nodeId, {
+        status: event.node.status,
+        elapsedMs: event.node.elapsedMs,
+        error: event.node.error,
+      })
+      return { ...session, nodes, nodeReports }
     }
 
     case 'node-log':
@@ -105,6 +144,8 @@ export function applyRunEvent(session: RunSession, event: RunStreamEvent): RunSe
         nodes,
         logs: event.report.logs,
         report: event.report,
+        ...(event.report.runId === undefined ? {} : { runId: event.report.runId }),
+        nodeReports: new Map(),
         runNumber: event.report.runNumber,
         // 8-B, the other direction: the only thing that can already be on `failure` here is a
         // cancel *request* that failed while the run was still live (R27) — the two terminal
@@ -118,7 +159,7 @@ export function applyRunEvent(session: RunSession, event: RunStreamEvent): RunSe
     }
 
     case 'run-failed':
-      return { ...session, failure: event.error }
+      return { ...session, failure: event.error, streamEnded: true }
   }
 }
 

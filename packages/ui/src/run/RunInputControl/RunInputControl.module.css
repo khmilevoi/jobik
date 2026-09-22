@@ -53,3 +53,20 @@
   width: auto;
   padding: 0;
 }
+
+.preview {
+  display: block;
+  max-width: 100%;
+  width: 100%;
+  height: 160px;
+  object-fit: contain;
+  background: var(--jbk-surface-input-well);
+  border-radius: var(--jbk-radius-control);
+}
+
+.uploadNote {
+  font-family: var(--jbk-font-ui);
+  font-size: var(--jbk-size-11);
+  color: var(--jbk-text-field-label);
+  overflow-wrap: anywhere;
+}

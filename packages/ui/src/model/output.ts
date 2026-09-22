@@ -118,10 +118,10 @@ export function reatomOutput(
    */
   const restorableNode = computed<WireNodeReportPayload | undefined>(() => {
     const report = viewedReport()
-    if (report === undefined) return undefined
+    const nodes = report?.nodes ?? [...(viewedSession()?.nodeReports?.values() ?? [])]
     let withAsset: WireNodeReportPayload | undefined
     let withOutput: WireNodeReportPayload | undefined
-    for (const node of report.nodes) {
+    for (const node of nodes) {
       if (Object.keys(node.assets).length > 0) withAsset = node
       else if (node.output !== null && Object.keys(node.output).length > 0) withOutput = node
     }
@@ -179,6 +179,8 @@ export function reatomOutput(
       // A run still in flight, one that failed or was cancelled, or a fresh start all close the
       // viewer exactly as before. Only a session that settled with `report.status === 'ok'` — the
       // same criterion the retired inline Outputs section used — auto-opens onto its own node.
+      if (session?.report === undefined && session?.failure === undefined)
+        return state !== undefined && session?.nodeReports?.has(state) ? state : undefined
       if (session?.failure !== undefined || session?.report?.status !== 'ok') return undefined
       return restorableNode()?.nodeId
     }),
@@ -187,7 +189,10 @@ export function reatomOutput(
   const openViewerNode = computed<WireNodeReportPayload | undefined>(() => {
     const nodeId = viewerNodeId()
     if (nodeId === undefined) return undefined
-    return viewedReport()?.nodes.find((node) => node.nodeId === nodeId)
+    const report = viewedReport()
+    return report === undefined
+      ? viewedSession()?.nodeReports?.get(nodeId)
+      : report.nodes.find((node) => node.nodeId === nodeId)
   }, `${name}.openViewerNode`)
 
   /**
@@ -224,7 +229,9 @@ export function reatomOutput(
         nodeId: node.nodeId,
         fileCount: fields.length,
         ...(field === undefined ? {} : { field }),
-        ...(report === undefined ? {} : { runNumber: report.runNumber }),
+        ...((report?.runNumber ?? viewedSession()?.runNumber) === undefined
+          ? {}
+          : { runNumber: report?.runNumber ?? viewedSession()?.runNumber }),
       }
       return {
         context: formatOutputContext({
@@ -268,10 +275,15 @@ export function reatomOutput(
    */
   const collapsed = atom(false, `${name}.collapsed`).extend(
     withComputed((state) => {
-      getCalls(input.start)
-      viewedSession()
+      const startCalls = getCalls(input.start)
+      const report = viewedReport()
       input.startId()
-      return isInit() ? state : false
+      if (isInit()) return state
+      return startCalls.length > 0 ||
+        isChanged(input.startId) ||
+        (report !== undefined && isChanged(viewedReport))
+        ? false
+        : state
     }),
   )
 

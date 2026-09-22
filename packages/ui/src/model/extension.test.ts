@@ -22,6 +22,7 @@ const DESCRIPTOR = { nodes: {} }
 
 function stubClient(overrides: Partial<JobikClient> = {}): JobikClient {
   return {
+    uploadInput: async () => new Error('Upload not configured in fixture'),
     listFlows: async () => [],
     loadFlow: async () => new JobikTransportError({ url: '/api/flows/x' }),
     validate: async () => ({ valid: true }),

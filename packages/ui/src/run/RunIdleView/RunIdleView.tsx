@@ -74,6 +74,7 @@ export const RunIdleView = reatomComponent(function RunIdleView(props: RunIdleVi
         <RunInputControl
           key={field.field}
           field={field}
+          upload={state.uploads?.[field.field]}
           value={state.draft[field.field] ?? ''}
           presentation={state.presentation?.[field.field]}
           onChange={onDraftChange}

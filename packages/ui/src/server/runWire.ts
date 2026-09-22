@@ -50,6 +50,7 @@ export function isTaxonomyWireError(error: NodeWireError): error is WireError {
 
 /** One node's report, browser-safe. Field-for-field `jobik.NodeReport` with `output` and `error` projected. */
 export type WireNodeReport = {
+  readonly input?: Readonly<Record<string, unknown>> | null
   readonly nodeId: string
   readonly status: jobik.NodeStatus
   readonly elapsedMs: number
@@ -60,6 +61,8 @@ export type WireNodeReport = {
 
 /** The whole run, browser-safe. */
 export type WireRunReport = {
+  readonly runId?: string
+  readonly storageError?: { readonly _tag: string | null; readonly message: string }
   readonly flowName: string
   readonly startId: string
   readonly runNumber: number
@@ -79,7 +82,7 @@ export type WireRunReport = {
  * and therefore never emitted `run-started` or `run-settled`.
  */
 export type RunWireEvent =
-  | { readonly type: 'run-accepted'; readonly runToken: string }
+  | { readonly type: 'run-accepted'; readonly runToken: string; readonly runId?: string }
   | {
       readonly type: 'run-started'
       readonly runNumber: number
@@ -94,6 +97,7 @@ export type RunWireEvent =
       readonly elapsedMs: number
       readonly error: NodeWireError | null
     }
+  | { readonly type: 'node-settled'; readonly runNumber: number; readonly node: WireNodeReport }
   | { readonly type: 'node-log'; readonly line: jobik.RunLogLine }
   | { readonly type: 'run-settled'; readonly report: WireRunReport }
   // A `RunStartError` is always a taxonomy member, so this one never carries an authored error;
@@ -203,6 +207,9 @@ export function serialiseNodeOutput(args: {
 function serialiseNodeReport(args: { node: jobik.NodeReport; flowRoot: string }): WireNodeReport {
   return {
     nodeId: args.node.nodeId,
+    ...(args.node.input === undefined
+      ? {}
+      : { input: jsonSafe(args.node.input) as Readonly<Record<string, unknown>> | null }),
     status: args.node.status,
     elapsedMs: args.node.elapsedMs,
     output: serialiseNodeOutput({ output: args.node.output, assets: args.node.assets }),
@@ -256,6 +263,12 @@ export function toRunWireEvent(args: { event: jobik.RunEvent; flowRoot: string }
       }
     case 'node-log':
       return { type: 'node-log', line: event.line }
+    case 'node-settled':
+      return {
+        type: 'node-settled',
+        runNumber: event.runNumber,
+        node: serialiseNodeReport({ node: event.node, flowRoot }),
+      }
     case 'run-settled':
       return { type: 'run-settled', report: serialiseRunReport({ report: event.report, flowRoot }) }
   }

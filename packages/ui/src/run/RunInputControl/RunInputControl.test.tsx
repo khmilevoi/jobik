@@ -1,5 +1,5 @@
 import type { InputFieldDescriptor } from '@jobik/core'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { RunInputControl } from './RunInputControl.js'
@@ -21,6 +21,33 @@ const markdown: InputFieldDescriptor = {
 }
 
 describe('RunInputControl', () => {
+  it('offers an accessible native picker and local preview beside the advanced draft', async () => {
+    const onSelect = vi.fn()
+    render(
+      <RunInputControl
+        field={title}
+        value="previous"
+        upload={{
+          accept: 'image/png,image/jpeg',
+          maxBytes: 1000,
+          uploading: true,
+          previewUrl: 'blob:preview',
+          fileName: 'photo.png',
+          onSelect,
+        }}
+      />,
+    )
+    const picker = screen.getByLabelText('Upload image for title')
+    expect(picker).toHaveAttribute('type', 'file')
+    expect(picker).toHaveAttribute('accept', 'image/png,image/jpeg')
+    expect(screen.getByAltText('Selected file for title')).toHaveAttribute('src', 'blob:preview')
+    expect(screen.getByRole('status')).toHaveTextContent('Uploading')
+    const file = new File(['png'], 'photo.png', { type: 'image/png' })
+    await userEvent.upload(picker, file)
+    expect(onSelect).toHaveBeenCalledWith(file)
+    expect(screen.getByTestId('run-input-title')).toHaveValue('previous')
+  })
+
   it('labels the field beside its type annotation', () => {
     render(<RunInputControl field={title} value="Typed flows, quietly" />)
     expect(screen.getByTestId('run-input-label-title').textContent).toBe('title')
@@ -184,4 +211,33 @@ describe('RunInputControl', () => {
     expect(json).toHaveValue('{"a":1}')
     expect(json.className).toBe(area)
   })
+})
+
+it('keeps stored input intact when its preview fails and resets the visual error for another value', () => {
+  const onChange = vi.fn()
+  const upload = {
+    accept: 'image/png',
+    maxBytes: 100,
+    uploading: false,
+    previewUrl: '/preview?value=old',
+    onSelect: vi.fn(),
+  }
+  const { rerender } = render(
+    <RunInputControl field={title} value="old" upload={upload} onChange={onChange} />,
+  )
+  expect(screen.getByText('Stored image attached')).toBeVisible()
+  fireEvent.error(screen.getByAltText('Stored image for title'))
+  expect(screen.getByRole('status')).toHaveTextContent('input value is preserved')
+  expect(screen.getByTestId('run-input-title')).toHaveValue('old')
+  expect(onChange).not.toHaveBeenCalled()
+  rerender(
+    <RunInputControl
+      field={title}
+      value="new"
+      upload={{ ...upload, previewUrl: '/preview?value=new' }}
+      onChange={onChange}
+    />,
+  )
+  expect(screen.getByAltText('Stored image for title')).toBeVisible()
+  expect(screen.queryByRole('status')).toBeNull()
 })

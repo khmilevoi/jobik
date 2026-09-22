@@ -395,6 +395,8 @@ function makeInputs(
     inputDraft,
     schema,
     presentation,
+    uploads: computed(() => ({}), 'test.inputs.uploads'),
+    uploading: computed(() => false, 'test.inputs.uploading'),
     issues,
     setInputField,
     selectStart,
@@ -1426,6 +1428,81 @@ describe('the stack trace dialog', () => {
         })
       },
       () => failedHarness(REPORT_WITH_FRAMES),
+    )
+  })
+})
+
+describe('saved run panel', () => {
+  it('shows immutable saved input and graph rather than the editable draft and disables implicit rerun', async () => {
+    const oldDocument = { ...DOCUMENT, literals: { start1: { title: 'old graph' } } }
+    await inFrame(
+      async ({ run, panel, inputs, descriptor }) => {
+        inputs.setInputField('title', 'new editable input')
+        run.selectRun('saved-uuid')
+        const stop = panel.state.subscribe(() => {})
+        await flush()
+        const state = panel.state()
+        expect(state?.kind).toBe('completed')
+        if (state?.kind !== 'completed') return
+        expect(state.inputs).toBeUndefined()
+        expect(state.entryNodeId).toBeUndefined()
+        expect(state.onRerun).toBeUndefined()
+        expect(state.snapshot).toEqual({
+          runId: 'saved-uuid',
+          startId: 'start1',
+          revision: 'old-revision',
+          input: { title: 'original input' },
+          document: oldDocument,
+        })
+        expect(inputs.inputDraft().title).toBe('new editable input')
+        descriptor.set({ ...DESCRIPTOR, nodes: [], startIds: [] })
+        expect(panel.state()?.kind).toBe('completed')
+        stop()
+      },
+      () =>
+        makeHarness(
+          stubClient({
+            getRun: async () => ({
+              schemaVersion: 1,
+              runId: 'saved-uuid',
+              flowId: 'publication',
+              startId: 'start1',
+              createdAt: 1,
+              updatedAt: 2,
+              runNumber: 219,
+              status: 'ok',
+              input: { title: 'original input' },
+              document: oldDocument,
+              revision: 'old-revision',
+              report: REPORT,
+              events: [],
+              failure: null,
+            }),
+          }),
+        ),
+    )
+  })
+
+  it('keeps a successful execution successful while visibly reporting a storage failure', async () => {
+    await inFrame(
+      async ({ run, panel }) => {
+        await wrap(run.start({ title: 'paid input' }))
+        const state = panel.state()
+        expect(state?.kind).toBe('completed')
+        if (state?.kind === 'completed') expect(state.storageWarning).toBe('Disk is full')
+      },
+      () =>
+        makeHarness(
+          stubClient({
+            startRun: async () =>
+              streamOf([
+                {
+                  type: 'run-settled',
+                  report: { ...REPORT, storageError: { _tag: null, message: 'Disk is full' } },
+                },
+              ]),
+          }),
+        ),
     )
   })
 })

@@ -922,3 +922,21 @@ describe('what the derivation is cut for', () => {
     )
   })
 })
+
+it('fills the inline output slot before the complete run report arrives', async () => {
+  await inFrame(async (world) => {
+    world.seed(['start1', 'render'])
+    world.emit({
+      type: 'run-started',
+      runNumber: REPORT.runNumber,
+      flowName: 'publication',
+      startId: 'start1',
+      nodeCount: 2,
+    })
+    world.emit({ type: 'node-settled', runNumber: REPORT.runNumber, node: REPORT.nodes[1] })
+    expect(world.session()?.report).toBeUndefined()
+    expect(overlayOf(world, 'render')?.outputSlot?.content).toBeDefined()
+    overlayOf(world, 'render')?.outputSlot?.onInspect?.()
+    expect(world.opened).toEqual(['render'])
+  }, createWorld)
+})

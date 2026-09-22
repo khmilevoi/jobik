@@ -918,3 +918,38 @@ describe('`3A` — Download', () => {
     })
   })
 })
+
+it('inspects completed output during a running flow and preserves the selection across downstream progress', async () => {
+  await withOutput(async ({ output, viewedSession, settle, start }) => {
+    const partial = {
+      ...sessionOf(REPORT),
+      report: undefined,
+      nodeReports: new Map([[REPORT.nodes[1].nodeId, REPORT.nodes[1]]]),
+    }
+    viewedSession.set(partial)
+    await settle()
+    output.open('render')
+    expect(output.openViewerNode()).toEqual(REPORT.nodes[1])
+    expect(output.expanded()).toBe(true)
+    viewedSession.set({
+      ...partial,
+      logs: [...partial.logs, { nodeId: 'publish', at: 500, message: 'still working' }],
+    })
+    await settle()
+    expect(output.openViewerNode()).toEqual(REPORT.nodes[1])
+    expect(output.expanded()).toBe(true)
+    output.collapse()
+    viewedSession.set({
+      ...partial,
+      logs: [...partial.logs, { nodeId: 'publish', at: 600, message: 'working' }],
+    })
+    await settle()
+    expect(output.collapsed()).toBe(true)
+    expect(output.expanded()).toBe(false)
+    void start({})
+    viewedSession.set({ ...partial, runNumber: REPORT.runNumber + 1, nodeReports: new Map() })
+    await settle()
+    expect(output.openViewerNode()).toBeUndefined()
+    expect(output.dockNode()).toBeUndefined()
+  })
+})

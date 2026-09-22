@@ -287,3 +287,21 @@ describe('createJobikClient', () => {
     await expect(consume()).rejects.toBeInstanceOf(NdjsonParseError)
   })
 })
+
+describe('file-backed history client', () => {
+  it('reads encoded list and detail routes without posting a run', async () => {
+    const { fetch, calls } = stubFetch((call) =>
+      json(call.url.endsWith('/runs') ? { runs: [{ runId: 'saved-id' }] } : { runId: 'saved-id' }),
+    )
+    const client = createJobikClient({ fetch })
+    expect(await client.listRuns?.('a/b')).toEqual([{ runId: 'saved-id' }])
+    expect(await client.getRun?.({ flowId: 'a/b', runId: 'saved/id' })).toEqual({
+      runId: 'saved-id',
+    })
+    expect(calls.map((call) => call.url)).toEqual([
+      '/api/flows/a%2Fb/runs',
+      '/api/flows/a%2Fb/runs/saved%2Fid',
+    ])
+    expect(calls.every((call) => call.init?.method === undefined)).toBe(true)
+  })
+})

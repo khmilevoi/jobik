@@ -2,6 +2,8 @@ import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type * as jobik from '@jobik/core'
 import { type JobikConfig, normaliseJobikConfig } from './config.js'
+import type { JobikInputUploads } from './inputUploadConfig.js'
+import type { RunHistoryOptions } from './runHistory.js'
 
 /**
  * Flow discovery: load a `jobik.config.ts`, then load exactly the binding entrypoints it names.
@@ -20,6 +22,8 @@ export type DiscoveredFlow = {
   readonly id: string
   /** Node-only: holds the node definitions, and therefore the handlers. */
   readonly flow: jobik.BoundFlow
+  readonly inputUploads?: JobikInputUploads
+  readonly runHistory?: RunHistoryOptions
   /** Absolute. Node-only. */
   readonly bindingPath: string
   /**
@@ -99,7 +103,9 @@ export async function discoverFlows(args: { config: JobikConfig }): Promise<Flow
       id: flow.name,
       flow,
       bindingPath: entry.binding,
+      ...(entry.inputUploads === undefined ? {} : { inputUploads: entry.inputUploads }),
       uiPath: entry.ui,
+      ...(entry.runHistory === undefined ? {} : { runHistory: entry.runHistory }),
       documentPath: flow.path,
     }
     flows.push(discovered)

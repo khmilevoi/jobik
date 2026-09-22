@@ -32,6 +32,7 @@ import type {
   RunPanelState,
   RunStack,
 } from '#run/index.js'
+import type { RunInputUpload } from '#run/types.js'
 import type {
   RunDockMetaTone,
   RunDockStatus,
@@ -117,6 +118,8 @@ export type AsyncAction<Params extends unknown[], Payload = void> = Action<
  */
 export interface StudioDeps {
   readonly client: JobikClient
+  /** Optional browser draft storage. StudioApp supplies localStorage; headless models opt in. */
+  readonly inputDraftStorage?: { readonly storage: Storage; readonly namespace: string }
   /** The live module namespaces a flow-local `flow.ui.tsx` bundle may import. */
   readonly externals?: ExternalModules
   readonly importModule?: (url: string) => Promise<unknown>
@@ -323,6 +326,8 @@ export interface SaveModel {
  * reload sees a live selection and keeps every typed character.
  */
 export interface InputsModel {
+  readonly uploads: Computed<Readonly<Record<string, RunInputUpload>>>
+  readonly uploading: Computed<boolean>
   /**
    * The start the run panel and the canvas are pointed at — one of `descriptor.startIds`, seeded
    * with the first and moved by `selectStart`.
@@ -508,6 +513,7 @@ export interface RunModel {
   /** The row the sidebar marks. `undefined` means the newest, which is the run on screen. */
   readonly selectedRunId: Atom<string | undefined>
   readonly history: Computed<readonly RunHistoryEntry[]>
+  readonly historyMessage: Computed<string | undefined>
   /**
    * What a click picked, or the newest run when nothing did — and `undefined` when no session is on
    * the surfaces at all, which is a flow returned to with its archive intact and nothing shown.

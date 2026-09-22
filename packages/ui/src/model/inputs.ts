@@ -1,13 +1,25 @@
-import { action, atom, type Computed, computed, peek, withComputed } from '@reatom/core'
+import {
+  action,
+  atom,
+  type Computed,
+  computed,
+  peek,
+  reatomPersistWebStorage,
+  withChangeHook,
+  withComputed,
+  withDisconnectHook,
+} from '@reatom/core'
 import type * as z from 'zod'
 import type { SafeFlowDescriptorPayload, SafeNodeDescriptorPayload } from '#client/index.js'
 import type { RunInputDraft, RunInputDraftValue, RunInputIssue } from '#run/index.js'
 import { toRunInputIssues, validateRunInputs } from '#run/index.js'
+import type { RunInputUpload } from '#run/types.js'
 import {
   initialRunInputDraft,
   runInputPresentation,
   toRunInputSchema,
 } from '#studio/inputSchema.js'
+import { reatomInputUpload } from './inputUpload.js'
 import { withOptionalComputed } from './reatom.js'
 import type { FlowsModel, InputsModel, StudioDeps } from './types.js'
 
@@ -70,6 +82,7 @@ type RunSelection = {
 function keepsRunSelection(previous: RunSelection, next: SafeFlowDescriptorPayload): boolean {
   const { descriptor, startId } = previous
   if (descriptor === undefined || startId === undefined) return false
+  if (descriptor.id !== next.id) return false
   if (!next.startIds.includes(startId)) return false
   const before = descriptor.nodes.find((node) => node.id === startId)
   const after = next.nodes.find((node) => node.id === startId)
@@ -77,13 +90,9 @@ function keepsRunSelection(previous: RunSelection, next: SafeFlowDescriptorPaylo
   return JSON.stringify(before.input) === JSON.stringify(after.input)
 }
 
-/**
- * `_deps` is on the signature and unused: every sub-model factory takes the same three arguments so
- * `reatomStudio` wires them all the same way, and this one reaches nothing outside itself. The
- * schema, the seeding and the validation are all pure functions of the descriptor it is handed.
- */
+/** Draft persistence is optional for headless consumers and enabled by the browser Studio. */
 export function reatomInputs(
-  _deps: StudioDeps,
+  deps: StudioDeps,
   input: {
     descriptor: Computed<SafeFlowDescriptorPayload | undefined>
     loaded: FlowsModel['loaded']
@@ -155,8 +164,46 @@ export function reatomInputs(
     // The separator is `\0`, written as an escape: no node id can contain one, so the two halves
     // cannot be confused for each other. It was a raw NUL byte in the source until the wiring wave,
     // which made git treat this whole file as binary — same string at run time, readable diff.
-    return node === undefined ? undefined : `${node.id}\0${JSON.stringify(node.input)}`
+    return node === undefined
+      ? undefined
+      : `${descriptor()?.id}\0${node.id}\0${JSON.stringify(node.input)}`
   }, `${name}._draftSeed`)
+
+  const persistence = deps.inputDraftStorage
+  const withDraftStorage =
+    persistence === undefined
+      ? undefined
+      : reatomPersistWebStorage(`${name}.draftStorage`, persistence.storage)
+  // Each start/schema owns a persisted atom. The extension owns serialization and guards
+  // corrupt JSON and unavailable/full storage. Do not subscribe across tabs: another tab must
+  // not replace this tab's unfinished edits or an in-flight upload's draft.
+  const savedDraft = computed(() => {
+    const seed = _draftSeed()
+    const node = peek(startNode)
+    if (seed === undefined || node === undefined || withDraftStorage === undefined) return undefined
+    const initial = initialRunInputDraft(node.input)
+    return atom<RunInputDraft>(initial, `${name}.savedDraft`).extend(
+      withDraftStorage({
+        key: `jobik:input-draft:v1:${JSON.stringify([persistence?.namespace, seed])}`,
+        version: 1,
+        time: Number.MAX_SAFE_INTEGER - Date.now(),
+        subscribe: false,
+        fromSnapshot: (snapshot: unknown) => {
+          if (snapshot === null || typeof snapshot !== 'object' || Array.isArray(snapshot))
+            return initial
+          const values = snapshot as Record<string, unknown>
+          return Object.fromEntries(
+            Object.entries(initial).map(([field, fallback]) => [
+              field,
+              Object.hasOwn(values, field) && typeof values[field] === typeof fallback
+                ? values[field]
+                : fallback,
+            ]),
+          ) as RunInputDraft
+        },
+      }),
+    )
+  }, `${name}.savedDraftForStart`)
 
   const inputDraft = atom<RunInputDraft>({}, `${name}.inputDraft`).extend(
     withComputed(() => {
@@ -164,7 +211,9 @@ export function reatomInputs(
       // so its per-load identity churn never re-seeds a draft the user is still typing into.
       if (_draftSeed() === undefined) return {}
       const node = peek(startNode)
-      return node === undefined ? {} : initialRunInputDraft(node.input)
+      return (
+        peek(() => savedDraft()?.()) ?? (node === undefined ? {} : initialRunInputDraft(node.input))
+      )
     }),
   )
 
@@ -187,8 +236,67 @@ export function reatomInputs(
    */
   const issues = atom<readonly RunInputIssue[] | undefined>(undefined, `${name}.issues`)
 
+  const uploadCache = new Map<string, ReturnType<typeof reatomInputUpload>>()
+  const uploadScope = computed(
+    () => `${_draftSeed()}\0${JSON.stringify(startNode()?.inputUploads)}`,
+    `${name}.uploadScope`,
+  )
+  const uploadModels = computed(() => {
+    const scope = uploadScope()
+    const node = startNode()
+    const flowId = descriptor()?.id
+    if (node === undefined || flowId === undefined) return []
+    return Object.entries(node.inputUploads ?? {}).flatMap(([field, policy]) => {
+      const kind = node.input.fields.find((entry) => entry.field === field)?.control.kind
+      if (kind !== 'json' && kind !== 'string') return []
+      const key = `${scope}\0${field}`
+      const cached = uploadCache.get(key)
+      if (cached !== undefined) return [{ key, field, model: cached }]
+      const model = reatomInputUpload(
+        {
+          client: deps.client,
+          flowId,
+          nodeId: node.id,
+          field,
+          kind,
+          ...policy,
+          value: () => inputDraft()[field],
+          current: () => !locked() && uploadScope() === scope && uploadCache.get(key) === model,
+          commit: (value) => {
+            const next = inputDraft.set({ ...inputDraft(), [field]: value })
+            savedDraft()?.set(next)
+            issues.set(undefined)
+          },
+        },
+        `${name}.upload#${field}`,
+      )
+      uploadCache.set(key, model)
+      return [{ key, field, model }]
+    })
+  }, `${name}.uploadModels`).extend(
+    withChangeHook((next, previous) => {
+      for (const entry of previous ?? []) {
+        if (next.some((item) => item.model === entry.model)) continue
+        entry.model.clear()
+        uploadCache.delete(entry.key)
+      }
+    }),
+  )
+  const clearUploads = () => {
+    for (const model of uploadCache.values()) model.clear()
+  }
+  const uploads = computed<Readonly<Record<string, RunInputUpload>>>(
+    () => Object.fromEntries(uploadModels().map(({ field, model }) => [field, model.view()])),
+    `${name}.uploads`,
+  ).extend(withDisconnectHook(clearUploads))
+  const uploading = computed(
+    () => Object.values(uploads()).some((field) => field.uploading),
+    `${name}.uploading`,
+  )
+
   const seedStart = action(
     (loadedDescriptor: SafeFlowDescriptorPayload, start: string | undefined) => {
+      clearUploads()
       _selection.set({ descriptor: loadedDescriptor, startId: start })
       issues.set(undefined)
     },
@@ -209,7 +317,11 @@ export function reatomInputs(
 
   const setInputField = action((field: string, value: RunInputDraftValue) => {
     if (locked()) return
-    inputDraft.set({ ...inputDraft(), [field]: value })
+    uploadModels()
+      .find((entry) => entry.field === field)
+      ?.model.clear()
+    const next = inputDraft.set({ ...inputDraft(), [field]: value })
+    savedDraft()?.set(next)
     // A finding is about the draft that produced it, so the next keystroke retires it.
     issues.set(undefined)
   }, `${name}.setInputField`)
@@ -222,6 +334,7 @@ export function reatomInputs(
    * `validateRunInputs`, so a run started from any of the five sends identical values.
    */
   const values = action((): Record<string, unknown> | undefined => {
+    if (uploading()) return undefined
     const node = startNode()
     const input = schema()
     if (node === undefined || input === undefined) return undefined
@@ -239,6 +352,8 @@ export function reatomInputs(
   }, `${name}.reportInvalid`)
 
   const reset = action(() => {
+    // Flow switching uses this internal reset; keep the previous scope's saved draft.
+    clearUploads()
     _selection.set({ descriptor: undefined, startId: undefined })
     issues.set(undefined)
   }, `${name}.reset`)
@@ -251,6 +366,8 @@ export function reatomInputs(
     schema,
     presentation,
     issues,
+    uploads,
+    uploading,
     setInputField,
     selectStart,
     seedStart,

@@ -1,4 +1,7 @@
+import { EventEmitter } from 'node:events'
+import type { IncomingMessage, ServerResponse } from 'node:http'
 import path from 'node:path'
+import { Readable } from 'node:stream'
 import { describe, expect, it, vi } from 'vitest'
 import {
   publicationFixture,
@@ -6,6 +9,7 @@ import {
 } from '../../../../examples/showcase/publication/fixtures.js'
 import type { DiscoveredFlow } from './discovery.js'
 import { type JobikServer, serveFlowRegistry } from './httpServer.js'
+import * as runHistory from './runHistory.js'
 import { inFlightRunCount } from './runRegistry.js'
 import { jobikAllRoutes } from './runRoutes.js'
 import {
@@ -75,6 +79,60 @@ async function waitForInFlightCount(target: number, timeoutMs = 2000): Promise<n
 }
 
 describe('POST /api/flows/:id/run', () => {
+  it('does not execute a handler if the client closed during initial archive creation', async () => {
+    const { flow, cleanup } = await createProbeFlow('logging')
+    pushCleanup(cleanup)
+    const response = Object.assign(new EventEmitter(), {
+      destroyed: false,
+      writableEnded: false,
+      writeHead: vi.fn(),
+      write: vi.fn(),
+      end: vi.fn(),
+    })
+    const createArchive = runHistory.createRunArchive
+    const archiveSpy = vi
+      .spyOn(runHistory, 'createRunArchive')
+      .mockImplementationOnce(async (args) => {
+        const archive = await createArchive(args)
+        // The socket closes before handleRun installs its normal close listener.
+        response.destroyed = true
+        response.emit('close')
+        return archive
+      })
+    try {
+      const route = jobikAllRoutes.find(
+        (entry) => entry.method === 'POST' && entry.pattern === '/api/flows/:id/run',
+      )
+      if (route === undefined) throw new Error('Missing run route')
+      const request = Readable.from([
+        Buffer.from(JSON.stringify({ startId: 'start1', input: { text: 'must not execute' } })),
+      ])
+      await route.handle({
+        request: request as IncomingMessage,
+        response: response as unknown as ServerResponse,
+        registry: registryOf([flow]),
+        params: { id: flow.id },
+        url: new URL('http://localhost/api/flows/' + flow.id + '/run'),
+      })
+      const runs = await runHistory.listPersistedRuns(flow)
+      if (runs instanceof Error) throw runs
+      expect(runs).toHaveLength(1)
+      const record = await runHistory.readPersistedRun({ flow, runId: runs[0]?.runId ?? '' })
+      expect(record).toMatchObject({
+        status: 'cancelled',
+        report: {
+          status: 'cancelled',
+          logs: [],
+          nodes: expect.arrayContaining([
+            expect.objectContaining({ nodeId: 'probe', status: 'skipped', output: null }),
+          ]),
+        },
+      })
+    } finally {
+      archiveSpy.mockRestore()
+    }
+  })
+
   it('streams the run and settles with a report whose binary field is a descriptor', async () => {
     const flow = await temporaryFlow()
     const server = await serve(flow)

@@ -83,6 +83,7 @@ const POKEDEX_DESCRIPTOR = {
 
 function stubClient(overrides: Partial<JobikClient> = {}): JobikClient {
   return {
+    uploadInput: async () => new Error('Upload not configured in fixture'),
     listFlows: async () => [{ id: 'publication', name: 'publication', nodeCount: 1 }],
     loadFlow: async () => ({ descriptor: DESCRIPTOR, document: DOCUMENT, revision: 'rev-1' }),
     validate: async () => ({ valid: true }),

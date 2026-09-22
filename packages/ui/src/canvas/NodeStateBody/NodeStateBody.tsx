@@ -110,15 +110,17 @@ export const NodeStateBody = reatomComponent(function NodeStateBody(props: NodeS
           >
             View trace
           </button>
-          <button
-            type="button"
-            data-testid="node-retry"
-            onClick={detail.onRetry}
-            disabled={detail.retrying === true}
-            className={cx('nodrag', s.action, s.retry, detail.retrying === true && s.dimmed)}
-          >
-            Retry node
-          </button>
+          {detail.readOnly === true ? null : (
+            <button
+              type="button"
+              data-testid="node-retry"
+              onClick={detail.onRetry}
+              disabled={detail.retrying === true}
+              className={cx('nodrag', s.action, s.retry, detail.retrying === true && s.dimmed)}
+            >
+              Retry node
+            </button>
+          )}
         </div>
       </div>
     )

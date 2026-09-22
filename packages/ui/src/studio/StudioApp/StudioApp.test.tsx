@@ -7,7 +7,10 @@ import { JobikServerError, JobikTransportError } from '#client/index.js'
 import { dragNode } from '#studio/canvasDragTestSupport.js'
 import { StudioApp } from './StudioApp.js'
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  localStorage.clear()
+})
 
 const DOCUMENT = {
   format: 'jobik.flow',
@@ -109,6 +112,7 @@ function streamOf(events: readonly RunStreamEvent[]) {
 
 function stubClient(overrides: Partial<JobikClient> = {}): JobikClient {
   return {
+    uploadInput: async () => new Error('Upload not configured in fixture'),
     listFlows: async () => [{ id: 'publication', name: 'publication', nodeCount: 2 }],
     loadFlow: async () => ({ descriptor: DESCRIPTOR, document: DOCUMENT, revision: 'rev-1' }),
     validate: async () => ({ valid: true }),
@@ -2204,6 +2208,110 @@ describe('F07: choosing another start after a run has settled', () => {
     // The row is still a way back to the run itself — the gate is about the panel's default view,
     // not about what a deliberate pick may show.
     await userEvent.click(screen.getByTestId('studio-run-row-7'))
-    await waitFor(() => expect(screen.getByTestId('run-rerun-button')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByTestId('run-saved-context')).toBeInTheDocument())
+    // Historical results are read-only and cannot silently rerun against the currently selected start.
+    expect(screen.queryByTestId('run-rerun-button')).toBeNull()
   })
+})
+
+it('restores the native Studio inputs after remounting without starting a run', async () => {
+  const startRun = vi.fn(stubClient().startRun)
+  const client = stubClient({ startRun })
+  const first = mount(client)
+  await waitFor(() => expect(screen.getByTestId('run-input-title')).toBeInTheDocument())
+  fireEvent.change(screen.getByTestId('run-input-title'), {
+    target: { value: 'Saved before reload' },
+  })
+  first.unmount()
+  mount(client)
+  await waitFor(() =>
+    expect(screen.getByTestId('run-input-title')).toHaveValue('Saved before reload'),
+  )
+  expect(startRun).not.toHaveBeenCalled()
+})
+
+describe('file-backed Studio history', () => {
+  it('reopens saved outputs after a new Studio mount without executing a paid run', async () => {
+    const saved = {
+      schemaVersion: 1 as const,
+      runId: '6f45c21a-archived',
+      flowId: 'publication',
+      startId: 'start1',
+      runNumber: 219,
+      createdAt: 1000,
+      updatedAt: 3400,
+      status: 'ok' as const,
+      input: { title: 'saved original input' },
+      document: DOCUMENT,
+      revision: 'old-revision',
+      events: [],
+      failure: null,
+      report: { ...REPORT, runId: '6f45c21a-archived' },
+    }
+    const startRun = vi.fn()
+    const client = stubClient({
+      listRuns: async () => [saved],
+      getRun: async () => saved,
+      startRun,
+    })
+    for (let reload = 0; reload < 2; reload++) {
+      const view = mount(client)
+      const row = await screen.findByTestId('studio-run-row-6f45c21a-archived')
+      expect(row).toHaveTextContent('#219 · 6f45c21a')
+      await userEvent.click(row)
+      const snapshot = await screen.findByTestId('run-saved-context')
+      expect(snapshot).toHaveTextContent('saved original input')
+      expect(snapshot).toHaveTextContent('old-revision')
+      expect(screen.queryByTestId('run-rerun-button')).toBeNull()
+      await waitFor(() => expect(screen.getByTestId('output-dock')).toHaveTextContent('run #219'))
+      expect(startRun).not.toHaveBeenCalled()
+      view.unmount()
+    }
+  })
+
+  it('shows history storage errors instead of silently presenting an empty archive', async () => {
+    mount(stubClient({ listRuns: async () => new Error('Corrupt run file') }))
+    await waitFor(() =>
+      expect(screen.getByTestId('studio-history-message')).toHaveTextContent('Corrupt run file'),
+    )
+  })
+})
+
+it('hides retry controls for archived failures on both node and trace', async () => {
+  const error = { _tag: 'PaidError', message: 'Saved failure' }
+  const report = {
+    ...REPORT,
+    status: 'failed' as const,
+    error,
+    nodes: REPORT.nodes.map((node) =>
+      node.nodeId === 'render'
+        ? { ...node, status: 'failed' as const, error, output: null, assets: {} }
+        : node,
+    ),
+  }
+  const saved = {
+    schemaVersion: 1 as const,
+    runId: 'old-failed',
+    flowId: 'publication',
+    startId: 'start1',
+    runNumber: 219,
+    createdAt: 1,
+    updatedAt: 2,
+    status: 'failed' as const,
+    input: null,
+    document: null,
+    revision: null,
+    events: [],
+    failure: null,
+    report,
+  }
+  const startRun = vi.fn()
+  mount(stubClient({ listRuns: async () => [saved], getRun: async () => saved, startRun }))
+  await userEvent.click(await screen.findByTestId('studio-run-row-old-failed'))
+  await screen.findByTestId('run-saved-context')
+  expect(screen.queryByTestId('node-retry')).toBeNull()
+  await userEvent.click(screen.getByTestId('node-view-trace'))
+  const dialog = await screen.findByRole('dialog')
+  expect(within(dialog).queryByRole('button', { name: 'Retry node' })).toBeNull()
+  expect(startRun).not.toHaveBeenCalled()
 })

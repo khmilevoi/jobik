@@ -4,7 +4,7 @@
  * Every state is fixture-driven: nothing here talks to a server, streams a run, or derives a
  * descriptor. Mapping a real run report and a live stream onto `RunPanelState` is P14's job.
  */
-import type { NodeInputDescriptor } from '@jobik/core'
+import type { FlowDocument, NodeInputDescriptor } from '@jobik/core'
 import type * as z from 'zod'
 
 /**
@@ -94,6 +94,16 @@ export type RunInputDraftValue = string | boolean
 
 export type RunInputDraft = Readonly<Record<string, RunInputDraftValue>>
 
+export type RunInputUpload = {
+  readonly accept: string
+  readonly maxBytes: number
+  readonly uploading: boolean
+  readonly previewUrl?: string
+  readonly fileName?: string
+  readonly message?: string
+  readonly onSelect: (file: File) => void
+}
+
 /** One validation problem, flattened. Structurally `SchemaIssue` in `packages/core/src/errors.ts`. */
 export type RunInputIssue = { readonly path: string; readonly message: string }
 
@@ -105,6 +115,7 @@ export type RunInputIssue = { readonly path: string; readonly message: string }
  * reachable through every state, not just while the panel happens to be idle.
  */
 export type RunIdleState = {
+  readonly uploads?: Readonly<Record<string, RunInputUpload>>
   readonly kind: 'idle'
   /** The start the panel is pointed at. */
   readonly entryNodeId: string
@@ -173,7 +184,18 @@ export type RunRunningState = {
   readonly onCancel?: () => void
 }
 
+export type RunSavedSnapshot = {
+  readonly runId?: string
+  readonly startId: string
+  readonly input: unknown
+  readonly document?: FlowDocument
+  readonly revision?: string
+}
+
 export type RunFailedState = {
+  readonly snapshot?: RunSavedSnapshot
+  readonly storageWarning?: string
+  readonly blocked?: boolean
   readonly kind: 'failed'
   readonly runNumber: number
   /** e.g. `0.8s`. */
@@ -211,6 +233,7 @@ export type RunFailedState = {
  * whose `Re-run` re-enters the idle path.
  */
 export type RunInputForm = {
+  readonly uploads?: Readonly<Record<string, RunInputUpload>>
   readonly descriptor: NodeInputDescriptor
   readonly draft: RunInputDraft
   readonly presentation?: Readonly<Record<string, RunInputPresentation>>
@@ -218,6 +241,9 @@ export type RunInputForm = {
 }
 
 export type RunCompletedState = {
+  readonly snapshot?: RunSavedSnapshot
+  readonly storageWarning?: string
+  readonly blocked?: boolean
   readonly kind: 'completed'
   readonly runNumber: number
   /** e.g. `2.4s`. */

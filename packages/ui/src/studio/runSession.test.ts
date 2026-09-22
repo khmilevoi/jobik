@@ -313,6 +313,7 @@ describe('applyRunEvent', () => {
     // The full resulting value, not one field: `run-settled` is the authority, so the
     // interim transitions above are superseded by `REPORT`'s nodes and logs.
     expect(final).toEqual({
+      nodeReports: new Map(),
       startId: 'start1',
       runToken: 'tok-77',
       runNumber: 219,
@@ -491,4 +492,50 @@ describe('completedNodeCount', () => {
   it('counts a fresh session as zero — every node is still queued', () => {
     expect(completedNodeCount(session())).toBe(0)
   })
+})
+
+it('retains current-run partial output, rejects other runs and replaces it with final authority', () => {
+  const started = applyRunEvent(session(), {
+    type: 'run-started',
+    runNumber: 219,
+    flowName: 'publication',
+    startId: 'start1',
+    nodeCount: 3,
+  })
+  const node = REPORT.nodes[1]
+  const partial = applyRunEvent(started, { type: 'node-settled', runNumber: 219, node })
+  expect(partial.nodeReports?.get('render')).toEqual(node)
+  expect(partial.report).toBeUndefined()
+  expect(partial.nodes.get('publish')?.status).toBe('queued')
+  expect(applyRunEvent(partial, { type: 'node-settled', runNumber: 218, node })).toBe(partial)
+  const final = applyRunEvent(partial, { type: 'run-settled', report: REPORT })
+  expect(final.nodeReports?.size).toBe(0)
+  expect(applyRunEvent(final, { type: 'node-settled', runNumber: 219, node })).toBe(final)
+  expect(session().nodeReports?.size).toBe(0)
+})
+
+it('keeps completed output on stream failure but ignores late output after terminal failure', () => {
+  const started = applyRunEvent(session(), {
+    type: 'run-started',
+    runNumber: 219,
+    flowName: 'publication',
+    startId: 'start1',
+    nodeCount: 3,
+  })
+  const node = REPORT.nodes[1]
+  const partial = applyRunEvent(started, { type: 'node-settled', runNumber: 219, node })
+  const failed = applyRunEvent(partial, {
+    type: 'run-failed',
+    error: { _tag: null, message: 'Disconnected' },
+  })
+  expect(failed.nodeReports?.get('render')).toEqual(node)
+  expect(
+    applyRunEvent(failed, { type: 'node-settled', runNumber: 219, node: REPORT.nodes[2] }),
+  ).toBe(failed)
+  const cancelled = applyRunEvent(partial, {
+    type: 'run-settled',
+    report: { ...REPORT, status: 'cancelled' },
+  })
+  expect(cancelled.nodeReports?.size).toBe(0)
+  expect(applyRunEvent(cancelled, { type: 'node-settled', runNumber: 219, node })).toBe(cancelled)
 })

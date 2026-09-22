@@ -8,6 +8,7 @@ import {
   sleep,
   withAbort,
   withAsync,
+  withAsyncData,
   withComputed,
   withConnectHook,
   wrap,
@@ -15,6 +16,7 @@ import {
 import type { SafeFlowDescriptorPayload, WireErrorPayload } from '#client/index.js'
 import type { RunHistoryEntry } from '#shell/index.js'
 import { formatElapsed } from '#studio/format.js'
+import { restoreRunSession } from '#studio/persistedRunSession.js'
 import {
   applyRunEvent,
   createRunSession,
@@ -85,6 +87,15 @@ const TICK_MS = 100
  * value every time and no reader is invalidated by the absence.
  */
 const EMPTY_ARCHIVE: readonly RunSession[] = []
+
+/** Display numbers may restart with the server. UUIDs are the persistent identity. */
+function sessionId(session: RunSession): string | undefined {
+  return (
+    session.runId ??
+    session.report?.runId ??
+    (session.report === undefined ? undefined : String(session.report.runNumber))
+  )
+}
 
 /**
  * R28: the reducer in `runSession.ts` relies on the server's structural guarantee that the
@@ -203,20 +214,9 @@ export function reatomRun(
   /**
    * Every flow's settled runs, keyed by the flow they were made under.
    *
-   * The archive is a client-side record — nothing on the wire returns an earlier run's report — so
-   * it lives exactly as long as the tab, and a reload legitimately empties it. **A flow switch is
-   * not a reload.** It used to be treated as one: `reset` cleared the whole archive, so looking at
-   * another flow destroyed this one's `Runs` group and returning never brought it back. Keying by
-   * flow keeps the reason that clear existed — a row of flow `#1` must never appear under flow
-   * `#2`'s name — while costing nothing on the way back.
-   *
-   * Nothing trims a flow's list, and it grows by one `RunSession` — node map, full log, the whole
-   * report — per settled run for the life of the tab. `2A`'s `Run history` mockup
-   * (`.design/raw/studio.dc.html:955-968`) draws three rows, but that is the run count the pictured
-   * scenario happens to have, not a stated cap: no artboard, and no entry in
-   * `.design/reports/DECISIONS.md`, fixes a maximum the sidebar should show. Capping it is
-   * therefore an operator decision, considered here and deliberately not made up — not an
-   * oversight.
+   * Live sessions are retained locally while the file-backed history loads independently.
+   * Both are scoped to their originating flow and deduplicated by persistent UUID; legacy
+   * custom clients without history endpoints retain their in-memory run-number behavior.
    */
   const archives = atom<ReadonlyMap<string, readonly RunSession[]>>(new Map(), `${name}.archives`)
 
@@ -234,6 +234,26 @@ export function reatomRun(
     }),
   )
   const selectedRunId = atom<string | undefined>(undefined, `${name}.selectedRunId`)
+  const savedRuns = computed(async () => {
+    const flowId = input.flowId()
+    if (flowId === undefined || deps.client.listRuns === undefined) return undefined
+    const runs = await wrap(deps.client.listRuns(flowId))
+    return { flowId, runs }
+  }, `${name}.savedRuns`).extend(withAsyncData())
+
+  const savedRun = computed(async () => {
+    const flowId = input.flowId()
+    const runId = selectedRunId()
+    if (flowId === undefined || runId === undefined || deps.client.getRun === undefined)
+      return undefined
+    const result = await wrap(deps.client.getRun({ flowId, runId }))
+    return {
+      flowId,
+      runId,
+      result: result instanceof Error ? result : restoreRunSession(result),
+    }
+  }, `${name}.savedRun`).extend(withAsyncData())
+
   const cancelPrompt = atom(false, `${name}.cancelPrompt`)
 
   const retry = atom<RetryState | undefined>(undefined, `${name}.retry`)
@@ -309,26 +329,45 @@ export function reatomRun(
     return undefined
   }, `${name}.runningNodeId`)
 
-  const history = computed<readonly RunHistoryEntry[]>(
-    () =>
-      archive().flatMap((entry) => {
-        const report = entry.report
-        if (report === undefined) return []
-        return [
-          {
-            id: String(report.runNumber),
-            label: `#${report.runNumber}`,
-            // R7 — the three outcomes stay three. This used to collapse `cancelled` into
-            // `failed`, which told a user who had stopped a run themselves that it had broken.
-            // `model/toast.ts` reads the same field and prints `Run #4 cancelled`; the row it
-            // sits beside must not disagree with it.
-            status: report.status,
-            ...(report.status === 'ok' ? { elapsed: formatElapsed(report.elapsedMs) } : {}),
-          },
-        ]
-      }),
-    `${name}.history`,
-  )
+  const historyMessage = computed(() => {
+    if (deps.client.listRuns === undefined || input.flowId() === undefined) return undefined
+    const listed = savedRuns.data()
+    if (listed === undefined || listed.flowId !== input.flowId()) return 'Loading saved runs…'
+    if (listed.runs instanceof Error) return `Could not load saved runs: ${listed.runs.message}`
+    return listed.runs.length === 0 && archive().length === 0 ? 'No saved runs yet.' : undefined
+  }, `${name}.historyMessage`)
+
+  const history = computed<readonly RunHistoryEntry[]>(() => {
+    const listed = savedRuns.data()
+    const rows: RunHistoryEntry[] = archive().flatMap((entry) => {
+      const report = entry.report
+      if (report === undefined) return []
+      return [
+        {
+          id: sessionId(entry) ?? String(report.runNumber),
+          label:
+            '#' +
+            report.runNumber +
+            (entry.runId === undefined ? '' : ` · ${entry.runId.slice(0, 8)}`),
+          status: report.status,
+          ...(report.status === 'ok' ? { elapsed: formatElapsed(report.elapsedMs) } : {}),
+        },
+      ]
+    })
+    const ids = new Set(rows.map((row) => row.id))
+    if (listed?.flowId === input.flowId() && !(listed?.runs instanceof Error)) {
+      for (const saved of listed?.runs ?? []) {
+        if (ids.has(saved.runId)) continue
+        rows.push({
+          id: saved.runId,
+          label:
+            (saved.runNumber === null ? '' : `#${saved.runNumber} · `) + saved.runId.slice(0, 8),
+          status: saved.status,
+        })
+      }
+    }
+    return rows
+  }, `${name}.history`)
 
   /**
    * The row the sidebar marks. A pick always wins; otherwise the newest run is marked, but only
@@ -339,8 +378,8 @@ export function reatomRun(
   const activeRunId = computed(() => {
     const picked = selectedRunId()
     if (picked !== undefined) return picked
-    if (session() === undefined) return undefined
-    return history()[0]?.id
+    const current = session()
+    return current === undefined ? undefined : sessionId(current)
   }, `${name}.activeRunId`)
 
   /**
@@ -352,7 +391,18 @@ export function reatomRun(
     const current = session()
     const picked = selectedRunId()
     if (running() || picked === undefined) return current
-    return archive().find((entry) => String(entry.report?.runNumber) === picked) ?? current
+    const saved = savedRun.data()
+    if (saved !== undefined && saved.flowId === input.flowId() && saved.runId === picked) {
+      if (!(saved.result instanceof Error)) return saved.result
+      return {
+        ...createRunSession({ startId: input.startId() ?? '', nodeIds: [], startedAt: now() }),
+        failure: toFailurePayload(saved.result),
+      }
+    }
+    // Never substitute another run's successful report while this selection is loading.
+    if (deps.client.getRun !== undefined) return undefined
+    const local = archive().find((entry) => sessionId(entry) === picked)
+    return local === undefined ? undefined : { ...local, readOnly: true }
   }, `${name}.viewedSession`)
 
   const viewedReport = computed(() => viewedSession()?.report, `${name}.viewedReport`)
@@ -364,7 +414,7 @@ export function reatomRun(
 
   /**
    * Every run joins its own flow's archive as it settles, newest first, exactly once per run
-   * number. A run that never settled has no report and no number, so it never joins.
+   * identity. A run that never settled has no report and no number, so it never joins.
    *
    * The flow is the one `start` read before its first `await`, never a fresh read: run numbers are
    * per flow, so filing a run under whatever flow is open when its report lands is how a row ends
@@ -375,7 +425,7 @@ export function reatomRun(
     if (report === undefined) return
     const all = peek(archives)
     const current = all.get(flowId) ?? EMPTY_ARCHIVE
-    if (current.some((entry) => entry.report?.runNumber === report.runNumber)) return
+    if (current.some((entry) => sessionId(entry) === sessionId(settled))) return
     const next = new Map(all)
     next.set(flowId, [settled, ...current])
     archives.set(next)
@@ -430,6 +480,8 @@ export function reatomRun(
       startId,
       nodeIds: descriptor.nodes.map((node) => node.id).filter((id) => runGraph.has(id)),
       startedAt: runStartedAt,
+      input: values,
+      document: savedDocument,
     })
     // The one write in this run that deliberately replaces the session rather than folding into it.
     session.set(started)
@@ -474,7 +526,7 @@ export function reatomRun(
         // Terminal condition 1: a settled report joins its own flow's archive whether or not this
         // run still owns the surfaces, and `archiveSettled` takes the flow `start` read before its
         // first `await` so the row cannot land under the name of the flow that replaced it. The
-        // dedup on `report.runNumber` is what makes calling it on every line free.
+        // dedup on the persistent run identity is what makes calling it on every line free.
         archiveSettled(flowId, next)
         // `continue`, not `break`: the flow changed under this run, so nothing it says may reach
         // the panel any more — but the stream is still drained to completion so the server settles
@@ -512,6 +564,10 @@ export function reatomRun(
     // run, and a run started under the new flow owns the flag now — clearing it from here would
     // unlock a draft the live run is still holding.
     if (live()) endRun()
+    // A run-failed terminal may have no report to add to the local archive.
+    // Refetch its durable summary without invoking the execution endpoint again.
+    if (peek(input.flowId) === flowId && deps.client.listRuns !== undefined)
+      void savedRuns.retry().catch(() => {})
   }, `${name}.start`).extend(withAsync(), withAbort('manual'))
 
   /**
@@ -531,6 +587,8 @@ export function reatomRun(
    * records which card asked, with the failure it is retrying *from*.
    */
   const retryNode = action((target: RetryState) => {
+    // Historical outputs cannot authorize replay against the hidden current draft.
+    if (selectedRunId() !== undefined) return
     // A run already in flight is the run; and `3D` blocks every start while an error stands, so a
     // press that cannot start a run must not leave the card claiming one did.
     if (running() || input.blocked()) return
@@ -549,6 +607,8 @@ export function reatomRun(
    * start (see `OutputModel`'s doc comment on why the dependency runs that way round).
    */
   const selectRun = action((runId: string) => {
+    if (selectedRunId() === runId && deps.client.getRun !== undefined)
+      void savedRun.retry().catch(() => {})
     selectedRunId.set(runId)
   }, `${name}.selectRun`)
 
@@ -622,6 +682,7 @@ export function reatomRun(
     archive,
     selectedRunId,
     history,
+    historyMessage,
     activeRunId,
     viewedSession,
     viewedReport,

@@ -48,7 +48,7 @@ export interface RunHistoryEntry {
   readonly id: string
   /** `#221` — already `#`-prefixed, exactly as the design writes it. */
   readonly label: string
-  readonly status: 'ok' | 'failed' | 'cancelled'
+  readonly status: 'ok' | 'failed' | 'cancelled' | 'interrupted' | 'running'
   /** e.g. `2.4s`. */
   readonly elapsed?: string
 }
@@ -87,6 +87,7 @@ export interface FlowsSidebarProps {
    * `Studio — default`.
    */
   readonly runs?: readonly RunHistoryEntry[]
+  readonly historyMessage?: string
   readonly selectedRunId?: string
   readonly onSelectRun?: (runId: string) => void
 }
@@ -115,6 +116,8 @@ const runMetaWord = {
   ok: undefined,
   failed: 'failed',
   cancelled: 'cancelled',
+  interrupted: 'interrupted',
+  running: 'running',
 } satisfies Record<RunHistoryEntry['status'], string | undefined>
 
 /** Spelled out, not indexed by a computed key — see `cssModuleUsage.test.ts`. */
@@ -122,6 +125,8 @@ const runMetaTone = {
   ok: s.runMetaPast,
   failed: s.runMetaFailed,
   cancelled: s.runMetaCancelled,
+  interrupted: s.runMetaFailed,
+  running: s.runMetaPast,
 } satisfies Record<RunHistoryEntry['status'], string>
 
 /**
@@ -235,7 +240,7 @@ export const FlowsSidebar = reatomComponent(function FlowsSidebar(props: FlowsSi
           })}
         </div>
 
-        {runs.length === 0 ? (
+        {runs.length === 0 && props.historyMessage === undefined ? (
           <>
             <SectionLabel className={s.groupLabel}>Inventory</SectionLabel>
             <div className={s.list}>
@@ -259,6 +264,11 @@ export const FlowsSidebar = reatomComponent(function FlowsSidebar(props: FlowsSi
         ) : (
           <>
             <SectionLabel className={s.groupLabel}>Run history</SectionLabel>
+            {props.historyMessage === undefined ? null : (
+              <div role="status" data-testid="studio-history-message" className={s.inventoryKind}>
+                {props.historyMessage}
+              </div>
+            )}
             <div className={s.list}>
               {runs.map((run, index) => {
                 const selected = run.id === props.selectedRunId

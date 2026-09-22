@@ -15,6 +15,7 @@ export * from './extensionBundle.js'
 export * from './flowService.js'
 export * from './httpServer.js'
 export * from './routes.js'
+export * from './runHistory.js'
 export * from './runRegistry.js'
 // `runTestSupport.js` stays out of the barrel, like `testSupport.js`.
 export * from './runRoutes.js'

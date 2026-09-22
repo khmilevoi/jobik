@@ -13,6 +13,7 @@ import { RunPanel } from '#run/index.js'
 import { ProblemsStrip, RunToast, StatusStrip } from '#shell/index.js'
 import type { ExternalModules } from '#studio/extensionLoader.js'
 import { toFlowNodeSummaries, toFlowSummaries, toInventory } from '#studio/graphModel.js'
+import { browserInputDraftStorage } from '#studio/inputDraftStorage.js'
 import { RunningChip, SaveConflictChip, SaveErrorChip } from '#studio/RunningChip/RunningChip.js'
 import { Studio } from '#studio/Studio/Studio.js'
 import s from './StudioApp.module.css'
@@ -65,6 +66,10 @@ export function StudioApp(props: StudioAppProps) {
   const [model] = useState(() =>
     reatomStudio({
       client: props.client ?? createJobikClient({ baseUrl: props.baseUrl ?? '' }),
+      ...(() => {
+        const inputDraftStorage = browserInputDraftStorage(props.baseUrl ?? '')
+        return inputDraftStorage === undefined ? {} : { inputDraftStorage }
+      })(),
       ...(props.externals === undefined ? {} : { externals: props.externals }),
       ...(props.importModule === undefined ? {} : { importModule: props.importModule }),
     }),
@@ -104,6 +109,7 @@ const StudioAppBody = reatomComponent(function StudioAppBody(props: StudioAppBod
   const validated = validation.active()
   const problems = validation.problems()
   const runs = run.history()
+  const historyMessage = run.historyMessage()
   const activeRunId = run.activeRunId()
   const viewedReport = run.viewedReport()
   // G4: the dock is mounted on `dockNode`, not on the opened node. `2A` draws a closed strip on a
@@ -311,6 +317,7 @@ const StudioAppBody = reatomComponent(function StudioAppBody(props: StudioAppBod
         runPanel={<RunPanel />}
         {...(runMeta === undefined ? {} : { runMeta: runMeta.text, runMetaTone: runMeta.tone })}
         {...(runStatus === undefined ? {} : { runStatus })}
+        {...(historyMessage === undefined ? {} : { historyMessage })}
         {...(runs.length === 0
           ? {}
           : {
@@ -323,7 +330,7 @@ const StudioAppBody = reatomComponent(function StudioAppBody(props: StudioAppBod
               ...(running ? {} : { onSelectRun: selectRun }),
             })}
         validate={validation.topBar()}
-        runBlocked={validation.blocked()}
+        runBlocked={validation.blocked() || inputs.uploading()}
         {...(statusStrip === undefined ? {} : { status: statusStrip })}
         onValidate={validate}
         onOpenReport={openReport}

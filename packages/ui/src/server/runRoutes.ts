@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import path from 'node:path'
 import * as jobik from '@jobik/core'
 import { buildExtensionBundle } from './extensionBundle.js'
+import { jobikInputUploadRoutes } from './inputUpload.js'
 import {
   type JobikRoute,
   type JobikRouteContext,
@@ -10,6 +11,13 @@ import {
   sendJson,
   sendWireError,
 } from './routes.js'
+import {
+  createRunArchive,
+  listPersistedRuns,
+  RUN_STORAGE_WARNING,
+  readPersistedAsset,
+  readPersistedRun,
+} from './runHistory.js'
 import { cancelRun, registerRun, releaseRun } from './runRegistry.js'
 import { type RunWireEvent, toRunStartWireError, toRunWireEvent } from './runWire.js'
 import { untaggedWireErrorBody, WIRE_MESSAGES } from './wireError.js'
@@ -156,44 +164,114 @@ async function handleRun(context: JobikRouteContext): Promise<void> {
   const body = await runBodyOf(context.request, context.response)
   if (body === undefined) return
 
-  // The flow root every trimmed stack frame is measured against. `bindingPath` is the entrypoint
-  // `jobik.config.ts` names, so its directory is the flow's own code and nothing else.
+  // Capture the same document the engine executes; an editor save during the run cannot
+  // silently change the archived graph's identity.
+  const document = await jobik.readFlowDocument({ path: discovered.documentPath })
+  const archive = await createRunArchive({
+    flow: discovered,
+    startId: body.startId,
+    input: body.input,
+    document: document instanceof Error ? null : document.document,
+    revision: document instanceof Error ? null : document.revision,
+  })
+  if (archive instanceof Error) {
+    console.error('jobik: cannot create a run archive; execution was not started', archive)
+    sendWireError(context.response, 500, {
+      error: { _tag: null, message: 'Run history cannot be saved. Execution was not started.' },
+    })
+    return
+  }
   const flowRoot = path.dirname(discovered.bindingPath)
-
   const controller = new AbortController()
   const runToken = registerRun(controller)
   const stream = openEventStream(context.response)
-
-  // A browser that closes the tab must not leave a handler running for the rest of the process.
+  let terminal: RunWireEvent | undefined
+  const publish = (event: RunWireEvent) => {
+    const archived =
+      event.type === 'run-settled'
+        ? { ...event, report: { ...event.report, runId: archive.runId } }
+        : event
+    archive.enqueue(archived)
+    if (isTerminalEvent(archived)) terminal = archived
+    else stream.write(archived)
+  }
+  // Preserve cancellation semantics, while the independent archive queue survives the socket.
   context.response.on('close', () => {
     if (!stream.finished) controller.abort()
   })
-
-  stream.write({ type: 'run-accepted', runToken })
-
+  // The socket may already have closed while the initial archive was being written.
+  if (context.response.destroyed) controller.abort()
+  publish({ type: 'run-accepted', runToken, runId: archive.runId })
   try {
-    const result = await runStart({
-      flow: discovered.flow,
-      startId: body.startId,
-      input: body.input,
-      options: {
-        signal: controller.signal,
-        onEvent: (event) => stream.write(toRunWireEvent({ event, flowRoot })),
-      },
-    })
-    // A report already arrived as `run-settled` through `onEvent`. Only a RunStartError — a run
-    // that never started — still needs a line, and it is always the last one.
-    if (result instanceof Error) {
-      stream.write({ type: 'run-failed', error: toRunStartWireError(result) })
-    }
+    const result =
+      document instanceof Error
+        ? document
+        : await runStart({
+            flow: discovered.flow,
+            startId: body.startId,
+            input: body.input,
+            options: {
+              document: document.document,
+              signal: controller.signal,
+              onEvent: (event) => publish(toRunWireEvent({ event, flowRoot })),
+            },
+          })
+    if (result instanceof Error) publish({ type: 'run-failed', error: toRunStartWireError(result) })
+    if (terminal === undefined)
+      publish({ type: 'run-failed', error: { _tag: null, message: WIRE_MESSAGES.internal } })
+  } catch (cause) {
+    console.error('jobik: unexpected run failure', cause)
+    publish({ type: 'run-failed', error: { _tag: null, message: WIRE_MESSAGES.internal } })
   } finally {
+    // A failed media export must never turn a completed paid operation into a retry trigger.
     releaseRun(runToken)
+    const storageError = await archive.flush()
+    if (terminal !== undefined) {
+      stream.write(
+        terminal.type === 'run-settled' && storageError instanceof Error
+          ? { ...terminal, report: { ...terminal.report, storageError: RUN_STORAGE_WARNING } }
+          : terminal,
+      )
+    }
+    archive.close()
     stream.end()
   }
 }
 
 export const jobikRunRoutes: readonly JobikRoute[] = [
   { method: 'POST', pattern: '/api/flows/:id/run', handle: handleRun },
+  {
+    method: 'GET',
+    pattern: '/api/flows/:id/runs',
+    handle: async (context) => {
+      const flow = flowOf(context)
+      if (flow === undefined) return
+      const runs = await listPersistedRuns(flow)
+      if (runs instanceof Error) {
+        console.error('jobik: cannot read run history', runs)
+        sendWireError(context.response, 500, {
+          error: { _tag: null, message: 'Run history could not be read.' },
+        })
+      } else sendJson(context.response, 200, { runs })
+    },
+  },
+  {
+    method: 'GET',
+    pattern: '/api/flows/:id/runs/:runId',
+    handle: async (context) => {
+      const flow = flowOf(context)
+      if (flow === undefined) return
+      const record = await readPersistedRun({ flow, runId: context.params.runId ?? '' })
+      if (record instanceof Error) {
+        console.error('jobik: cannot read archived run', record)
+        sendWireError(context.response, 500, {
+          error: { _tag: null, message: 'Archived run could not be read.' },
+        })
+      } else if (record === null)
+        sendWireError(context.response, 404, untaggedWireErrorBody(WIRE_MESSAGES.notFound))
+      else sendJson(context.response, 200, record)
+    },
+  },
   {
     method: 'POST',
     pattern: '/api/runs/:token/cancel',
@@ -210,7 +288,24 @@ export const jobikRunRoutes: readonly JobikRoute[] = [
     method: 'GET',
     pattern: '/api/assets/:assetId',
     handle: async (context) => {
-      const entry = jobik.readAsset(context.params.assetId ?? '')
+      const assetId = context.params.assetId ?? ''
+      let entry = jobik.readAsset(assetId)
+      if (entry === null) {
+        for (const flow of context.registry.flows) {
+          const saved = await readPersistedAsset({ flow, assetId })
+          if (saved instanceof Error) {
+            console.error('jobik: cannot read persisted asset', saved)
+            sendWireError(context.response, 500, {
+              error: { _tag: null, message: 'Saved asset could not be read.' },
+            })
+            return
+          }
+          if (saved !== null) {
+            entry = saved
+            break
+          }
+        }
+      }
       if (entry === null) {
         sendWireError(context.response, 404, untaggedWireErrorBody(WIRE_MESSAGES.notFound))
         return
@@ -258,4 +353,8 @@ export const jobikRunRoutes: readonly JobikRoute[] = [
  * The 4 MiB request-body cap a run request is subject to belongs to P10's `readJsonBody` and is
  * not restated here — one cap, in one place.
  */
-export const jobikAllRoutes: readonly JobikRoute[] = [...jobikFlowRoutes, ...jobikRunRoutes]
+export const jobikAllRoutes: readonly JobikRoute[] = [
+  ...jobikFlowRoutes,
+  ...jobikRunRoutes,
+  ...jobikInputUploadRoutes,
+]

@@ -77,6 +77,7 @@ export interface StudioProps {
   readonly runStatus?: RunDockStatus
   /** `2A`'s left-sidebar `Run history` rows. Absent leaves the `Inventory` section in place. */
   readonly runs?: readonly RunHistoryEntry[]
+  readonly historyMessage?: string
   readonly selectedRunId?: string
   readonly onSelectRun?: (id: string) => void
   readonly running?: boolean
@@ -183,6 +184,9 @@ export const Studio = reatomComponent(function Studio(props: StudioProps) {
             selectedNodeId={props.selectedNodeId ?? entryNodeId}
             {...(props.onSelectStart === undefined ? {} : { onSelectStart: props.onSelectStart })}
             inventory={inventory}
+            {...(props.historyMessage === undefined
+              ? {}
+              : { historyMessage: props.historyMessage })}
             {...(props.runs === undefined ? {} : { runs: props.runs })}
             {...(props.selectedRunId === undefined ? {} : { selectedRunId: props.selectedRunId })}
             {...(props.onSelectRun === undefined ? {} : { onSelectRun: props.onSelectRun })}

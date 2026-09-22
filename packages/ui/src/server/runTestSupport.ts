@@ -96,6 +96,7 @@ export async function createProbeFlow(kind: ProbeKind): Promise<{
       bindingPath: path.join(probeRoot, 'runTestSupport.ts'),
       uiPath: path.join(probeRoot, 'runTestSupport.tsx'),
       documentPath,
+      runHistory: { directory: path.join(directory, '.jobik/runs') },
     },
     cleanup: () => fs.rm(directory, { recursive: true, force: true }),
   }

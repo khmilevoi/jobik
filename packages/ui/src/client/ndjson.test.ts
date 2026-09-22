@@ -67,6 +67,26 @@ describe('readNdjsonStream', () => {
     ])
   })
 
+  it('consumes incremental node reports through the final event', async () => {
+    const node = {
+      nodeId: 'render',
+      status: 'ok',
+      durationMs: 12,
+      output: { image: 'preview' },
+      assets: {},
+      error: null,
+    }
+    const events = [
+      { type: 'run-accepted', runToken: 'tok' },
+      { type: 'run-started', runNumber: 1 },
+      { type: 'node-settled', runNumber: 1, node },
+      { type: 'node-status', nodeId: 'slow', status: 'running' },
+      { type: 'run-settled', report: { runNumber: 1, status: 'ok', nodes: [node] } },
+    ]
+    const wire = events.map((event) => `${JSON.stringify(event)}\n`).join('')
+    expect(await collect(responseOf([wire.slice(0, 125), wire.slice(125)]))).toEqual(events)
+  })
+
   it('reassembles a line split across chunks', async () => {
     const events = await collect(responseOf(['{"type":"run-acce', 'pted","runToken":', '"tok"}\n']))
 

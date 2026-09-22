@@ -43,6 +43,7 @@ const RUN_STREAM_EVENT_TYPES = {
   'run-accepted': true,
   'run-started': true,
   'node-status': true,
+  'node-settled': true,
   'node-log': true,
   'run-settled': true,
   'run-failed': true,

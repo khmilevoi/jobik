@@ -4,6 +4,7 @@ import { formatHiddenFrames, formatStackFrame } from '#run/format.js'
 import { RunAction, RunWell } from '#run/RunChrome/RunChrome.js'
 import { RunInputControl } from '#run/RunInputControl/RunInputControl.js'
 import { RunNodeTimings } from '#run/RunNodeList/RunNodeList.js'
+import { RunSavedContext } from '#run/RunSavedContext/RunSavedContext.js'
 import type { RunFailedState, RunInputDraftValue } from '#run/types.js'
 import s from './RunFailedView.module.css'
 
@@ -44,6 +45,10 @@ export const RunFailedView = reatomComponent(function RunFailedView(props: RunFa
 
   return (
     <>
+      <RunSavedContext
+        {...(state.snapshot === undefined ? {} : { snapshot: state.snapshot })}
+        {...(state.storageWarning === undefined ? {} : { storageWarning: state.storageWarning })}
+      />
       <RunWell data-testid="run-error-well" tone="error" className={s.errorWell}>
         <div className={s.errorHead}>
           <div data-testid="run-error-name" className={s.errorName}>
@@ -85,6 +90,7 @@ export const RunFailedView = reatomComponent(function RunFailedView(props: RunFa
         <RunInputControl
           key={field.field}
           field={field}
+          upload={inputs.uploads?.[field.field]}
           value={inputs.draft[field.field] ?? ''}
           presentation={inputs.presentation?.[field.field]}
           onChange={onDraftChange}
@@ -97,11 +103,19 @@ export const RunFailedView = reatomComponent(function RunFailedView(props: RunFa
             Copy log
           </RunAction>
         </div>
-        <div className={s.action}>
-          <Button variant="accent" size="lg" data-testid="run-rerun" onClick={onRerun}>
-            Re-run
-          </Button>
-        </div>
+        {state.snapshot === undefined ? (
+          <div className={s.action}>
+            <Button
+              variant="accent"
+              size="lg"
+              data-testid="run-rerun"
+              onClick={onRerun}
+              dimmed={state.blocked}
+            >
+              Re-run
+            </Button>
+          </div>
+        ) : null}
       </div>
     </>
   )

@@ -34,6 +34,7 @@ export interface StackTraceMetaEntry {
  * payload. `RunPanelModel.trace` states each omission at the point it is made.
  */
 export interface StackTraceView {
+  readonly readOnly?: boolean
   /** The mono context line, e.g. `render · run #220 · 0.8s`. */
   readonly context: string
   /** The error class, mono and PascalCase — e.g. `ImageRenderError`. */
@@ -153,9 +154,11 @@ export const StackTraceModal = reatomComponent(function StackTraceModal() {
       >
         Save trace
       </Button>
-      <Button variant="destructive" size="modal" onClick={retryNode}>
-        Retry node
-      </Button>
+      {view.readOnly === true ? null : (
+        <Button variant="destructive" size="modal" onClick={retryNode}>
+          Retry node
+        </Button>
+      )}
     </>
   )
 

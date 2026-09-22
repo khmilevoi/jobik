@@ -1,6 +1,7 @@
 import path from 'node:path'
 import * as jobik from '@jobik/core'
 import type { DiscoveredFlow } from './discovery.js'
+import { inputUploadHints } from './inputUploadHints.js'
 
 /**
  * The safe flow descriptor: everything the browser is allowed to know about a flow.
@@ -29,6 +30,12 @@ export type SafeNodeDescriptor = {
   readonly kind: jobik.NodeKind
   readonly title: string
   readonly input: jobik.NodeInputDescriptor
+  readonly inputUploads?: Readonly<
+    Record<
+      string,
+      { readonly accept: string; readonly maxBytes: number; readonly preview?: boolean }
+    >
+  >
   readonly output: jobik.NodeOutputDescriptor
 }
 
@@ -80,7 +87,18 @@ export function describeFlow(
     const output = jobik.deriveOutputFields({ nodeId: id, output: outputSchema })
     if (output instanceof Error) return output
 
-    nodes.push({ id, kind: definition.kind, title: definition.title, input, output })
+    const uploads =
+      definition.kind === 'start' && Object.hasOwn(discovered.inputUploads ?? {}, id)
+        ? inputUploadHints(discovered.inputUploads?.[id])
+        : undefined
+    nodes.push({
+      id,
+      kind: definition.kind,
+      title: definition.title,
+      input,
+      output,
+      ...(uploads === undefined ? {} : { inputUploads: uploads }),
+    })
     if (definition.kind === 'start') startIds.push(id)
   }
 

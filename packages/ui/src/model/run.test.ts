@@ -1848,3 +1848,206 @@ describe('the elapsed clock', () => {
     )
   })
 })
+
+describe('file-backed history', () => {
+  const saved = (runId: string, flowId = 'publication') => ({
+    schemaVersion: 1 as const,
+    runId,
+    flowId,
+    startId: 'start1',
+    createdAt: 1000,
+    updatedAt: 3400,
+    status: 'ok' as const,
+    runNumber: 219,
+    input: { title: 'original paid input' },
+    document: DOCUMENT,
+    revision: 'saved-revision',
+    report: {
+      ...REPORT,
+      runId,
+      nodes: REPORT.nodes.map((node) => ({ ...node, output: { title: runId } })),
+    },
+    events: [],
+    failure: null,
+  })
+
+  it('loads stable UUID history and original results without running or mutating the current draft', async () => {
+    const startRun = vi.fn()
+    const getRun = vi.fn(async ({ runId }: { runId: string }) => saved(runId))
+    await inFrame(
+      async ({ model, draftValues }) => {
+        const stop = model.history.subscribe(() => {})
+        await flush()
+        expect(model.history().map((run) => run.id)).toEqual(['uuid-new', 'uuid-old'])
+        model.selectRun('uuid-old')
+        const stopView = model.viewedSession.subscribe(() => {})
+        await flush()
+        expect(model.activeRunId()).toBe('uuid-old')
+        expect(model.viewedReport()?.nodes[0]?.output).toEqual({ title: 'uuid-old' })
+        expect(model.viewedSession()?.persisted?.input).toEqual({ title: 'original paid input' })
+        expect(draftValues()).toEqual({ title: 't' })
+        expect(getRun).toHaveBeenCalledWith({ flowId: 'publication', runId: 'uuid-old' })
+        expect(startRun).not.toHaveBeenCalled()
+        stopView()
+        stop()
+      },
+      () =>
+        makeHarness(
+          stubClient({
+            listRuns: async () => [saved('uuid-new'), saved('uuid-old')],
+            getRun,
+            startRun,
+          }),
+        ),
+    )
+  })
+
+  it('keeps selected archived output stable when its late listing lands and drops another flow response', async () => {
+    const oldDetail = gate()
+    const newList = gate()
+    await inFrame(
+      async ({ model, flowId }) => {
+        const stop = model.history.subscribe(() => {})
+        model.selectRun('old-uuid')
+        const stopView = model.viewedSession.subscribe(() => {})
+        await flush()
+        model.reset()
+        flowId.set('other')
+        model.selectRun('new-uuid')
+        await flush()
+        expect(model.viewedReport()?.nodes[0]?.output).toEqual({ title: 'new-uuid' })
+        newList.release()
+        oldDetail.release()
+        await flush()
+        expect(model.history().map((run) => run.id)).toEqual(['new-uuid'])
+        expect(model.activeRunId()).toBe('new-uuid')
+        expect(model.viewedReport()?.nodes[0]?.output).toEqual({ title: 'new-uuid' })
+        stopView()
+        stop()
+      },
+      () =>
+        makeHarness(
+          stubClient({
+            listRuns: async (flowId) => {
+              if (flowId === 'other') await newList.promise
+              return [saved(flowId === 'other' ? 'new-uuid' : 'old-uuid', flowId)]
+            },
+            getRun: async ({ flowId, runId }) => {
+              if (runId === 'old-uuid') await oldDetail.promise
+              return saved(runId, flowId)
+            },
+          }),
+        ),
+    )
+  })
+
+  it('restores interrupted partial outputs and surfaces archive read failures instead of a previous success', async () => {
+    await inFrame(
+      async ({ model }) => {
+        model.selectRun('interrupted')
+        const stop = model.viewedSession.subscribe(() => {})
+        await flush()
+        expect(model.viewedSession()?.nodeReports?.get('start1')?.output).toEqual({ title: 't' })
+        expect(model.viewedSession()?.failure?.message).toMatch(/interrupted/i)
+        model.selectRun('missing')
+        expect(model.viewedReport()).toBeUndefined()
+        await flush()
+        expect(model.viewedSession()?.failure?.message).toBe('Archive read failed')
+        stop()
+      },
+      () =>
+        makeHarness(
+          stubClient({
+            getRun: async ({ runId }) =>
+              runId === 'missing'
+                ? new Error('Archive read failed')
+                : {
+                    ...saved(runId),
+                    report: null,
+                    status: 'interrupted',
+                    events: [
+                      {
+                        type: 'run-started',
+                        runNumber: 219,
+                        flowName: 'publication',
+                        startId: 'start1',
+                        nodeCount: 1,
+                      },
+                      {
+                        type: 'node-settled',
+                        runNumber: 219,
+                        node: { ...reportNode('start1', 'ok'), output: { title: 't' } },
+                      },
+                    ],
+                  },
+          }),
+        ),
+    )
+  })
+})
+
+it('refreshes saved history after an accepted execution fails before producing a report', async () => {
+  let failed = false
+  const startRun = vi.fn(async () =>
+    (async function* () {
+      yield { type: 'run-accepted', runId: 'failed-uuid', runToken: 'token' } as const
+      failed = true
+      yield {
+        type: 'run-failed',
+        error: { _tag: 'RunInputError', message: 'Rejected input' },
+      } as const
+    })(),
+  )
+  await inFrame(
+    async ({ model }) => {
+      const stop = model.history.subscribe(() => {})
+      await flush()
+      expect(model.history()).toEqual([])
+      await wrap(model.start({ title: 'input' }))
+      await flush()
+      expect(model.history()).toEqual([
+        {
+          id: 'failed-uuid',
+          label: 'failed-u',
+          status: 'failed',
+        },
+      ])
+      expect(model.historyMessage()).toBeUndefined()
+      expect(startRun).toHaveBeenCalledTimes(1)
+      stop()
+    },
+    () =>
+      makeHarness(
+        stubClient({
+          startRun,
+          listRuns: async () =>
+            failed
+              ? [
+                  {
+                    runId: 'failed-uuid',
+                    flowId: 'publication',
+                    startId: 'start1',
+                    createdAt: 1,
+                    updatedAt: 2,
+                    status: 'failed',
+                    runNumber: null,
+                  },
+                ]
+              : [],
+        }),
+      ),
+  )
+})
+
+it('never retries archived failures against hidden current inputs', async () => {
+  const startRun = vi.fn(async () => streamOf([]))
+  await inFrame(
+    async ({ model }) => {
+      model.selectRun('saved-failure')
+      model.retryNode({ nodeId: 'render', errorName: 'OldError', message: 'old run' })
+      await flush()
+      expect(startRun).not.toHaveBeenCalled()
+    },
+    () => makeHarness(stubClient({ startRun })),
+  )
+})

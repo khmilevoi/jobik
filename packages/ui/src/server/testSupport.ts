@@ -50,6 +50,7 @@ export async function temporaryFlow(): Promise<DiscoveredFlow> {
     bindingPath: publicationFixture.bindingPath,
     uiPath,
     documentPath: copy.documentPath,
+    runHistory: { directory: path.join(path.dirname(copy.documentPath), '.jobik/runs') },
   }
 }
 

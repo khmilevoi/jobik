@@ -124,6 +124,7 @@ export type NodeCardDetail =
     }
   | {
       readonly kind: 'failed'
+      readonly readOnly?: boolean
       /** The tagged error name, mono 10.5px. */
       readonly errorName: string
       /** The safe message. */

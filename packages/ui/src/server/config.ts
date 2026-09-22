@@ -1,4 +1,6 @@
 import path from 'node:path'
+import { type JobikInputUploads, normaliseInputUploads } from './inputUploadConfig.js'
+import type { RunHistoryOptions } from './runHistory.js'
 
 /**
  * The `jobik.config.ts` shape.
@@ -21,6 +23,8 @@ export const JOBIK_DEFAULT_PORT = 4318
 export type JobikFlowEntry = {
   /** Absolute path to the flow binding entrypoint, e.g. `.../publication/index.ts`. */
   readonly binding: string
+  readonly inputUploads?: JobikInputUploads
+  readonly runHistory?: RunHistoryOptions
   /**
    * Absolute path to the flow-local UI entrypoint, e.g. `.../publication/flow.ui.tsx`.
    * Carried, never imported here: Node cannot type-strip JSX, and bundling it is P13's.
@@ -74,10 +78,29 @@ export function normaliseJobikConfig(input: unknown): JobikConfig {
   if (!Array.isArray(record.flows)) fail('`flows` must be an array')
   const flows = record.flows.map((entry: unknown, index: number) => {
     if (typeof entry !== 'object' || entry === null) fail(`flows[${index}] must be an object`)
-    const candidate = entry as { binding?: unknown; ui?: unknown }
+    const candidate = entry as {
+      binding?: unknown
+      ui?: unknown
+      inputUploads?: unknown
+      runHistory?: RunHistoryOptions
+    }
+    if (candidate.runHistory !== undefined) {
+      absolutePathOf(candidate.runHistory.directory, `flows[${index}].runHistory.directory`)
+      if (
+        candidate.runHistory.onNodeSettled !== undefined &&
+        typeof candidate.runHistory.onNodeSettled !== 'function'
+      )
+        fail(`flows[${index}].runHistory.onNodeSettled must be a function`)
+    }
     return Object.freeze({
       binding: absolutePathOf(candidate.binding, `flows[${index}].binding`),
+      ...(candidate.inputUploads === undefined
+        ? {}
+        : { inputUploads: normaliseInputUploads(candidate.inputUploads) }),
       ui: absolutePathOf(candidate.ui, `flows[${index}].ui`),
+      ...(candidate.runHistory === undefined
+        ? {}
+        : { runHistory: Object.freeze({ ...candidate.runHistory }) }),
     })
   })
 
@@ -133,3 +156,5 @@ export function normaliseJobikConfig(input: unknown): JobikConfig {
 export function defineJobikConfig(input: JobikConfigInput): JobikConfig {
   return normaliseJobikConfig(input)
 }
+
+export type { JobikInputUpload, JobikInputUploads } from './inputUploadConfig.js'

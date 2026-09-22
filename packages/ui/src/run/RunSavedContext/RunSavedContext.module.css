@@ -1,0 +1,25 @@
+.context {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
+  font-family: var(--jbk-font-ui);
+  font-size: var(--jbk-size-12);
+  line-height: 1.5;
+  color: var(--jbk-run-control-value);
+}
+
+.context > details {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.json {
+  min-width: 0;
+  max-width: 100%;
+  color: var(--jbk-text-field-label);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: var(--jbk-font-mono);
+  font-size: var(--jbk-size-12-5);
+}

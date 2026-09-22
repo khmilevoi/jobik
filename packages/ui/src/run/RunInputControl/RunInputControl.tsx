@@ -1,9 +1,9 @@
 import type { InputFieldDescriptor } from '@jobik/core'
-import { reatomComponent } from '@reatom/react'
-import { useId } from 'react'
+import { reatomComponent, useWrap } from '@reatom/react'
+import { type ChangeEvent, useId } from 'react'
 import { cx } from '#cx.js'
 import { TypeAnnotation } from '#primitives/index.js'
-import type { RunInputDraftValue, RunInputPresentation } from '#run/types.js'
+import type { RunInputDraftValue, RunInputPresentation, RunInputUpload } from '#run/types.js'
 import s from './RunInputControl.module.css'
 
 /** The three shells a control can sit on. `line` and `area` are the two the design draws. */
@@ -48,6 +48,7 @@ function shellOf(
 }
 
 export interface RunInputControlProps {
+  readonly upload?: RunInputUpload
   readonly field: InputFieldDescriptor
   readonly value: RunInputDraftValue
   /** `'line'` by default. A `json` control is always an area whatever this says. */
@@ -82,6 +83,11 @@ export const RunInputControl = reatomComponent(function RunInputControl(
   const emit = (next: RunInputDraftValue) => onChange?.(field.field, next)
   const text = typeof props.value === 'string' ? props.value : ''
   const shell = shellOf(control.kind, props.presentation)
+  const onFile = useWrap((event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.currentTarget.files?.[0]
+    event.currentTarget.value = ''
+    if (file !== undefined) props.upload?.onSelect(file)
+  }, 'RunInputControl.onFile')
 
   const element = (() => {
     if (control.kind === 'json') {
@@ -190,7 +196,65 @@ export const RunInputControl = reatomComponent(function RunInputControl(
           {field.annotation}
         </TypeAnnotation>
       </div>
-      {element}
+      {props.upload === undefined ? (
+        element
+      ) : (
+        <>
+          <input
+            type="file"
+            accept={props.upload.accept}
+            aria-label={`Upload image for ${field.field}`}
+            onChange={onFile}
+            className={s.shell}
+          />
+          <span className={s.uploadNote}>
+            {props.upload.accept} · up to {Number((props.upload.maxBytes / 1024 / 1024).toFixed(2))}{' '}
+            MiB
+          </span>
+          {props.upload.previewUrl === undefined ? null : (
+            <div key={props.upload.previewUrl}>
+              <img
+                className={s.preview}
+                src={props.upload.previewUrl}
+                alt={`${props.upload.fileName === undefined ? 'Stored image' : 'Selected file'} for ${field.field}`}
+                onError={(event) => {
+                  event.currentTarget.hidden = true
+                  const message = event.currentTarget.nextElementSibling
+                  if (message instanceof HTMLElement) message.hidden = false
+                }}
+                onLoad={(event) => {
+                  event.currentTarget.hidden = false
+                  const message = event.currentTarget.nextElementSibling
+                  if (message instanceof HTMLElement) message.hidden = true
+                }}
+              />
+              <span hidden role="status" className={s.uploadNote}>
+                Stored image preview is unavailable. The input value is preserved.
+              </span>
+              {props.upload.fileName === undefined ? (
+                <span className={s.uploadNote}>Stored image attached</span>
+              ) : null}
+            </div>
+          )}
+          {props.upload.fileName === undefined ? null : (
+            <span className={s.uploadNote}>{props.upload.fileName}</span>
+          )}
+          {props.upload.uploading ? (
+            <span role="status" className={s.uploadNote}>
+              Uploading…
+            </span>
+          ) : null}
+          {props.upload.message === undefined ? null : (
+            <span role="alert" className={s.uploadNote}>
+              {props.upload.message}
+            </span>
+          )}
+          <details>
+            <summary className={s.uploadNote}>Advanced value</summary>
+            {element}
+          </details>
+        </>
+      )}
     </div>
   )
 }, 'RunInputControl')

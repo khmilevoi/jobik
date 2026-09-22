@@ -1,9 +1,12 @@
 import type { AssetDescriptor, FlowDocument } from '@jobik/core'
 import { JobikServerError, JobikTransportError } from './errors.js'
+import { inputPreviewPath } from './inputPreviewUrl.js'
 import { readNdjsonStream } from './ndjson.js'
 import type {
   FlowListItem,
   LoadedFlowPayload,
+  PersistedRunRecord,
+  PersistedRunSummary,
   RunStreamEvent,
   SavePayload,
   ValidatePayload,
@@ -31,8 +34,24 @@ export type JobikClientOptions = {
 }
 
 export type JobikClient = {
+  inputPreviewUrl?(args: {
+    flowId: string
+    nodeId: string
+    field: string
+    valueJson: string
+  }): string
+  uploadInput(args: {
+    flowId: string
+    nodeId: string
+    field: string
+    file: { name: string; contentType: string; dataBase64: string }
+    signal?: AbortSignal
+  }): Promise<{ value: unknown } | Error>
   listFlows(): Promise<readonly FlowListItem[] | Error>
   loadFlow(flowId: string): Promise<LoadedFlowPayload | Error>
+  /** Optional for custom clients that do not expose the server's file-backed history. */
+  listRuns?(flowId: string): Promise<readonly PersistedRunSummary[] | Error>
+  getRun?(args: { flowId: string; runId: string }): Promise<PersistedRunRecord | Error>
   validate(flowId: string, document: FlowDocument): Promise<ValidatePayload | Error>
   save(
     flowId: string,
@@ -136,6 +155,28 @@ export function createJobikClient(options: JobikClientOptions = {}): JobikClient
   }
 
   return {
+    inputPreviewUrl: (args) => urlOf(inputPreviewPath(args)),
+    async uploadInput(args) {
+      const path = `/api/flows/${encodeURIComponent(args.flowId)}/inputs/${encodeURIComponent(args.nodeId)}/${encodeURIComponent(args.field)}/upload`
+      const response = await send(path, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(args.file),
+        ...(args.signal === undefined ? {} : { signal: args.signal }),
+      })
+      if (response instanceof Error) return response
+      if (!response.ok) return failure(response)
+      const result = await (response.json() as Promise<{ value: unknown }>).catch(
+        (cause) => new JobikTransportError({ url: urlOf(path), cause }),
+      )
+      if (result instanceof Error) return result
+      if (result === null || typeof result !== 'object' || !Object.hasOwn(result, 'value'))
+        return new JobikTransportError({
+          url: urlOf(path),
+          cause: new Error('Invalid upload response'),
+        })
+      return result
+    },
     async listFlows() {
       const body = await getJson<{ flows: readonly FlowListItem[] }>('/api/flows')
       return body instanceof Error ? body : body.flows
@@ -143,6 +184,19 @@ export function createJobikClient(options: JobikClientOptions = {}): JobikClient
 
     loadFlow(flowId) {
       return getJson<LoadedFlowPayload>(`/api/flows/${encodeURIComponent(flowId)}`)
+    },
+
+    async listRuns(flowId) {
+      const body = await getJson<{ runs: readonly PersistedRunSummary[] }>(
+        `/api/flows/${encodeURIComponent(flowId)}/runs`,
+      )
+      return body instanceof Error ? body : body.runs
+    },
+
+    getRun({ flowId, runId }) {
+      return getJson<PersistedRunRecord>(
+        `/api/flows/${encodeURIComponent(flowId)}/runs/${encodeURIComponent(runId)}`,
+      )
     },
 
     validate(flowId, document) {

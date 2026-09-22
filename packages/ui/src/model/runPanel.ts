@@ -224,9 +224,14 @@ export function reatomRunPanel(
    */
   const _kind = computed<RunPanelKind | undefined>(() => {
     if (descriptor() === undefined) return undefined
-    if (inputs.startNode() === undefined || inputs.startId() === undefined) return undefined
     if (_live() !== undefined) return 'running'
     const settled = _settled()
+    if (run.selectedRunId() !== undefined && settled === undefined) return undefined
+    if (
+      run.selectedRunId() === undefined &&
+      (inputs.startNode() === undefined || inputs.startId() === undefined)
+    )
+      return undefined
     if (settled === undefined) return 'idle'
     // A run with no report, a report that is not `ok`, or a failure R25 routed onto the session:
     // all three are the failed card, and `session.failure` is why a rejected start reaches it.
@@ -386,16 +391,39 @@ export function reatomRunPanel(
    * along. One unit, so a keystroke rebuilds one object rather than three.
    */
   const _inputForm = computed<RunInputForm | undefined>(() => {
+    if (run.selectedRunId() !== undefined) return undefined
     const node = inputs.startNode()
     if (node === undefined) return undefined
     const presentation = inputs.presentation()
     return {
       descriptor: node.input,
+      uploads: inputs.uploads(),
       draft: inputs.inputDraft(),
       ...(presentation === undefined ? {} : { presentation }),
       onDraftChange: inputs.setInputField,
     }
   }, `${name}._inputForm`)
+
+  const _snapshot = computed(() => {
+    if (run.selectedRunId() === undefined) return undefined
+    const selected = run.viewedSession()
+    if (selected === undefined) return undefined
+    const saved = selected.persisted
+    return {
+      ...(selected.runId === undefined ? {} : { runId: selected.runId }),
+      startId: selected.startId,
+      input: saved === undefined ? selected.input : saved.input,
+      ...(selected.document === undefined ? {} : { document: selected.document }),
+      ...(saved?.revision === undefined || saved.revision === null
+        ? {}
+        : { revision: saved.revision }),
+    }
+  }, `${name}.snapshot`)
+
+  const _storageWarning = computed(() => {
+    const selected = run.viewedSession()
+    return selected?.persisted?.storageError?.message ?? selected?.report?.storageError?.message
+  }, `${name}.storageWarning`)
 
   // The return type is annotated on the callback rather than passed as `computed`'s type argument:
   // a type argument does not contextually type the body, so `kind: 'running'` would widen to
@@ -407,8 +435,8 @@ export function reatomRunPanel(
     // are what the bodies below are built out of, and the compiler cannot inherit a guard.
     const entryNodeId = inputs.startId()
     const startNode = inputs.startNode()
-    if (entryNodeId === undefined || startNode === undefined) return undefined
-
+    const snapshot = _snapshot()
+    const storageWarning = _storageWarning()
     if (kind === 'running') {
       const progress = _runningProgress()
       return {
@@ -435,16 +463,20 @@ export function reatomRunPanel(
       const form = _inputForm()
       return {
         kind: 'failed',
+        blocked: blocked(),
         runNumber: _runNumber(),
         elapsed: _settledElapsed(),
         error: detail.error,
         ...(_cancelled() ? { cancelled: true } : {}),
         nodes: _failedNodes(),
-        entryNodeId,
+        ...(run.selectedRunId() === undefined && entryNodeId !== undefined
+          ? { entryNodeId, onRerun: run.runFromDraft }
+          : {}),
+        ...(snapshot === undefined ? {} : { snapshot }),
+        ...(storageWarning === undefined ? {} : { storageWarning }),
         ...(detail.stack === undefined ? {} : { stack: detail.stack }),
         ...(form === undefined ? {} : { inputs: form }),
         onCopyLog: () => copyRunLog(failed),
-        onRerun: run.runFromDraft,
       }
     }
 
@@ -460,16 +492,21 @@ export function reatomRunPanel(
       // value repeated, not a value that could only be found here.
       return {
         kind: 'completed',
+        blocked: blocked(),
         runNumber: _runNumber(),
         elapsed: _settledElapsed(),
         nodes: _completedNodes(),
-        entryNodeId,
+        ...(run.selectedRunId() === undefined && entryNodeId !== undefined
+          ? { entryNodeId, onRerun: run.runFromDraft }
+          : {}),
+        ...(snapshot === undefined ? {} : { snapshot }),
+        ...(storageWarning === undefined ? {} : { storageWarning }),
         ...(form === undefined ? {} : { inputs: form }),
         log: _completedLog(),
-        onRerun: run.runFromDraft,
       }
     }
 
+    if (entryNodeId === undefined || startNode === undefined) return undefined
     const schema = inputs.schema()
     if (schema === undefined) return undefined
     const presentation = inputs.presentation()
@@ -477,6 +514,7 @@ export function reatomRunPanel(
     const lastRun = _lastRun()
     return {
       kind: 'idle',
+      uploads: inputs.uploads(),
       entryNodeId,
       note: IDLE_NOTE,
       descriptor: startNode.input,
@@ -608,6 +646,7 @@ export function reatomRunPanel(
       ...(hidden === undefined ? {} : { hiddenFrames: hidden }),
       meta: traceMeta(descriptor(), nodeId),
       copied: traceCopied(),
+      ...(run.selectedRunId() === undefined ? {} : { readOnly: true }),
     }
   }, `${name}.trace`)
 
@@ -660,6 +699,7 @@ export function reatomRunPanel(
    * surfaces must reach it, not two that could drift.
    */
   const retryTraceNode = action(() => {
+    if (run.selectedRunId() !== undefined) return
     const detail = failedDetail()
     if (detail === undefined) return
     run.retryNode({

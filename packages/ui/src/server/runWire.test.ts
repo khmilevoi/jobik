@@ -288,3 +288,18 @@ describe('toRunWireEvent', () => {
     expect(wire.report.nodes[0].output).toEqual({ image: descriptor })
   })
 })
+
+it('serializes incremental node results exactly like the final node report', () => {
+  const node: jobik.NodeReport = {
+    nodeId: 'render',
+    status: 'ok',
+    elapsedMs: 2,
+    output: { image: Buffer.from([1, 2, 3]), nested: { bytes: Buffer.from([9]) } },
+    assets: { image: descriptor },
+    error: null,
+  }
+  const final = serialiseRunReport({ report: reportWith(node), flowRoot })
+  expect(
+    toRunWireEvent({ event: { type: 'node-settled', runNumber: 219, node }, flowRoot }),
+  ).toEqual({ type: 'node-settled', runNumber: 219, node: final.nodes[0] })
+})
