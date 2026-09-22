@@ -1,6 +1,6 @@
 import { defineConfig } from 'tsdown'
 
-const packageExports = { devExports: true }
+const packageExports = { devExports: '@jobik/source' }
 
 export default defineConfig([
   {

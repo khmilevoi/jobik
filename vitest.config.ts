@@ -1,10 +1,12 @@
 import react from '@vitejs/plugin-react'
+import { defaultClientConditions, defaultServerConditions } from 'vite'
 import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   test: {
     projects: [
       {
+        resolve: { conditions: ['@jobik/source', ...defaultServerConditions] },
         test: {
           name: 'core',
           root: import.meta.dirname,
@@ -16,6 +18,7 @@ export default defineConfig({
       },
       {
         plugins: [react()],
+        resolve: { conditions: ['@jobik/source', ...defaultClientConditions] },
         test: {
           name: 'ui',
           root: import.meta.dirname,
@@ -32,6 +35,7 @@ export default defineConfig({
         },
       },
       {
+        resolve: { conditions: ['@jobik/source', ...defaultServerConditions] },
         test: {
           name: 'example',
           root: import.meta.dirname,
@@ -43,6 +47,7 @@ export default defineConfig({
       },
       {
         plugins: [react()],
+        resolve: { conditions: ['@jobik/source', ...defaultClientConditions] },
         test: {
           name: 'example-ui',
           root: import.meta.dirname,

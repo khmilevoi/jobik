@@ -5,5 +5,5 @@ export default defineConfig({
   platform: 'neutral',
   format: ['esm'],
   dts: true,
-  exports: { devExports: true },
+  exports: { devExports: '@jobik/source' },
 })

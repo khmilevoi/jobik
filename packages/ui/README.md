@@ -7,6 +7,12 @@ Node server behind it.
 pnpm add @jobik/ui react react-dom zod
 ```
 
+For this private checkout, use the root README's local link or tarball instructions. Build the
+packages first; linked consumers resolve the same public built entrypoints and declarations as
+installed packages. Do not import internal `dist` paths or enable the internal `@jobik/source`
+condition in a consumer. TSX extensions also need React types in their authoring project.
+
+
 ESM only. Node >= 24. React and React DOM (`^19`) and Zod v4 (`^4.5.4`) are **peer dependencies**.
 `@jobik/core` and `@xyflow/react` come along as dependencies.
 
@@ -39,13 +45,20 @@ Mounting `FlowCanvas` outside the bundled Studio also needs React Flow's own sty
 import '@xyflow/react/dist/style.css'
 ```
 
-### The Studio bundle is built but nothing serves it
+### Opening the Studio
 
-`@jobik/ui` builds a browser bundle of the Studio into `dist/studio` (an HTML shell, hashed assets
-and CSS), and it is included in the published tarball. **No route in this package serves it, and
-there is no `bin` or `dev` script that starts the app.** As of `0.1.0` you cannot open the Studio
-from the installed package; what you can do is stand up the API with `@jobik/ui/server` and mount
-`StudioApp` in a page of your own.
+The package includes the built Studio and the `jobik-studio` CLI. From a consumer with its
+configuration installed, run:
+
+```sh
+pnpm exec jobik-studio --config jobik.config.ts
+```
+
+The CLI serves the API and Studio together on `http://127.0.0.1:4318` by default. The config path
+is relative to the current directory; `--host` and `--port` override the configured address.
+For custom server routes, import `startJobikServer` and `jobikStudioServerRoutes` from
+`@jobik/ui/server`, and pass your routes before the Studio routes. The built assets are located
+inside the package; the consumer does not need to find or serve `dist/studio` itself.
 
 ### `defineFlowUi` — a flow-local output component
 
@@ -228,3 +241,86 @@ Every method resolves with `T | Error` rather than rejecting. The one exception 
 method itself: once `startRun` has resolved with the generator, **iterating it can throw**
 `NdjsonParseError` if the server violates the protocol partway through an already-open stream. Your
 `for await` must handle that.
+
+## Uploading files into start inputs
+
+The Studio can select and preview a local image before running a node. Enable the file picker for
+individual `string` or `json` start fields through the server configuration:
+
+```ts
+import { defineJobikConfig } from '@jobik/ui/server'
+
+export default defineJobikConfig({
+  flows: [{
+    binding: '/absolute/path/flow.ts',
+    ui: '/absolute/path/flow.ui.tsx',
+    inputUploads: {
+      input: {
+        sourceImage: {
+          accept: 'image/png,image/jpeg',
+          maxBytes: 16 * 1024 * 1024,
+          async upload({ file, signal }) {
+            // Persist with your application's storage adapter. Return errors as values.
+            const result = await storeImage({ bytes: file.bytes, contentType: file.contentType, signal })
+            if (result instanceof Error) return result
+            return { value: result }
+          },
+        },
+      },
+    },
+  }],
+})
+```
+
+The node id and field must exist in the bound flow. Uploading does not execute the flow. The adapter
+owns content inspection, image normalization, persistence and cleanup; Jobik does not assume a
+storage service or an artifact-reference format. `file` contains `name`, `contentType` and
+`bytes: Uint8Array`. Treat names and declared media types as untrusted metadata, and inspect bytes
+in the adapter. `signal` is aborted when the requesting browser disconnects.
+
+Only `accept` and `maxBytes` hints reach the browser. Defaults are PNG/JPEG and 16 MiB; configured
+limits must be positive integers no larger than 64 MiB. The picker preserves manual JSON editing,
+shows the selected image and upload status, and replaces the field only after a successful upload.
+Failed uploads retain the prior field value. Run actions are blocked while uploads are pending.
+Switching flows, starts or files discards stale upload responses and releases preview URLs.
+
+The adapter returns `{ value }` containing only JSON data: finite primitives, arrays and plain
+objects. Binary values, custom class instances, cycles and undefined members are rejected. Responses
+are limited to 1 MiB, 100 nesting levels and 100,000 values. The field's real Zod schema is still
+validated when the flow runs. Uploads remain in the application's storage according to its policy,
+even if the user never runs the flow.
+
+The browser uses `POST /api/flows/:id/inputs/:nodeId/:field/upload`, with JSON
+`{ name, contentType, dataBase64 }`, and receives `{ value }`. The existing JSON-only mutation gate
+and same-origin client remain in use. Only configured fields of declared starts accept uploads;
+provider errors produce a sanitized message rather than exposing storage credentials or paths.
+
+
+## Browser input drafts
+
+Studio automatically saves edited run inputs in browser localStorage, separately for each API
+base URL, flow, start node and input descriptor. Reloading the page or returning to a start restores
+the draft, including incomplete JSON, empty fields and successful upload reference values. Restoring
+a draft never starts a run. A changed input descriptor starts with its current defaults; normal
+document reloads keep the current draft.
+
+Only input values are saved. Selected File objects, upload bytes, temporary preview URLs, pending
+requests, validation errors and run results are not stored. Uploaded files stay in the application's
+storage; their saved reference can be reused after reload, while the temporary picker preview is
+not restored. If browser storage is unavailable, corrupt or full, editing and running still work,
+but persistence across page reloads may be unavailable. Drafts belong to the current browser origin;
+clearing its site data removes them. Active drafts do not synchronize between tabs.
+
+Headless `reatomStudio` consumers can opt in with
+`inputDraftStorage: { storage: localStorage, namespace: apiBaseUrl }` in `StudioDeps`.
+
+
+Image upload adapters can also provide `preview({ value, signal })`, returning
+`Promise<{ bytes: Uint8Array, contentType: string } | Error>`. Studio derives a preview from the
+current stored field value, including references saved before the adapter gained preview support.
+The hook should validate the reference and read its stored image; it must not generate a new image.
+Only a boolean capability crosses the descriptor boundary. Studio reads
+`GET /api/flows/:id/inputs/:nodeId/:field/preview?value=<URL-encoded JSON>`; the server accepts at most
+4096 JSON characters and serves PNG, JPEG, WebP, GIF or AVIF bytes up to 64 MiB. Errors are sanitized.
+Preview failures preserve the draft. No File, image bytes or blob URL is saved in localStorage;
+the native picker stays empty after reload while the stored image appears beside it.

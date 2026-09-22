@@ -3,6 +3,7 @@
     "target": "ES2023",
     "module": "nodenext",
     "moduleResolution": "nodenext",
+    "customConditions": ["@jobik/source"],
     "moduleDetection": "force",
     "strict": true,
     "isolatedModules": true,

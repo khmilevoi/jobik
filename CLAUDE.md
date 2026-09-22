@@ -85,7 +85,7 @@ component you are moving is something to report, not to edit around.
 
 Root: `lint` is `biome check .`, `typecheck` is `tsc --noEmit`, `check` is
 `turbo run lint typecheck test build`, `format` is `biome check --write .`, plus `changeset`,
-`version-packages` and `release`.
+`version-packages` and `pack:local`.
 
 Per package: `build` is `tsdown` (`@jobik/ui` adds `vite build` for the Studio bundle), `typecheck`
 is `tsc --noEmit`, `test` is `vitest run --config ../../vitest.config.ts <package dir>/`.
@@ -96,20 +96,22 @@ The gate is `pnpm turbo run lint typecheck test build`. Turbo also runs the root
 
 ## Running the Studio
 
-**`pnpm dev`.** It builds the Studio bundle, then serves that bundle and the API from one origin at
-http://127.0.0.1:4318. The config is `examples/showcase/jobik.config.ts`, and the root `dev` and
-`dev:server` scripts pass it with `--config` — the CLI resolves a config against `process.cwd()`
-only and never searches up the tree, so that flag is not optional. This closes deferred findings
-8-D and 11; instructions elsewhere that say the app cannot be started are stale.
+Build the browser bundle, then start the source server from the repository root:
 
-| Script | What it does |
-|---|---|
-| `pnpm dev` | `vite build` the bundle, then serve bundle + API on `127.0.0.1:4318`. The everyday path. |
-| `pnpm dev:server` | The same server, skipping the bundle rebuild. |
-| `pnpm dev:studio` | `vite dev` over `src/studio` with `/api` proxied to `127.0.0.1:4318`. Hot reload for UI work; run `pnpm dev:server` beside it. |
+```sh
+pnpm --filter @jobik/ui build:studio
+node packages/ui/scripts/dev.mjs --config examples/showcase/jobik.config.ts
+```
 
-Arguments reach the CLI through pnpm: `pnpm dev -- --port 4400`, and likewise `--host`,
-`--config <path>`, `--help`.
+This serves the Studio and API at http://127.0.0.1:4318. The CLI resolves a config against
+`process.cwd()` only and never searches up the tree, so pass the showcase config explicitly.
+The root has no `dev` or `dev:server` scripts. For browser hot reload, run `pnpm dev:studio`
+beside the source server; Vite proxies `/api` to port 4318.
+
+Installed or linked consumers use `pnpm exec jobik-studio --config jobik.config.ts` after building
+the packages. Its config and flow modules must be loadable by Node. The source development runner
+above additionally supports this repository's TypeScript modules with relative `.js` specifiers.
+Both entrypoints accept `--port`, `--host`, `--config <path>` and `--help`.
 
 The pieces, for when you need to drive it yourself:
 
@@ -122,18 +124,18 @@ The pieces, for when you need to drive it yourself:
 - `packages/ui/src/server/cli.ts` — `runJobikCli`, which is also what `@jobik/ui`'s `bin`
   (`jobik-studio`) runs. That is how a consumer of the published package opens the Studio, and it
   is the reason `dist/studio` is no longer dead weight in the tarball.
-- `packages/ui/scripts/dev.mjs` — what `pnpm dev` actually executes.
+- `packages/ui/scripts/dev.mjs` — the source server runner used in the command above.
 - The bundle is located relative to the installed package, never to `process.cwd()`. If it has not
   been built, page requests answer `503` with the command to run and the API keeps working.
 
-One trap that costs a session if you meet it cold: **workspace sources cannot be loaded by plain
-Node.** The barrels import `./config.js` while the in-workspace `exports` maps point at `src/*.ts`,
-and Node's type stripping does not rewrite `.js` to `.ts`, so `import()` of a `src/**/*.ts` entry
-dies with `ERR_MODULE_NOT_FOUND` — `examples/showcase/jobik.config.ts` included, since it imports
-`@jobik/ui/server`. `packages/ui/scripts/dev.mjs` is the answer: a `registerHooks` resolver that
-retries a failed `.js` specifier as `.ts`. It is development-only and does not ship — an installed
-package has no such problem, because its `exports` point at `dist`. Vitest and a bundler resolve
-these on their own.
+Ordinary public imports resolve to built JavaScript and adjacent declarations, including through
+`pnpm link`. Build first and rebuild after source changes. Jobik's own TypeScript, Vite and Vitest
+configurations explicitly select the `@jobik/source` export condition. Consumers leave it disabled.
+
+The source server runner also selects that condition and installs a development-only
+`registerHooks` resolver that retries failed `.js` specifiers as `.ts`. Node's type stripping
+does not perform this rewrite; selecting the source condition alone is insufficient for plain
+Node. The runner does not ship with the package.
 
 ## Design lives in Claude Design, not in this repo
 
@@ -300,7 +302,7 @@ pnpm workspaces (`packages/*`, `examples/*`) · Turborepo · tsdown · Vite · v
 Changesets. Node >= 24, ESM only.
 
 - Turbo runs `build`, `typecheck`, `test`, `lint`. Only `build` carries `dependsOn: ["^build"]` and `outputs: ["dist/**"]`; the other three are flat.
-- tsdown builds both packages: ESM only, `dts: true`, `exports: { devExports: true }`. It generates `exports` and `publishConfig.exports` — never hand-edit those blocks. Inside the workspace they point at `src`, which is why typecheck and tests never wait on a build and no `dist/` exists until someone runs `turbo run build`.
+- tsdown builds both packages: ESM only, `dts: true`, `exports: { devExports: '@jobik/source' }`. It generates `exports` and `publishConfig.exports` — never hand-edit those blocks. Public imports default to `dist`; internal tools explicitly select `@jobik/source` so typecheck and tests do not need a prior build.
 - Vite builds the Studio bundle into `packages/ui/dist/studio`, and its build API is the runtime bundler for `flow.ui.tsx`.
 - The repository gate is `pnpm turbo run lint typecheck test build`.
 - Changesets: `@jobik/core` and `@jobik/ui` are linked, released manually, starting at `0.1.0`.

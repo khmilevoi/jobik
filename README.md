@@ -91,20 +91,41 @@ pnpm turbo run lint typecheck test build   # the gate; also `pnpm check`
 
 Tests live beside their subject as `*.test.ts(x)`. There is no separate test tree.
 
-## Local install — these packages are not published
+## Local development and installation
 
-Both packages are marked `private`, so `changeset publish` and `npm publish` refuse them by design.
-They are consumed as local tarballs instead: `pnpm pack` applies each manifest's
-`publishConfig.exports`, so the tarball resolves to `dist` the way a registry install would, while
-the in-workspace `exports` keep pointing at `src`.
+Both packages are private. Build them in this checkout before consuming them locally:
 
 ```sh
-pnpm pack:local   # turbo run build, then both tarballs into .local-packages/ (gitignored)
+pnpm build
 ```
 
-In the consuming project, point at the tarballs by absolute path. `@jobik/ui`'s own dependency on
-`@jobik/core` is written into its tarball as the plain version `0.1.0`, which no registry can serve,
-so an `overrides` entry has to redirect it to the same file:
+For a linked development setup, run this from the consuming workspace root (adjust paths):
+
+```sh
+pnpm link ../jobik/packages/core ../jobik/packages/ui
+```
+
+With pnpm 10 this updates workspace-wide overrides, the root manifest and the lockfile; it is a
+local development configuration that requires this checkout. It is not a production dependency
+substitute. The consuming packages should declare the Jobik dependencies they use, and linking
+does not install the producer's own dependencies. Run `pnpm install` in this checkout first.
+
+Use public imports: `@jobik/core`, `@jobik/ui` and `@jobik/ui/server`. Ordinary resolution,
+including `pnpm link`, selects built JavaScript and its adjacent declarations. Consumers do not
+need `dist` imports, TypeScript `paths` mappings or a Node resolution hook. Rebuild Jobik after
+source changes so the linked consumer sees them. The `jobik-studio` CLI serves the built Studio.
+
+Jobik's own TypeScript, Vite, Vitest and development runner opt into the `@jobik/source` export
+condition to work directly on source. Consumers should leave that condition disabled. The
+development runner also resolves the source tree's `.js` import specifiers to TypeScript files;
+plain Node does not perform that rewrite.
+
+`react`, `react-dom` and `zod` remain peers. A flow-local TSX renderer needs React authoring
+types in its TypeScript project; the standalone Studio provides the browser React runtime.
+
+For a self-contained install, `pnpm pack:local` builds tarballs into `.local-packages/`
+(gitignored). Point the consumer at both tarballs, and redirect the UI's core dependency to the
+same tarball because the private version is unavailable from a registry:
 
 ```json
 {
@@ -120,13 +141,7 @@ so an `overrides` entry has to redirect it to the same file:
 }
 ```
 
-`react`, `react-dom` and `zod` stay the consumer's own dependencies — they are peers here.
-Re-run `pnpm pack:local` after a change, then `pnpm install --force` in the consumer to pick the new
-tarball up.
-
-Note that `pnpm link` and a `file:` pointing at a *directory* both resolve to a symlink, which lands
-on the in-workspace `exports` — `./src/index.ts` — and plain Node cannot load those. Use the
-tarballs.
+Repack after a source change and refresh the consumer's install to pick up the new tarballs.
 
 ## Status
 

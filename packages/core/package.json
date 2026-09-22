@@ -25,7 +25,10 @@
     "zod": "4.5.4"
   },
   "exports": {
-    ".": "./src/index.ts",
+    ".": {
+      "@jobik/source": "./src/index.ts",
+      "default": "./dist/index.js"
+    },
     "./package.json": "./package.json"
   },
   "publishConfig": {
