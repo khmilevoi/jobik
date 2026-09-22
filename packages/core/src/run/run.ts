@@ -34,7 +34,10 @@ export async function runFlow(args: {
     return error
   }
 
-  const file = await readFlowDocument({ path: args.flow.path })
+  const file =
+    args.options?.document === undefined
+      ? await readFlowDocument({ path: args.flow.path })
+      : { document: args.options.document }
   if (file instanceof Error) return rejected(file)
 
   const graph = validateFlowGraph({ flow: args.flow, document: file.document })

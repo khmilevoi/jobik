@@ -110,3 +110,50 @@ describe('executeRunGraph()', () => {
     expect(report.status === 'ok' ? notOk : []).toEqual([])
   })
 })
+
+it('emits settled output while downstream is still blocked', async () => {
+  const graph = publicationRunGraph()
+  const publish = graph.nodes.get('publish')
+  if (publish === undefined || publish.definition.kind === 'start') {
+    throw new Error('missing publication sink fixture')
+  }
+  let releaseGate: () => void = () => undefined
+  let markEntered: () => void = () => undefined
+  const gate = new Promise<void>((resolve) => {
+    releaseGate = resolve
+  })
+  const entered = new Promise<void>((resolve) => {
+    markEntered = resolve
+  })
+  const events: import('./types.js').RunEvent[] = []
+  const nodes = new Map(graph.nodes)
+  nodes.set('publish', {
+    ...publish,
+    definition: {
+      ...publish.definition,
+      run: async () => {
+        markEntered()
+        await gate
+        return {}
+      },
+    },
+  })
+  const completion = executeRunGraph({
+    graph: { ...graph, nodes },
+    startOutput: { title: 't', markdown: 'image' },
+    runNumber: 91,
+    options: { onEvent: (event) => events.push(event) },
+  })
+  await entered
+  const intermediate = events.find(
+    (event) => event.type === 'node-settled' && event.node.nodeId === 'render',
+  )
+  expect(intermediate).toMatchObject({
+    type: 'node-settled',
+    runNumber: 91,
+    node: { output: { caption: 'image' }, status: 'ok' },
+  })
+  expect(events.some((event) => event.type === 'run-settled')).toBe(false)
+  releaseGate()
+  await completion
+})

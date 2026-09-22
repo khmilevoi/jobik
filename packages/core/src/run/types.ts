@@ -1,4 +1,5 @@
 import type { AssetDescriptor } from '#asset.js'
+import type { FlowDocument } from '#document/schema.js'
 import type {
   ConnectionError,
   FlowFileReadError,
@@ -33,6 +34,8 @@ export type RunLogLine = {
 
 /** What one node did. Every reachable node has exactly one entry, in run order. */
 export type NodeReport = {
+  /** The validated input supplied to the handler; null when it was not invoked. */
+  readonly input?: Readonly<Record<string, unknown>> | null
   readonly nodeId: string
   readonly status: NodeStatus
   /** Handler wall time in milliseconds. `0` for the start and for a node that was never invoked. */
@@ -71,7 +74,7 @@ export type RunReport = {
 
 /**
  * The progress stream. A run emits, in order: `run-started`, one `node-status` per node entering
- * `queued`, then per-node transitions and log lines as it goes, and finally `run-settled` carrying
+ * `queued`, then transitions, logs and `node-settled` reports as it goes, and finally `run-settled` carrying
  * the very same report object the awaited call returns.
  */
 export type RunEvent =
@@ -89,10 +92,13 @@ export type RunEvent =
       readonly elapsedMs: number
       readonly error: Error | null
     }
+  | { readonly type: 'node-settled'; readonly runNumber: number; readonly node: NodeReport }
   | { readonly type: 'node-log'; readonly line: RunLogLine }
   | { readonly type: 'run-settled'; readonly report: RunReport }
 
 export type RunOptions = {
+  /** Execute this already captured composition instead of reading a changing file again. */
+  readonly document?: FlowDocument
   /** Cancels the run. Aborting settles it with `RunCancelledError` and keeps settled results. */
   readonly signal?: AbortSignal
   /**

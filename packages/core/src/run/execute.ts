@@ -87,13 +87,15 @@ export async function executeRunGraph(args: {
   // One listener for the whole run, not one per node — nothing here needs per-node teardown.
   const aborted = whenAborted(controller.signal)
 
+  const inputs = new Map<string, Readonly<Record<string, unknown>>>([[graph.startId, startOutput]])
   const nodes: NodeReport[] = []
   const outputs = new Map<string, Readonly<Record<string, unknown>>>()
   const statuses = new Map<string, NodeStatus>()
   const failureOrigin = new Map<string, string>()
   const logs: RunLogLine[] = []
 
-  const settle = (report: NodeReport) => {
+  const settle = (value: NodeReport) => {
+    const report: NodeReport = { ...value, input: inputs.get(value.nodeId) ?? null }
     statuses.set(report.nodeId, report.status)
     nodes.push(report)
     if (report.output !== null) outputs.set(report.nodeId, report.output)
@@ -104,6 +106,7 @@ export async function executeRunGraph(args: {
       elapsedMs: report.elapsedMs,
       error: report.error,
     })
+    emit({ type: 'node-settled', runNumber, node: report })
   }
 
   // `emit` above already contains anything `onEvent` throws. The `finally` below detaches
@@ -186,6 +189,7 @@ export async function executeRunGraph(args: {
         continue
       }
 
+      inputs.set(nodeId, parsedInput.data)
       statuses.set(nodeId, 'running')
       emit({ type: 'node-status', nodeId, status: 'running', elapsedMs: 0, error: null })
       const startedAt = performance.now()

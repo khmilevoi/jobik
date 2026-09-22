@@ -38,6 +38,43 @@ function reportOrThrow(result: RunReport | Error): RunReport {
 }
 
 describe('BoundFlow.run()', () => {
+  it('executes a supplied document snapshot after the file has changed', async () => {
+    const document = publicationDocument()
+    const publication = await boundPublication(document)
+    await fs.writeFile(publication.path, '{invalid document')
+    const result = reportOrThrow(
+      await publication.run('start1', { title: 't', markdown: 'saved' }, { document }),
+    )
+    expect(result.status).toBe('ok')
+    expect(result.nodes.find((node) => node.nodeId === 'render')?.input).toEqual({
+      markdown: 'saved',
+    })
+  })
+
+  it('records the actual schema-transformed input delivered to a node', async () => {
+    const document = flowDocument({
+      connections: [{ from: { node: 's', field: 'text' }, to: { node: 'n', field: 'text' } }],
+    })
+    const example = jobik
+      .flow('transformed-input')
+      .start('s', jobik.start({ title: 'S', input: z.object({ text: z.string() }) }))
+      .node(
+        'n',
+        jobik.node({
+          title: 'N',
+          input: z.object({ text: z.string().transform((value) => value.trim()) }),
+          output: z.object({ text: z.string() }),
+          run: (input) => input,
+        }),
+      )
+      .bind('path', path.resolve('unused-document.jobik.json'))
+    const result = reportOrThrow(await example.run('s', { text: '  normalized  ' }, { document }))
+    expect(result.nodes.find((node) => node.nodeId === 'n')).toMatchObject({
+      input: { text: 'normalized' },
+      output: { text: 'normalized' },
+    })
+  })
+
   it('loads the document, runs the reachable subgraph and reports it', async () => {
     const publication = await boundPublication()
 
